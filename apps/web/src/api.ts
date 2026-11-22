@@ -124,6 +124,17 @@ export interface Participant {
   name: string;
   email: string;
   response: "pending" | "acknowledged" | "declined";
+  declineReason: string | null;
+  respondedAt: string | null;
+}
+
+export interface TaskComment {
+  id: string;
+  taskId: string;
+  author: { id: string; name: string };
+  body: string;
+  postedDuring: EventStatus;
+  createdAt: string;
 }
 
 export interface EventDetail {
@@ -138,9 +149,30 @@ export interface EventDetail {
     status: EventStatus;
     progressionMode: "auto" | "manual";
   };
-  permissions: { canEdit: boolean; canManage: boolean };
+  permissions: {
+    canEdit: boolean;
+    canManage: boolean;
+    canSubmit: boolean;
+    canWithdraw: boolean;
+    canApprove: boolean;
+    canComment: boolean;
+    canRespond: boolean;
+  };
+  me: {
+    userId: string;
+    participant: { id: string; response: Participant["response"]; declineReason: string | null } | null;
+  };
+  approvers: { userId: string; name: string; approvedAt: string | null }[];
+  comments: TaskComment[];
   stages: Stage[];
   tasks: Task[];
   participants: Participant[];
   schedule: { endsAt: string; overrunMinutes: number };
+}
+
+export interface GuestProgram {
+  teamName: string;
+  event: { name: string; description: string | null; startAt: string; endAt: string; timezone: string; status: EventStatus };
+  me: { name: string; response: Participant["response"]; declineReason: string | null };
+  program: { id: string; title: string; durationMinutes: number; startAt: string; endAt: string; mine: boolean }[];
 }

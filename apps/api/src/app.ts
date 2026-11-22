@@ -4,7 +4,9 @@ import { loadSession } from "./auth/session";
 import type { AppEnv } from "./env";
 import { auth } from "./routes/auth";
 import { events, teamEvents } from "./routes/events";
+import { guest } from "./routes/guest";
 import { invites } from "./routes/invites";
+import { review } from "./routes/review";
 import { teams } from "./routes/teams";
 import { sameOriginOnly, securityHeaders } from "./security";
 
@@ -46,6 +48,8 @@ app.route("/teams", teams);
 app.route("/invites", invites);
 app.route("/teams", teamEvents);
 app.route("/events", events);
+app.route("/events", review);
+app.route("/guest", guest);
 
 app.notFound((c) => c.json({ error: "Not found" }, 404));
 

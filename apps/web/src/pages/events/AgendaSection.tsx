@@ -3,6 +3,7 @@ import type { EventDetail, Task } from "../../api";
 import { Alert } from "../../components/Form";
 import { formatDuration, formatTime } from "../../time";
 import type { Mutate } from "./EventEditor";
+import { TaskComments } from "./TaskComments";
 import { TaskForm, type TaskValues } from "./TaskForm";
 
 /** The timed agenda: tasks in order (single stage), with computed times and assignees. */
@@ -11,6 +12,8 @@ export function AgendaSection({ detail, mutate }: { detail: EventDetail; mutate:
   const [editingId, setEditingId] = useState<string | null>(null);
   const [adding, setAdding] = useState(tasks.length === 0);
   const [error, setError] = useState<string | null>(null);
+  const [openComments, setOpenComments] = useState<string | null>(null);
+  const commentCount = (taskId: string) => detail.comments.filter((c) => c.taskId === taskId).length;
 
   const nameOf = (pid: string) => participants.find((p) => p.id === pid)?.name ?? "Removed";
 
@@ -55,7 +58,8 @@ export function AgendaSection({ detail, mutate }: { detail: EventDetail; mutate:
                 />
               </li>
             ) : (
-              <li key={task.id} className="row agenda-row">
+              <li key={task.id} className="row agenda-row agenda-item">
+                <div className="agenda-line">
                 <div className="agenda-time">
                   <strong>{formatTime(task.startAt, event.timezone)}</strong>
                   <span className="muted small">{formatTime(task.endAt, event.timezone)}</span>
@@ -69,8 +73,17 @@ export function AgendaSection({ detail, mutate }: { detail: EventDetail; mutate:
                     <span className="small assignees">{task.assigneeIds.map(nameOf).join(", ")}</span>
                   )}
                 </div>
+                <div className="row-actions">
+                  <button
+                    type="button"
+                    className={`button button-small ${commentCount(task.id) ? "has-comments" : ""}`}
+                    aria-expanded={openComments === task.id}
+                    onClick={() => setOpenComments(openComments === task.id ? null : task.id)}
+                  >
+                    {commentCount(task.id) ? `Comments (${commentCount(task.id)})` : "Comment"}
+                  </button>
                 {permissions.canEdit && (
-                  <div className="row-actions">
+                  <>
                     <button type="button" className="icon-button" aria-label={`Move ${task.title} up`} disabled={index === 0} onClick={() => move(task, -1)}>
                       ↑
                     </button>
@@ -93,8 +106,11 @@ export function AgendaSection({ detail, mutate }: { detail: EventDetail; mutate:
                     >
                       Delete
                     </button>
-                  </div>
+                  </>
                 )}
+                </div>
+                </div>
+                {openComments === task.id && <TaskComments detail={detail} task={task} mutate={mutate} />}
               </li>
             ),
           )}
