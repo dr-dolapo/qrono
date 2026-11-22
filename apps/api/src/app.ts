@@ -6,6 +6,7 @@ import { auth } from "./routes/auth";
 import { events, teamEvents } from "./routes/events";
 import { guest } from "./routes/guest";
 import { invites } from "./routes/invites";
+import { live } from "./routes/live";
 import { review } from "./routes/review";
 import { teams } from "./routes/teams";
 import { sameOriginOnly, securityHeaders } from "./security";
@@ -29,26 +30,13 @@ app.get("/health", async (c) => {
 app.use(sameOriginOnly);
 app.use(loadSession);
 
-/**
- * WebSocket entry point for a live event. Every client watching the same
- * event connects to the same LiveEvent Durable Object.
- * TODO: authenticate (session for members, personal link for guests) and
- * check the event is Live before connecting.
- */
-app.get("/events/:eventId/live", async (c) => {
-  if (c.req.header("Upgrade") !== "websocket") {
-    return c.json({ error: "Expected a WebSocket upgrade" }, 426);
-  }
-  const id = c.env.LIVE_EVENT.idFromName(c.req.param("eventId"));
-  return c.env.LIVE_EVENT.get(id).fetch(c.req.raw);
-});
-
 app.route("/auth", auth);
 app.route("/teams", teams);
 app.route("/invites", invites);
 app.route("/teams", teamEvents);
 app.route("/events", events);
 app.route("/events", review);
+app.route("/events", live);
 app.route("/guest", guest);
 
 app.notFound((c) => c.json({ error: "Not found" }, 404));

@@ -6,6 +6,7 @@ import { Alert } from "../../components/Form";
 import { formatDuration, formatRange, formatTime } from "../../time";
 import { AgendaSection } from "./AgendaSection";
 import { EventDetailsForm } from "./EventDetailsForm";
+import { LiveNow } from "./LiveNow";
 import { MyPart } from "./MyPart";
 import { PeopleSection } from "./PeopleSection";
 import { ReviewPanel } from "./ReviewPanel";
@@ -23,11 +24,12 @@ export function EventEditor() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const load = useCallback(() => {
     api<EventDetail>(`/events/${eventId}`)
       .then(setDetail)
       .catch((err) => setLoadError(err instanceof ApiError ? err.message : "Couldn't load this event."));
   }, [eventId]);
+  useEffect(load, [load]);
 
   const mutate: Mutate = useCallback(
     async (path, method, body) => {
@@ -124,6 +126,7 @@ export function EventEditor() {
 
       <Alert>{error}</Alert>
       <ReviewPanel detail={detail} mutate={mutate} />
+      <LiveNow detail={detail} onStatusChange={load} />
 
       <div className="summary-strip">
         <div>

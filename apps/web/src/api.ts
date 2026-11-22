@@ -157,6 +157,7 @@ export interface EventDetail {
     canApprove: boolean;
     canComment: boolean;
     canRespond: boolean;
+    canRunLive: boolean;
   };
   me: {
     userId: string;

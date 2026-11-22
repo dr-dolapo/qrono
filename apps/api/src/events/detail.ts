@@ -162,6 +162,7 @@ export async function eventDetail(c: Context<AppEnv>, access: EventAccess) {
       canApprove: event.status === "review" && iAmChosenApprover && access.role === "approver",
       canComment: true,
       canRespond: myParticipant !== null && (event.status === "approved" || event.status === "live"),
+      canRunLive: access.canManage && (event.status === "approved" || event.status === "live"),
     },
     me: {
       userId: me.id,

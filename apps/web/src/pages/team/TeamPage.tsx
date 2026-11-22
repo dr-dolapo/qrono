@@ -57,13 +57,14 @@ export function TeamPage() {
     setNotice(null);
     try {
       await action();
-      setNotice(success);
       await load();
+      setNotice(success);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
     } finally {
       setBusyId(null);
-      setConfirmingRemove(null);
+      // Only close the confirmation this action belonged to, not one opened meanwhile.
+      setConfirmingRemove((current) => (current === id ? null : current));
     }
   }
 

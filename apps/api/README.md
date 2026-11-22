@@ -55,6 +55,11 @@ from there.
 | `POST /api/events/:eid/response` | QR033–QR035: confirm or decline (with a reason) |
 | `GET /api/guest/:token`, `POST /api/guest/:token/response` | QR044–QR046: guest's personal link; expires when the event ends |
 
+| `GET /api/events/:eid/live` (WebSocket) | The live room: every screen gets the full state on each change |
+| `POST /api/events/:eid/live/start\|next\|end` | QR028 / QR029: Approvers and Admins run the event |
+
+Live events (`src/live/`): the `LiveEvent` Durable Object is the event's live room. It holds the WebSockets and uses an alarm to wake exactly when something is due: going live at the start time, handing over automatically in auto mode (QR027), and ending at the end time. The state machine itself (`live/engine.ts`) is plain code over D1, so it's unit-tested without Cloudflare.
+
 Agenda timing (`src/events/schedule.ts`): tasks run in agenda order. A task on a stage runs after the previous task on that stage, so stages run side by side. A task for "all stages" waits for every stage to finish, so breakouts can split off and come back together. Start times are recomputed and stored after every change.
 
 Team rules:
