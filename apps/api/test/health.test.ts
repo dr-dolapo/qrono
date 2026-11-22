@@ -3,7 +3,14 @@ import { app } from "../src/app";
 import type { Env } from "../src/env";
 
 function envWith(db: Partial<D1Database>): Env {
-  return { DB: db as D1Database, LIVE_EVENT: {} as Env["LIVE_EVENT"], APP_ENV: "test" };
+  return {
+    DB: db as D1Database,
+    LIVE_EVENT: {} as Env["LIVE_EVENT"],
+    APP_ENV: "test",
+    APP_ORIGIN: "http://localhost:5173",
+    EMAIL_MODE: "log",
+    MAIL_FROM: "Qrono <no-reply@example.com>",
+  };
 }
 
 const workingDb = {

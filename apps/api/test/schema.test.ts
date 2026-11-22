@@ -34,11 +34,12 @@ beforeEach(() => {
 });
 
 describe("schema", () => {
-  it("creates all 19 tables from the data model", () => {
+  it("creates the data model tables plus auth tables", () => {
     const rows = db
       .prepare("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name")
       .all() as { name: string }[];
     expect(rows.map((r) => r.name)).toEqual([
+      "auth_tokens",
       "broadcast_receipts",
       "broadcast_targets",
       "broadcasts",
@@ -51,6 +52,7 @@ describe("schema", () => {
       "events",
       "guest_access_links",
       "notifications",
+      "sessions",
       "stages",
       "task_assignments",
       "tasks",

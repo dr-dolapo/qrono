@@ -24,7 +24,14 @@
   },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["LiveEvent"] }],
 
+  // Cloudflare Email Service. Only used when EMAIL_MODE is "send".
+  "send_email": [{ "name": "EMAIL" }],
+
+  // Local development defaults. Override per environment for production.
   "vars": {
-    "APP_ENV": "development"
+    "APP_ENV": "development",
+    "APP_ORIGIN": "http://localhost:5173",
+    "EMAIL_MODE": "log",
+    "MAIL_FROM": "Qrono <no-reply@example.com>"
   }
 }
