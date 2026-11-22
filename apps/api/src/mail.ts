@@ -31,13 +31,17 @@ function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 }
 
-function layout(heading: string, body: string, buttonText: string, link: string, footer: string): string {
+function layout(heading: string, body: string, buttonText: string, link: string, footer: string, details: string[] = []): string {
+  const list = details.length
+    ? `<ul style="margin:0 0 24px;padding-left:20px;line-height:1.7">${details.map((d) => `<li>${escapeHtml(d)}</li>`).join("")}</ul>`
+    : "";
   return `<!doctype html><html><body style="margin:0;padding:24px;background:#f4f5f7;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#111">
 <table role="presentation" width="100%" style="max-width:520px;margin:0 auto;background:#fff;border-radius:12px;padding:32px">
 <tr><td>
 <p style="font-weight:800;font-size:20px;margin:0 0 24px">Qrono</p>
 <h1 style="font-size:20px;margin:0 0 12px">${escapeHtml(heading)}</h1>
 <p style="line-height:1.5;margin:0 0 24px">${escapeHtml(body)}</p>
+${list}
 <p style="margin:0 0 24px"><a href="${escapeHtml(link)}" style="background:#f5b301;color:#111;text-decoration:none;font-weight:600;padding:12px 20px;border-radius:8px;display:inline-block">${escapeHtml(buttonText)}</a></p>
 <p style="font-size:13px;color:#666;line-height:1.5;margin:0">${escapeHtml(footer)}<br>If the button doesn't work, paste this link into your browser:<br><span style="word-break:break-all">${escapeHtml(link)}</span></p>
 </td></tr></table></body></html>`;
@@ -87,5 +91,59 @@ export function joinRequestEmail(requesterName: string, teamName: string, link: 
     subject: `${requesterName} wants to join ${teamName}`,
     text: `${body}\n\n${link}\n\n${footer}`,
     html: layout(`${requesterName} wants to join`, body, "Review request", link, footer),
+  };
+}
+
+// ───────────── Event review & approval ─────────────
+
+/** "Tuesday 1 December 2026, 09:00" in the event's own time zone. */
+export function formatEventTime(iso: string, timeZone: string): string {
+  return new Date(iso).toLocaleString("en-GB", { timeZone, weekday: "long", day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
+export function formatClockTime(iso: string, timeZone: string): string {
+  return new Date(iso).toLocaleTimeString("en-GB", { timeZone, hour: "2-digit", minute: "2-digit" });
+}
+
+const withText = (body: string, details: string[], link: string, footer: string) =>
+  [body, ...(details.length ? ["", ...details.map((d) => `- ${d}`)] : []), "", link, "", footer].join("\n");
+
+export function reviewRequestedEmail(submitter: string, eventName: string, when: string, link: string): Omit<OutgoingEmail, "to"> {
+  const body = `${submitter} has sent "${eventName}" (${when}) for your approval. Review the agenda, leave comments on any task, and approve it when it's ready.`;
+  const footer = "You're getting this because you were chosen as an Approver for this event.";
+  return {
+    subject: `Please review: ${eventName}`,
+    text: withText(body, [], link, footer),
+    html: layout(`Review "${eventName}"`, body, "Review event", link, footer),
+  };
+}
+
+export function eventApprovedEmail(approver: string, eventName: string, when: string, link: string): Omit<OutgoingEmail, "to"> {
+  const body = `${approver} approved "${eventName}" (${when}). Everyone on the agenda has been told about their part.`;
+  const footer = "You're getting this because you're an Approver or Admin on this team.";
+  return {
+    subject: `Approved: ${eventName}`,
+    text: withText(body, [], link, footer),
+    html: layout(`"${eventName}" is approved`, body, "View event", link, footer),
+  };
+}
+
+export function assignedEmail(firstName: string, teamName: string, eventName: string, when: string, tasks: string[], link: string): Omit<OutgoingEmail, "to"> {
+  const body = `Hi ${firstName}, you're on the program for "${eventName}" (${when}) with ${teamName}. Your part:`;
+  const footer = "Please confirm you can make it, or let the team know if you can't.";
+  return {
+    subject: `You're on the program: ${eventName}`,
+    text: withText(body, tasks, link, footer),
+    html: layout(`You're on the program for ${eventName}`, body, "Confirm or decline", link, footer, tasks),
+  };
+}
+
+export function guestInviteEmail(name: string, teamName: string, eventName: string, when: string, tasks: string[], link: string): Omit<OutgoingEmail, "to"> {
+  const body = `Hi ${name}, ${teamName} has put you on the program for "${eventName}" (${when}). Your part:`;
+  const footer = "This link is just for you; please don't forward it. It stops working when the event ends. No app or account needed.";
+  return {
+    subject: `You're on the program: ${eventName}`,
+    text: withText(body, tasks, link, footer),
+    html: layout(`You're on the program for ${eventName}`, body, "See the program and confirm", link, footer, tasks),
   };
 }

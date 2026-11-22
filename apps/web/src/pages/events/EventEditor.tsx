@@ -6,7 +6,9 @@ import { Alert } from "../../components/Form";
 import { formatDuration, formatRange, formatTime } from "../../time";
 import { AgendaSection } from "./AgendaSection";
 import { EventDetailsForm } from "./EventDetailsForm";
+import { MyPart } from "./MyPart";
 import { PeopleSection } from "./PeopleSection";
+import { ReviewPanel } from "./ReviewPanel";
 
 /** Runs an API call that returns the updated event, and reports errors. */
 export type Mutate = (path: string, method: string, body?: unknown) => Promise<EventDetail & { [k: string]: unknown }>;
@@ -121,9 +123,7 @@ export function EventEditor() {
       )}
 
       <Alert>{error}</Alert>
-      {!permissions.canEdit && event.status !== "draft" && (
-        <Alert kind="info">This event is {STATUS_LABEL[event.status].toLowerCase()}, so its plan can't be changed here.</Alert>
-      )}
+      <ReviewPanel detail={detail} mutate={mutate} />
 
       <div className="summary-strip">
         <div>
@@ -164,6 +164,7 @@ export function EventEditor() {
         </Alert>
       )}
 
+      <MyPart detail={detail} mutate={mutate} />
       <AgendaSection detail={detail} mutate={mutate} />
       <PeopleSection detail={detail} mutate={mutate} />
     </AppShell>

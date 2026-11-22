@@ -235,3 +235,53 @@ h1 { font-size: 1.75rem; margin: 0.5rem 0 1rem; }
   .agenda-row { flex-direction: row; flex-wrap: wrap; }
   .agenda-row .row-actions { width: 100%; }
 }
+
+/* ───────── Review & approval ───────── */
+.review-panel {
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
+  padding: 1rem 1.25rem; border-radius: 12px; margin: 1rem 0; border: 1px solid var(--line); background: var(--panel);
+}
+.review-review { border-color: rgba(245, 179, 1, 0.5); background: rgba(245, 179, 1, 0.06); }
+.review-approved { border-color: rgba(52, 199, 123, 0.45); background: rgba(52, 199, 123, 0.06); }
+.review-text { display: grid; gap: 0.2rem; flex: 1; min-width: 14rem; }
+.review-choose { width: 100%; }
+
+.agenda-item { display: block; }
+.agenda-line { display: flex; align-items: flex-start; gap: 1rem; }
+.agenda-line .row-main { flex: 1; }
+.has-comments { border-color: rgba(245, 179, 1, 0.5); color: var(--accent); }
+.comments { margin: 0.75rem 0 0.25rem 6.75rem; display: grid; gap: 0.6rem; }
+.comment-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.6rem; }
+.comment-list li { background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 0.6rem 0.8rem; }
+.comment-list p { margin: 0.25rem 0 0; white-space: pre-wrap; line-height: 1.45; }
+.comment-meta { display: flex; gap: 0.6rem; align-items: baseline; flex-wrap: wrap; }
+.comment-form { display: flex; gap: 0.5rem; align-items: flex-end; }
+.comment-form textarea {
+  flex: 1; padding: 0.5rem 0.75rem; border-radius: 10px; border: 1px solid var(--line); background: var(--bg);
+  color: var(--text); font: inherit; font-size: 16px; resize: vertical;
+}
+
+.my-part { border-color: rgba(245, 179, 1, 0.4); }
+.plain-list { list-style: none; margin: 0 0 1rem; padding: 0; display: grid; gap: 0.35rem; }
+.response { font-size: 0.8rem; font-weight: 700; padding: 0.2rem 0.6rem; border-radius: 999px; white-space: nowrap; }
+.response-acknowledged { background: rgba(52, 199, 123, 0.16); color: var(--ok); }
+.response-declined { background: rgba(255, 107, 107, 0.16); color: #ff8a8a; }
+.response-pending { background: rgba(255, 255, 255, 0.06); color: var(--muted); }
+.decline-reason { color: #ffb3b3; }
+
+/* Guest page (phone first) */
+.guest { max-width: 32rem; }
+.guest .brand { margin: 0; }
+.guest-from { margin: 1.25rem 0 0.1rem; }
+.guest-title { margin: 0; font-size: 1.6rem; }
+.guest-mine h2 { font-size: 1.05rem; }
+.guest-tasks li { display: flex; gap: 0.75rem; align-items: baseline; }
+.guest-time { font-weight: 700; font-variant-numeric: tabular-nums; min-width: 5.5rem; }
+.row-mine { background: rgba(245, 179, 1, 0.08); }
+.guest .field textarea { width: 100%; }
+
+@media (max-width: 720px) {
+  .comments { margin-left: 0; }
+  .agenda-line { flex-wrap: wrap; }
+  .agenda-line .row-actions { width: 100%; }
+}

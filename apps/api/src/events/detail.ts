@@ -24,9 +24,27 @@ interface ParticipantRow {
   guest_name: string | null;
   guest_email: string | null;
   response: string;
+  decline_reason: string | null;
+  responded_at: string | null;
   first_name: string | null;
   last_name: string | null;
   email: string | null;
+}
+interface CommentRow {
+  id: string;
+  task_id: string;
+  author_id: string;
+  first_name: string;
+  last_name: string;
+  body: string;
+  event_status_at_post: string;
+  created_at: string;
+}
+interface ApproverRow {
+  user_id: string;
+  first_name: string;
+  last_name: string;
+  approved_at: string | null;
 }
 interface AssignmentRow {
   task_id: string;
@@ -72,10 +90,11 @@ export async function resyncSchedule(c: Context<AppEnv>, eventId: string): Promi
 export async function eventDetail(c: Context<AppEnv>, access: EventAccess) {
   const { event } = access;
   const db = c.env.DB;
-  const [{ stages, tasks }, participants, assignments] = await Promise.all([
+  const me = c.get("user")!;
+  const [{ stages, tasks }, participants, assignments, comments, approvers] = await Promise.all([
     loadAgenda(c, event.id),
     db.prepare(
-      `SELECT p.id, p.user_id, p.guest_name, p.guest_email, p.response,
+      `SELECT p.id, p.user_id, p.guest_name, p.guest_email, p.response, p.decline_reason, p.responded_at,
               u.first_name, u.last_name, u.email
          FROM event_participants p LEFT JOIN users u ON u.id = p.user_id
         WHERE p.event_id = ?
@@ -91,7 +110,24 @@ export async function eventDetail(c: Context<AppEnv>, access: EventAccess) {
     )
       .bind(event.id)
       .all<AssignmentRow>(),
+    db.prepare(
+      `SELECT c.id, c.task_id, c.author_id, u.first_name, u.last_name, c.body, c.event_status_at_post, c.created_at
+         FROM comments c JOIN tasks t ON t.id = c.task_id JOIN users u ON u.id = c.author_id
+        WHERE t.event_id = ? AND c.deleted_at IS NULL
+        ORDER BY c.created_at`,
+    )
+      .bind(event.id)
+      .all<CommentRow>(),
+    db.prepare(
+      `SELECT a.user_id, u.first_name, u.last_name, a.approved_at
+         FROM event_approvers a JOIN users u ON u.id = a.user_id
+        WHERE a.event_id = ? ORDER BY u.first_name`,
+    )
+      .bind(event.id)
+      .all<ApproverRow>(),
   ]);
+  const myParticipant = participants.results.find((p) => p.user_id === me.id) ?? null;
+  const iAmChosenApprover = approvers.results.some((a) => a.user_id === me.id);
 
   const schedule = buildSchedule(
     event.start_at,
@@ -118,7 +154,30 @@ export async function eventDetail(c: Context<AppEnv>, access: EventAccess) {
       createdAt: event.created_at,
       updatedAt: event.updated_at,
     },
-    permissions: { canEdit: access.canManage && event.status === "draft", canManage: access.canManage },
+    permissions: {
+      canEdit: access.canManage && event.status === "draft",
+      canManage: access.canManage,
+      canSubmit: access.canManage && event.status === "draft" && tasks.length > 0,
+      canWithdraw: access.canManage && event.status === "review",
+      canApprove: event.status === "review" && iAmChosenApprover && access.role === "approver",
+      canComment: true,
+      canRespond: myParticipant !== null && (event.status === "approved" || event.status === "live"),
+    },
+    me: {
+      userId: me.id,
+      participant: myParticipant
+        ? { id: myParticipant.id, response: myParticipant.response, declineReason: myParticipant.decline_reason }
+        : null,
+    },
+    approvers: approvers.results.map((a) => ({ userId: a.user_id, name: `${a.first_name} ${a.last_name}`, approvedAt: a.approved_at })),
+    comments: comments.results.map((cm) => ({
+      id: cm.id,
+      taskId: cm.task_id,
+      author: { id: cm.author_id, name: `${cm.first_name} ${cm.last_name}` },
+      body: cm.body,
+      postedDuring: cm.event_status_at_post,
+      createdAt: cm.created_at,
+    })),
     stages: stages.map((s) => ({ id: s.id, name: s.name, venue: s.venue })),
     tasks: tasks.map((t) => ({
       id: t.id,
@@ -138,6 +197,8 @@ export async function eventDetail(c: Context<AppEnv>, access: EventAccess) {
       name: p.user_id ? `${p.first_name} ${p.last_name}` : p.guest_name!,
       email: p.user_id ? p.email! : p.guest_email!,
       response: p.response,
+      declineReason: p.decline_reason,
+      respondedAt: p.responded_at,
     })),
     schedule: { endsAt: schedule.endsAt, overrunMinutes: schedule.overrunMinutes },
   };

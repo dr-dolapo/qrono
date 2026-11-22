@@ -25,6 +25,8 @@ export function PeopleSection({ detail, mutate }: { detail: EventDetail; mutate:
   const alreadyIn = new Set(participants.map((p) => p.userId).filter(Boolean));
   const available = teamMembers.filter((m) => !alreadyIn.has(m.user.id));
   const taskCount = (pid: string) => tasks.filter((t) => t.assigneeIds.includes(pid)).length;
+  const showResponses = event.status === "approved" || event.status === "live" || event.status === "past";
+  const confirmed = participants.filter((p) => p.response === "acknowledged").length;
 
   const addMember = memberForm.handle(async () => {
     if (!memberId) return;
@@ -43,7 +45,13 @@ export function PeopleSection({ detail, mutate }: { detail: EventDetail; mutate:
       <h2 id="people-heading">
         People <span className="count">{participants.length}</span>
       </h2>
-      <p className="muted small">Add the people running this event, then assign them to tasks. They're notified once the event is approved.</p>
+      {showResponses ? (
+        <p className="muted small">
+          {confirmed} of {participants.length} confirmed.
+        </p>
+      ) : (
+        <p className="muted small">Add the people running this event, then assign them to tasks. They're notified once the event is approved.</p>
+      )}
       <Alert>{error}</Alert>
 
       {participants.length > 0 && (
@@ -57,7 +65,15 @@ export function PeopleSection({ detail, mutate }: { detail: EventDetail; mutate:
                 <span className="muted small">
                   {p.email} · {taskCount(p.id) ? `${taskCount(p.id)} task${taskCount(p.id) === 1 ? "" : "s"}` : "no tasks yet"}
                 </span>
+                {showResponses && p.response === "declined" && p.declineReason && <span className="small decline-reason">“{p.declineReason}”</span>}
               </div>
+              {showResponses && (
+                <div className="row-actions">
+                  <span className={`response response-${p.response}`}>
+                    {p.response === "acknowledged" ? "Confirmed" : p.response === "declined" ? "Can't make it" : "No reply yet"}
+                  </span>
+                </div>
+              )}
               {permissions.canEdit && (
                 <div className="row-actions">
                   <button

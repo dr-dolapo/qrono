@@ -42,7 +42,7 @@ describe("creating and editing events (QR019, QR020, QR022)", () => {
     const id = await createEvent();
     const res = await ada.get(`/api/events/${id}`);
     expect(res.json.event).toMatchObject({ name: base.name, status: "draft", progressionMode: "manual", startAt: START, endAt: END, timezone: "Africa/Lagos" });
-    expect(res.json.permissions).toEqual({ canEdit: true, canManage: true });
+    expect(res.json.permissions).toMatchObject({ canEdit: true, canManage: true });
     const log = t.sqlite.prepare("SELECT from_status, to_status FROM event_status_changes WHERE event_id = ?").all(id);
     expect(log).toEqual([{ from_status: null, to_status: "draft" }]);
   });
@@ -105,7 +105,7 @@ describe("who can see and change events", () => {
     expect(list.json.events.map((e: { id: string }) => e.id)).toEqual([visible]);
 
     const detail = await member.browser.get(`/api/events/${visible}`);
-    expect(detail.json.permissions).toEqual({ canEdit: false, canManage: false });
+    expect(detail.json.permissions).toMatchObject({ canEdit: false, canManage: false });
     expect((await member.browser.request("PATCH", `/api/events/${visible}`, { name: "Mine now" })).status).toBe(403);
   });
 

@@ -48,6 +48,13 @@ from there.
 | `POST/PATCH/DELETE /api/events/:eid/tasks[/:tid]`, `PUT …/tasks/order` | Agenda tasks, assignees and order |
 | `POST/DELETE /api/events/:eid/participants[/:pid]` | QR021: team members and guests |
 
+| `POST /api/events/:eid/submit` | QR011: send to chosen Approvers (locks the plan) |
+| `POST /api/events/:eid/withdraw` | Back to draft for changes |
+| `POST /api/events/:eid/approve` | QR016–QR018: a chosen Approver approves; Admins, members and guests are emailed |
+| `POST /api/events/:eid/tasks/:tid/comments`, `DELETE …/comments/:cid` | QR012–QR015: task comments (soft delete) |
+| `POST /api/events/:eid/response` | QR033–QR035: confirm or decline (with a reason) |
+| `GET /api/guest/:token`, `POST /api/guest/:token/response` | QR044–QR046: guest's personal link; expires when the event ends |
+
 Agenda timing (`src/events/schedule.ts`): tasks run in agenda order. A task on a stage runs after the previous task on that stage, so stages run side by side. A task for "all stages" waits for every stage to finish, so breakouts can split off and come back together. Start times are recomputed and stored after every change.
 
 Team rules:
