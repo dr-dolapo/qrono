@@ -1,7 +1,9 @@
 import { Hono } from "hono";
+import { HTTPException } from "hono/http-exception";
 import { loadSession } from "./auth/session";
 import type { AppEnv } from "./env";
 import { auth } from "./routes/auth";
+import { invites } from "./routes/invites";
 import { teams } from "./routes/teams";
 import { sameOriginOnly, securityHeaders } from "./security";
 
@@ -26,6 +28,7 @@ app.use(loadSession);
 
 app.route("/auth", auth);
 app.route("/teams", teams);
+app.route("/invites", invites);
 
 /**
  * WebSocket entry point for a live event. Every client watching the same
@@ -44,6 +47,7 @@ app.get("/events/:eventId/live", async (c) => {
 app.notFound((c) => c.json({ error: "Not found" }, 404));
 
 app.onError((err, c) => {
+  if (err instanceof HTTPException) return err.getResponse();
   console.error("Unhandled error", err);
   return c.json({ error: "Something went wrong. Please try again." }, 500);
 });

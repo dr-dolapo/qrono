@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { api, type User } from "../../api";
 import { useAuth } from "../../auth/AuthContext";
-import { safeNext } from "../../auth/guards";
+import { homePath, safeNext } from "../../auth/guards";
 import { Alert, AuthLayout, SubmitButton, TextField } from "../../components/Form";
 import { useForm } from "../../useForm";
 
@@ -19,7 +19,7 @@ export function LogIn() {
   const submit = form.handle(async () => {
     const { user } = await api<{ user: User }>("/auth/login", { body: { email, password } });
     await refresh();
-    navigate(user.emailVerified ? safeNext(params.get("next")) : "/check-email", { replace: true });
+    navigate(user.emailVerified ? safeNext(params.get("next"), homePath()) : "/check-email", { replace: true });
   });
 
   return (
@@ -35,7 +35,7 @@ export function LogIn() {
         <SubmitButton busy={form.busy}>Log in</SubmitButton>
       </form>
       <p className="auth-footer">
-        New to Qrono? <Link to="/signup">Create an account</Link>
+        New to Qrono? <Link to={`/signup${params.get("next") ? `?next=${encodeURIComponent(params.get("next")!)}` : ""}`}>Create an account</Link>
       </p>
     </AuthLayout>
   );

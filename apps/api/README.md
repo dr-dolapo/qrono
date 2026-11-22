@@ -34,6 +34,19 @@ from there.
 | `GET /api/auth/me` | The signed-in user and their teams |
 | `POST /api/auth/forgot-password` / `POST /api/auth/reset-password` | QR005: a reset logs out every device |
 | `POST /api/teams` / `GET /api/teams` | QR006 / QR010: the creator becomes the team's Approver |
+| `GET /api/teams/:id/members` | Everyone on the team; Approvers/Admins also see join requests |
+| `PATCH /api/teams/:id/members/:mid` | QR009: change role |
+| `POST /api/teams/:id/members/:mid/approve` | QR001: let in someone who used the invite link |
+| `DELETE /api/teams/:id/members/:mid` | Remove someone, decline a request, or leave |
+| `GET/POST /api/teams/:id/invites`, `DELETE …/invites/:iid` | QR007: email invitations (7 days) |
+| `POST /api/teams/:id/invite-link` | QR001: shareable link (30 days; joiners wait for approval) |
+| `GET /api/invites/:token`, `POST /api/invites/:token/accept` | Invite landing page and joining |
+
+Team rules:
+- Approvers and Admins can invite, approve, change roles and remove people.
+- Only an Approver can make someone an Approver, or change or remove an Approver.
+- A team always keeps at least one Approver.
+- An email invitation can only be accepted by that email's account.
 
 - Passwords are hashed with PBKDF2-SHA256 (100k iterations, random salt).
 - Sessions are random tokens in an `HttpOnly`, `SameSite=Lax` cookie (`Secure` on https), valid for 30 days. Only their SHA-256 hashes are stored.

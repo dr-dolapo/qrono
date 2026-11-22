@@ -15,6 +15,9 @@ import { GuestView } from "./pages/GuestView";
 import { Home } from "./pages/Home";
 import { NotFound } from "./pages/NotFound";
 import { CreateTeam } from "./pages/onboarding/CreateTeam";
+import { InvitePage } from "./pages/team/InvitePage";
+import { TeamPage } from "./pages/team/TeamPage";
+import { WaitingPage } from "./pages/team/WaitingPage";
 import "./styles.css";
 
 function Root() {
@@ -42,6 +45,11 @@ const router = createBrowserRouter([
 
       // Admin & Approver area
       { path: "/admin", element: <RequireAuth><AdminHome /></RequireAuth> },
+      { path: "/admin/team", element: <RequireAuth><TeamPage /></RequireAuth> },
+
+      // Team invitations (QR001, QR007)
+      { path: "/invite/:token", element: <InvitePage /> },
+      { path: "/waiting", element: <WaitingPage /> },
 
       // Command centre — desktop/laptop on an HDMI screen (auth comes with live events)
       { path: "/command/:eventId", element: <CommandCentre /> },

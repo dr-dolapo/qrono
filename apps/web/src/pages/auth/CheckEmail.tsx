@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Navigate, useNavigate } from "react-router";
 import { api } from "../../api";
 import { useAuth } from "../../auth/AuthContext";
+import { homePath } from "../../auth/guards";
 import { Alert, AuthLayout } from "../../components/Form";
 
 /** Shown after sign-up, and to anyone who logs in before confirming their email. */
@@ -13,7 +14,7 @@ export function CheckEmail() {
 
   if (user === undefined) return null;
   if (user === null) return <Navigate to="/login" replace />;
-  if (user.emailVerified) return <Navigate to="/admin" replace />;
+  if (user.emailVerified) return <Navigate to={homePath()} replace />;
 
   async function resend() {
     setBusy(true);
