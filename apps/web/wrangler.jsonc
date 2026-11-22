@@ -1,0 +1,17 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "qrono-web",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-11-01",
+
+  // The built React app. Unknown paths fall back to index.html so client-side routes work.
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  },
+
+  // /api/* is forwarded to the qrono-api Worker, so web and API share one domain.
+  "services": [{ "binding": "API", "service": "qrono-api" }]
+}

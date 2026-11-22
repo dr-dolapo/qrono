@@ -1,0 +1,30 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "qrono-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-11-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+
+  // Main database. Create it once with:  npx wrangler d1 create qrono-db
+  // then paste the returned database_id below.
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "qrono-db",
+      "database_id": "REPLACE_WITH_D1_DATABASE_ID",
+      "migrations_dir": "migrations"
+    }
+  ],
+
+  // One LiveEvent Durable Object per event while it is Live:
+  // holds the current task, runs auto-progression and broadcasts over WebSockets.
+  "durable_objects": {
+    "bindings": [{ "name": "LIVE_EVENT", "class_name": "LiveEvent" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["LiveEvent"] }],
+
+  "vars": {
+    "APP_ENV": "development"
+  }
+}
