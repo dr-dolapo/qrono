@@ -26,7 +26,15 @@ export function LogIn() {
     <AuthLayout title="Log in">
       <form onSubmit={submit} noValidate>
         {justReset && <Alert kind="success">Your password has been changed. Log in with your new password.</Alert>}
-        <Alert>{form.error}</Alert>
+        <Alert>
+          {form.error}
+          {form.errorCode === "too_many_attempts" && (
+            <>
+              {" "}
+              <Link to="/forgot-password">Reset your password</Link>
+            </>
+          )}
+        </Alert>
         <TextField label="Email" type="email" value={email} onChange={setEmail} error={form.fields.email} autoComplete="email" inputMode="email" required />
         <TextField label="Password" type="password" value={password} onChange={setPassword} error={form.fields.password} autoComplete="current-password" required />
         <p className="form-aside">

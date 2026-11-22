@@ -111,4 +111,3 @@ cookies and to block requests from other sites.
 ## Before inviting real users
 
 - Turn on email (above).
-- Add login rate limiting (not built yet), to slow down password guessing.
