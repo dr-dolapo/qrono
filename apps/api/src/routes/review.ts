@@ -18,6 +18,7 @@ import {
   sendEmail,
 } from "../mail";
 import { json } from "../validation";
+import { liveCommand } from "./live";
 
 type Ctx = Context<AppEnv>;
 
@@ -120,6 +121,8 @@ export const review = new Hono<AppEnv>()
       await logStatus(c, event.id, "review", "approved", me.id),
     ]);
     await notifyOnApproval(c, event, `${me.firstName} ${me.lastName}`, me.id);
+    // Wake the live room at the start time.
+    await liveCommand(c, event.id, "arm", me.id);
     return c.json(await eventDetail(c, await loadEvent(c, event.id)));
   })
 

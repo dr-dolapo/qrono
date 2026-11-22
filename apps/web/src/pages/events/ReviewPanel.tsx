@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router";
 import { ApiError, api, type EventDetail, type Member } from "../../api";
 import { Alert } from "../../components/Form";
 import type { Mutate } from "./EventEditor";
@@ -121,6 +122,35 @@ export function ReviewPanel({ detail, mutate }: { detail: EventDetail; mutate: M
   }
 
   const approvedBy = approvers.filter((a) => a.approvedAt);
+  const commandLink = permissions.canRunLive && (
+    <Link className="button button-primary button-auto" to={`/command/${event.id}`}>
+      Open command centre
+    </Link>
+  );
+
+  if (event.status === "live") {
+    return (
+      <section className="review-panel review-live" aria-label="Status">
+        <div className="review-text">
+          <strong>Live</strong>
+          <span className="muted small">The event is running. The plan can't be changed now.</span>
+        </div>
+        {commandLink}
+      </section>
+    );
+  }
+
+  if (event.status === "past") {
+    return (
+      <section className="review-panel" aria-label="Status">
+        <div className="review-text">
+          <strong>Ended</strong>
+          <span className="muted small">This event is over.</span>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="review-panel review-approved" aria-label="Review">
       <div className="review-text">
@@ -131,6 +161,7 @@ export function ReviewPanel({ detail, mutate }: { detail: EventDetail; mutate: M
           Everyone on the program has been emailed their part.
         </span>
       </div>
+      {commandLink}
     </section>
   );
 }

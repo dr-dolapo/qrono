@@ -55,8 +55,8 @@ const router = createBrowserRouter([
       { path: "/invite/:token", element: <InvitePage /> },
       { path: "/waiting", element: <WaitingPage /> },
 
-      // Command centre — desktop/laptop on an HDMI screen (auth comes with live events)
-      { path: "/command/:eventId", element: <CommandCentre /> },
+      // Command centre — desktop/laptop on an HDMI screen (Approvers and Admins)
+      { path: "/command/:eventId", element: <RequireAuth><CommandCentre /></RequireAuth> },
       // Guest view — personal link opened on a phone browser (QR044–QR046)
       { path: "/g/:token", element: <GuestView /> },
       { path: "*", element: <NotFound /> },

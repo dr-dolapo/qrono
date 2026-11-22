@@ -7,6 +7,7 @@ import { vi } from "vitest";
 import { app } from "../../src/app";
 import type { Env } from "../../src/env";
 import { createTestDb } from "./d1";
+import { fakeLiveNamespace } from "./live";
 
 export const ORIGIN = "http://localhost:5173";
 
@@ -21,7 +22,7 @@ export function createTestEnv() {
   const emails: SentEmail[] = [];
   const env: Env = {
     DB: db,
-    LIVE_EVENT: {} as Env["LIVE_EVENT"],
+    LIVE_EVENT: fakeLiveNamespace(() => db),
     APP_ENV: "test",
     APP_ORIGIN: ORIGIN,
     EMAIL_MODE: "send",

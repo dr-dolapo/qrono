@@ -40,9 +40,9 @@ describe("GET /api/health", () => {
 });
 
 describe("GET /api/events/:id/live", () => {
-  it("rejects non-WebSocket requests", async () => {
-    const res = await app.request("/api/events/abc/live", {}, envWith(workingDb));
-    expect(res.status).toBe(426);
+  it("requires being logged in", async () => {
+    const res = await app.request("/api/events/abc/live", { headers: { Upgrade: "websocket" } }, envWith(workingDb));
+    expect(res.status).toBe(401);
   });
 });
 

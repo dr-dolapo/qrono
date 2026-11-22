@@ -1,52 +1,72 @@
 import { DurableObject } from "cloudflare:workers";
 import type { Env } from "./env";
+import { runCommand, type LiveCommand } from "./live/commands";
+import { snapshot, tick } from "./live/engine";
 
 /**
- * One instance per Live event (addressed by event ID).
+ * One instance per event (addressed by event ID): the live "room".
  *
- * Responsibilities (PRD §7, §9.5, §9.6):
- *  - hold the current task and push agenda changes to every connected client
- *    (mobile app, command centre, guest view) over WebSockets
- *  - run auto-progression with Durable Object alarms (QR027)
- *  - deliver broadcasts and re-alert snoozed ones after 3 minutes (QR038–QR042)
+ *  - Every screen watching the event (command centre, participants' pages)
+ *    holds a WebSocket here and gets the full state whenever it changes.
+ *  - Admin commands (start, next task, end) arrive from the Worker, which has
+ *    already checked permissions.
+ *  - A Durable Object alarm wakes the room exactly when something is due:
+ *    the start time, an automatic hand-over (QR027), or the end time.
  *
- * This is the foundation only: it accepts WebSocket connections (using the
- * hibernation API so idle connections cost nothing) and relays state.
- * Agenda progression and broadcasts are built on top of it in later PRs.
+ * The database (D1) is the source of truth; the room only coordinates.
+ * WebSockets use the hibernation API, so idle connections cost nothing.
  */
 export class LiveEvent extends DurableObject<Env> {
   async fetch(request: Request): Promise<Response> {
-    if (request.headers.get("Upgrade") !== "websocket") {
-      return new Response("Expected a WebSocket upgrade", { status: 426 });
+    const url = new URL(request.url);
+    const eventId = request.headers.get("X-Qrono-Event");
+    if (!eventId) return new Response("Missing event", { status: 400 });
+    await this.ctx.storage.put("eventId", eventId);
+
+    if (url.pathname === "/connect") {
+      if (request.headers.get("Upgrade") !== "websocket") return new Response("Expected a WebSocket upgrade", { status: 426 });
+      const pair = new WebSocketPair();
+      const [client, server] = Object.values(pair) as [WebSocket, WebSocket];
+      this.ctx.acceptWebSocket(server, [request.headers.get("X-Qrono-Viewer") ?? "participant"]);
+      server.send(JSON.stringify(await snapshot(this.env.DB, eventId, Date.now())));
+      return new Response(null, { status: 101, webSocket: client });
     }
 
-    const pair = new WebSocketPair();
-    const [client, server] = Object.values(pair) as [WebSocket, WebSocket];
-    this.ctx.acceptWebSocket(server);
-    server.send(JSON.stringify({ type: "hello", connections: this.ctx.getWebSockets().length }));
+    if (url.pathname === "/command" && request.method === "POST") {
+      const cmd = (await request.json()) as LiveCommand;
+      const result = await runCommand(this.env.DB, eventId, cmd, Date.now());
+      if (result.ok) await this.afterChange(result.wakeAt, result.snapshot);
+      return Response.json(result, { status: result.status });
+    }
 
-    return new Response(null, { status: 101, webSocket: client });
+    return new Response("Not found", { status: 404 });
+  }
+
+  async alarm(): Promise<void> {
+    const eventId = await this.ctx.storage.get<string>("eventId");
+    if (!eventId) return;
+    const now = Date.now();
+    const wakeAt = await tick(this.env.DB, eventId, now);
+    await this.afterChange(wakeAt, await snapshot(this.env.DB, eventId, now));
   }
 
   async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {
-    if (typeof message === "string" && message === "ping") {
-      ws.send("pong");
-    }
+    if (message === "ping") ws.send("pong");
   }
 
-  async webSocketClose(_ws: WebSocket, _code: number, _reason: string): Promise<void> {
-    // The runtime completes the close handshake itself on this compatibility
-    // date; calling ws.close() here would throw. Presence tracking goes here later.
+  async webSocketClose(): Promise<void> {
+    // The runtime completes the close handshake itself on this compatibility date.
   }
 
-  /** Send a message to every connected client. */
-  protected broadcastToAll(payload: unknown): void {
-    const data = JSON.stringify(payload);
+  private async afterChange(wakeAt: number | null, state: unknown): Promise<void> {
+    if (wakeAt === null) await this.ctx.storage.deleteAlarm();
+    else await this.ctx.storage.setAlarm(Math.max(wakeAt, Date.now() + 250));
+    const data = JSON.stringify(state);
     for (const ws of this.ctx.getWebSockets()) {
       try {
         ws.send(data);
       } catch {
-        // Socket already closed; the runtime cleans it up.
+        // Already closed; the runtime cleans it up.
       }
     }
   }
