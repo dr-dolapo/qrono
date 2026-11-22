@@ -7,12 +7,11 @@ import { formatDuration, formatRange, formatTime } from "../../time";
 import { AgendaSection } from "./AgendaSection";
 import { EventDetailsForm } from "./EventDetailsForm";
 import { PeopleSection } from "./PeopleSection";
-import { StagesSection } from "./StagesSection";
 
 /** Runs an API call that returns the updated event, and reports errors. */
 export type Mutate = (path: string, method: string, body?: unknown) => Promise<EventDetail & { [k: string]: unknown }>;
 
-/** QR020 / QR021: build a draft event — details, stages, agenda and people. */
+/** QR020 / QR021: build a draft event — details, agenda and people. Single-stage in v1. */
 export function EventEditor() {
   const { eventId = "" } = useParams();
   const navigate = useNavigate();
@@ -167,7 +166,6 @@ export function EventEditor() {
 
       <AgendaSection detail={detail} mutate={mutate} />
       <PeopleSection detail={detail} mutate={mutate} />
-      <StagesSection detail={detail} mutate={mutate} />
     </AppShell>
   );
 }

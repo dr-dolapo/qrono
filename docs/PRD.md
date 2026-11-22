@@ -1,6 +1,6 @@
 # Qrono — Product Requirements Document
 
-*Cleaned-up version of the original Qrono PRD spreadsheet, updated with the decisions made since (platforms, tech stack, permissions matrix, QR031–QR046, broadcast rules, data model). Pricing is deferred until after launch, to be set from real usage. Open questions are tracked in section 11, and post-v1 items in section 12.*
+*Cleaned-up version of the original Qrono PRD spreadsheet, updated with the decisions made since (platforms, tech stack, permissions matrix, QR031–QR046, broadcast rules, data model, single-stage v1). Pricing is deferred until after launch, to be set from real usage. Open questions are tracked in section 11, and post-v1 items in section 12.*
 
 ---
 
@@ -140,13 +140,15 @@ Draft → Review → Approved → Live → Past
 
 ## 8. Event formats
 
+**v1 supports single-stage events only.** Multi-stage events (mixed and parallel, below) are moved to Later (section 12).
+
 **Single-stage:** one stage (e.g. Radisson Blu, Adire Hall) with a linear agenda.
 > Opening (5m) → Introductions (15m) → Presentation (7m) → Keynote (35m) → Q&A (10m) → Award (7m) → Close (3m)
 
-**Multi-stage, mixed:** shared sessions that split into parallel breakouts on several stages, then come back together.
+**Multi-stage, mixed** *(Later)*: shared sessions that split into parallel breakouts on several stages, then come back together.
 > Opening → Introductions → Keynote → *[Break-out I + Q&A on Stage 1 ‖ Break-out II + Q&A on Stage 2]* → Conclusions → Close
 
-**Multi-stage, parallel:** separate agendas running side by side on different stages for the whole event.
+**Multi-stage, parallel** *(Later)*: separate agendas running side by side on different stages for the whole event.
 > Stage 1: Opening → Introductions → Welcome → Plenary → Q&A → Wrap-up → Departure
 > Stage 2: Welcome → Guest arrival → Anthem → Session 1 → Lunch → Session 2 → Ending
 
@@ -224,7 +226,7 @@ Draft → Review → Approved → Live → Past
 | Code | As a… | I want to… | So that… |
 |---|---|---|---|
 | QR038 | Admin | send a broadcast to everyone in a Live event | every participant hears about a change at the same moment |
-| QR039 | Admin | send a broadcast to selected participants or one stage | I can redirect one group in a multi-stage event without distracting the others |
+| QR039 | Admin | send a broadcast to selected participants | I can reach just the people concerned without distracting everyone else |
 | QR040 | Participant | get a broadcast as a push notification and an in-app alert during a Live event | I see urgent updates immediately, even when the app is closed |
 | QR041 | Participant | respond to a broadcast with Acknowledge, Snooze or Done | the organisers know I've seen it and whether I've acted on it |
 | QR042 | Admin | see each participant's response to a broadcast | I can follow up with anyone who hasn't responded |
@@ -232,7 +234,7 @@ Draft → Review → Approved → Live → Past
 **Broadcast rules (v1):**
 - Broadcasts go out as push notifications, plus an in-app alert.
 - **Snooze** brings the broadcast back after **3 minutes**.
-- Targeting by participant or stage (QR039) is in scope for v1.
+- Targeting selected participants (QR039) is in scope for v1. Targeting by stage comes with multi-stage events (Later).
 
 ---
 
@@ -345,7 +347,7 @@ Draft → Review → Approved → Live → Past
 | `status` | enum: `upcoming`, `in_progress`, `done`, `skipped` | |
 | `actual_start_at`, `actual_end_at` | timestamp, nullable | Recorded live. Used for overrun warnings and the event report (QR037). |
 
-The three event formats in section 8 all fit this model. A single-stage event has one Stage. A mixed event has some tasks with no stage (shared by all) and some tied to a stage (breakouts). A parallel event gives each stage its own sequence of tasks.
+In v1 every event is single-stage: tasks have no stage and run one after another. The Stage table and `stage_id` stay in the schema so multi-stage events (Later) need no migration. The three event formats in section 8 all fit this model. A single-stage event has one Stage. A mixed event has some tasks with no stage (shared by all) and some tied to a stage (breakouts). A parallel event gives each stage its own sequence of tasks.
 
 ### 10.3 Participants & guests
 
@@ -498,6 +500,7 @@ Team ─┬─< TeamMembership >── User ──< DeviceToken
 - Screen-only event mode
 - Custom countdown video for an event
 - Exclusive early access programme
+- Multi-stage events: breakouts and parallel programs across several halls (section 8), including broadcasts to one stage
 - Pricing, to be set from real usage after launch
 - More complex approval mandates (e.g. "At least 2 to sign", signing order)
 

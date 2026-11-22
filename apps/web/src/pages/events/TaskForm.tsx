@@ -6,7 +6,6 @@ import { useForm } from "../../useForm";
 export interface TaskValues {
   title: string;
   durationMinutes: string;
-  stageId: string | null;
   assigneeIds: string[];
 }
 
@@ -26,10 +25,9 @@ export function TaskForm({
   onCancel?: () => void;
   resetOnSubmit?: boolean;
 }) {
-  const { stages, participants } = detail;
+  const { participants } = detail;
   const [title, setTitle] = useState(initial?.title ?? "");
   const [duration, setDuration] = useState(initial ? String(initial.durationMinutes) : "");
-  const [stageId, setStageId] = useState<string | null>(initial?.stageId ?? null);
   const [assigneeIds, setAssigneeIds] = useState<string[]>(initial?.assigneeIds ?? []);
   const form = useForm();
 
@@ -41,7 +39,7 @@ export function TaskForm({
       form.setFields({ durationMinutes: "Enter the length in whole minutes." });
       return;
     }
-    await onSubmit({ title, durationMinutes: duration, stageId, assigneeIds });
+    await onSubmit({ title, durationMinutes: duration, assigneeIds });
     if (resetOnSubmit) {
       setTitle("");
       setDuration("");
@@ -65,20 +63,6 @@ export function TaskForm({
           error={form.fields.durationMinutes}
           required
         />
-        {stages.length > 0 && (
-          <div className="field">
-            <label htmlFor={`stage-${initial?.id ?? "new"}`}>Stage</label>
-            <select id={`stage-${initial?.id ?? "new"}`} value={stageId ?? ""} onChange={(e) => setStageId(e.target.value || null)}>
-              <option value="">All stages</option>
-              {stages.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-            {form.fields.stageId && <p className="field-error">{form.fields.stageId}</p>}
-          </div>
-        )}
       </div>
 
       <fieldset className="assignee-picker">

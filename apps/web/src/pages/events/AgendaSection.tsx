@@ -5,14 +5,13 @@ import { formatDuration, formatTime } from "../../time";
 import type { Mutate } from "./EventEditor";
 import { TaskForm, type TaskValues } from "./TaskForm";
 
-/** The timed agenda: tasks in order, with computed times, stages and assignees. */
+/** The timed agenda: tasks in order (single stage), with computed times and assignees. */
 export function AgendaSection({ detail, mutate }: { detail: EventDetail; mutate: Mutate }) {
-  const { tasks, stages, participants, permissions, event } = detail;
+  const { tasks, participants, permissions, event } = detail;
   const [editingId, setEditingId] = useState<string | null>(null);
   const [adding, setAdding] = useState(tasks.length === 0);
   const [error, setError] = useState<string | null>(null);
 
-  const stageName = (id: string | null) => (id ? stages.find((s) => s.id === id)?.name ?? "—" : stages.length ? "All stages" : null);
   const nameOf = (pid: string) => participants.find((p) => p.id === pid)?.name ?? "Removed";
 
   async function move(task: Task, delta: -1 | 1) {
@@ -29,6 +28,7 @@ export function AgendaSection({ detail, mutate }: { detail: EventDetail; mutate:
     }
   }
 
+  // v1 events are single-stage: every task runs on the one stage, one after another.
   const toBody = (v: TaskValues) => ({ ...v, durationMinutes: Number(v.durationMinutes) });
 
   return (
@@ -36,9 +36,6 @@ export function AgendaSection({ detail, mutate }: { detail: EventDetail; mutate:
       <h2 id="agenda-heading">
         Agenda <span className="count">{tasks.length}</span>
       </h2>
-      {stages.length > 0 && (
-        <p className="muted small">"All stages" tasks run everywhere at once. Tasks on a stage run side by side with the other stages.</p>
-      )}
       <Alert>{error}</Alert>
 
       {tasks.length > 0 && (
@@ -67,7 +64,6 @@ export function AgendaSection({ detail, mutate }: { detail: EventDetail; mutate:
                   <strong>{task.title}</strong>
                   <span className="muted small">
                     {formatDuration(task.durationMinutes)}
-                    {stageName(task.stageId) && <> · <span className="stage-tag">{stageName(task.stageId)}</span></>}
                   </span>
                   {task.assigneeIds.length > 0 && (
                     <span className="small assignees">{task.assigneeIds.map(nameOf).join(", ")}</span>
