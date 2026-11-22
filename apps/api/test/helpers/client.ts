@@ -5,6 +5,7 @@
  */
 import { vi } from "vitest";
 import { app } from "../../src/app";
+import { sendEmail } from "../../src/mail";
 import type { Env } from "../../src/env";
 import { createTestDb } from "./d1";
 import { fakeLiveNamespace } from "./live";
@@ -22,7 +23,7 @@ export function createTestEnv() {
   const emails: SentEmail[] = [];
   const env: Env = {
     DB: db,
-    LIVE_EVENT: fakeLiveNamespace(() => db),
+    LIVE_EVENT: fakeLiveNamespace(() => db, undefined, () => ({ appOrigin: ORIGIN, send: (e) => sendEmail(env, e) })),
     APP_ENV: "test",
     APP_ORIGIN: ORIGIN,
     EMAIL_MODE: "send",

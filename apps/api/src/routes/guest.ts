@@ -42,7 +42,10 @@ async function loadLink(c: Context<AppEnv>, token: string): Promise<LinkRow> {
   )
     .bind(await sha256Hex(token))
     .first<LinkRow>();
-  if (!row || row.revoked_at) fail(404, "This link isn't valid any more. Ask the event team for a new one.", { code: "link_invalid" });
+  if (!row) fail(404, "This link isn't valid. Ask the event team for a new one.", { code: "link_invalid" });
+  if (row.revoked_at) {
+    fail(404, "This link has been replaced. Please use the link in your most recent email from Qrono about this event.", { code: "link_replaced" });
+  }
   if (row.expires_at <= nowIso()) fail(410, "This event has ended, so this link no longer works.", { code: "link_expired" });
   return row;
 }

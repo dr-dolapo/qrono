@@ -17,8 +17,11 @@ export function EventDetailsForm({
   submitLabel,
   onSubmit,
   onCancel,
+  startLocked = false,
 }: {
   initial?: EventDetailsValues;
+  /** Once an event is live, its start time and time zone can't change. */
+  startLocked?: boolean;
   submitLabel: string;
   onSubmit: (values: EventDetailsValues) => Promise<void>;
   onCancel?: () => void;
@@ -55,12 +58,21 @@ export function EventDetailsForm({
         {form.fields.description && <p className="field-error">{form.fields.description}</p>}
       </div>
       <div className="field-row">
-        <TextField label="Starts" type="datetime-local" value={start} onChange={setStart} error={form.fields.startAt} required />
+        <TextField
+          label="Starts"
+          type="datetime-local"
+          value={start}
+          onChange={setStart}
+          error={form.fields.startAt}
+          hint={startLocked ? "The event has started." : undefined}
+          disabled={startLocked}
+          required
+        />
         <TextField label="Ends" type="datetime-local" value={end} onChange={setEnd} error={form.fields.endAt} required />
       </div>
       <div className="field">
         <label htmlFor="event-timezone">Time zone</label>
-        <select id="event-timezone" value={timezone} onChange={(e) => setTimezone(e.target.value)}>
+        <select id="event-timezone" value={timezone} onChange={(e) => setTimezone(e.target.value)} disabled={startLocked}>
           {zones.map((z) => (
             <option key={z} value={z}>
               {z.replace(/_/g, " ")}

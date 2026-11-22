@@ -3,9 +3,11 @@ import { z } from "zod";
 import { requireVerifiedUser } from "../auth/session";
 import type { AppEnv } from "../env";
 import { fail } from "../errors";
-import { loadEditableEvent, loadEvent } from "../events/access";
+import { isPublished, loadEditableEvent, loadEvent, type EventRow } from "../events/access";
 import { eventDetail, resyncSchedule } from "../events/detail";
 import { newId, nowIso } from "../ids";
+import { markChanged } from "../live/changes";
+import { liveCommand } from "./live";
 import { MANAGERS, requireMembership } from "../teams/permissions";
 import { emailField, json } from "../validation";
 
@@ -133,6 +135,17 @@ export const events = new Hono<AppEnv>()
   .patch("/:eventId", json(eventFields.partial()), async (c) => {
     const { event } = await loadEditableEvent(c, c.req.param("eventId"));
     const body = c.req.valid("json");
+    if (event.status === "live") {
+      if (body.startAt && body.startAt !== event.start_at) {
+        fail(409, "The event has already started, so its start time can't change.", { fields: { startAt: "The event has already started." } });
+      }
+      if (body.endAt && Date.parse(body.endAt) <= Date.now()) {
+        fail(400, "Please check the highlighted fields.", { fields: { endAt: "That time has already passed." } });
+      }
+      if (body.timezone && body.timezone !== event.timezone) {
+        fail(409, "The event has already started, so its time zone can't change.", { fields: { timezone: "The event has already started." } });
+      }
+    }
     const next = {
       name: body.name ?? event.name,
       description: body.description === undefined ? event.description : body.description || null,
@@ -149,12 +162,23 @@ export const events = new Hono<AppEnv>()
       .bind(next.name, next.description, next.startAt, next.endAt, next.timezone, next.progressionMode, nowIso(), event.id)
       .run();
     await resyncSchedule(c, event.id);
+    if (isPublished(event.status) && next.endAt !== event.end_at) {
+      // Guests' links expire when the event ends.
+      await c.env.DB.prepare(
+        `UPDATE guest_access_links SET expires_at = ?
+          WHERE revoked_at IS NULL AND participant_id IN (SELECT id FROM event_participants WHERE event_id = ?)`,
+      )
+        .bind(next.endAt, event.id)
+        .run();
+    }
+    await afterPlanEdit(c, event);
     return c.json(await eventDetail(c, await loadEvent(c, event.id)));
   })
 
   /** Delete a draft event. */
   .delete("/:eventId", async (c) => {
     const { event } = await loadEditableEvent(c, c.req.param("eventId"));
+    if (event.status !== "draft") fail(409, "Only draft events can be deleted. To stop a live event, end it from the command centre.", { code: "event_not_draft" });
     await c.env.DB.prepare("DELETE FROM events WHERE id = ?").bind(event.id).run();
     return c.json({ deleted: true });
   })
@@ -168,6 +192,7 @@ export const events = new Hono<AppEnv>()
     await c.env.DB.prepare("INSERT INTO stages (id, event_id, name, venue, sort_order) VALUES (?, ?, ?, ?, ?)")
       .bind(newId(), event.id, name, venue || null, (max?.m ?? -1) + 1)
       .run();
+    await afterPlanEdit(c, event);
     return c.json(await eventDetail(c, await loadEvent(c, event.id)), 201);
   })
 
@@ -180,6 +205,7 @@ export const events = new Hono<AppEnv>()
       .bind(body.name ?? null, body.venue !== undefined ? 1 : 0, body.venue || null, nowIso(), c.req.param("stageId"), event.id)
       .run();
     if (!res.meta.changes) fail(404, "Stage not found.");
+    await afterPlanEdit(c, event);
     return c.json(await eventDetail(c, await loadEvent(c, event.id)));
   })
 
@@ -193,6 +219,7 @@ export const events = new Hono<AppEnv>()
     }
     const res = await c.env.DB.prepare("DELETE FROM stages WHERE id = ? AND event_id = ?").bind(stageId, event.id).run();
     if (!res.meta.changes) fail(404, "Stage not found.");
+    await afterPlanEdit(c, event);
     return c.json(await eventDetail(c, await loadEvent(c, event.id)));
   })
 
@@ -238,6 +265,7 @@ export const events = new Hono<AppEnv>()
           .bind(id, event.id, body.guestName, body.guestEmail)
           .run();
       }
+      await afterPlanEdit(c, event);
       return c.json({ participantId: id, ...(await eventDetail(c, await loadEvent(c, event.id))) }, 201);
     },
   )
@@ -247,6 +275,7 @@ export const events = new Hono<AppEnv>()
     const { event } = await loadEditableEvent(c, c.req.param("eventId"));
     const res = await c.env.DB.prepare("DELETE FROM event_participants WHERE id = ? AND event_id = ?").bind(c.req.param("participantId"), event.id).run();
     if (!res.meta.changes) fail(404, "Participant not found.");
+    await afterPlanEdit(c, event);
     return c.json(await eventDetail(c, await loadEvent(c, event.id)));
   })
 
@@ -268,14 +297,16 @@ export const events = new Hono<AppEnv>()
       ...assignmentStatements(c, id, assignees),
     ]);
     await resyncSchedule(c, event.id);
+    await afterPlanEdit(c, event);
     return c.json({ taskId: id, ...(await eventDetail(c, await loadEvent(c, event.id))) }, 201);
   })
 
   .patch("/:eventId/tasks/:taskId", json(taskFields.partial()), async (c) => {
     const { event } = await loadEditableEvent(c, c.req.param("eventId"));
     const taskId = c.req.param("taskId");
-    const task = await c.env.DB.prepare("SELECT id FROM tasks WHERE id = ? AND event_id = ?").bind(taskId, event.id).first();
+    const task = await c.env.DB.prepare("SELECT id, status FROM tasks WHERE id = ? AND event_id = ?").bind(taskId, event.id).first<{ id: string; status: string }>();
     if (!task) fail(404, "Task not found.");
+    if (task.status === "done" || task.status === "skipped") fail(409, "This task has already happened, so it can't be changed.", { code: "task_finished" });
     const body = c.req.valid("json");
     if (body.stageId !== undefined) await checkStage(c, event.id, body.stageId);
 
@@ -305,14 +336,20 @@ export const events = new Hono<AppEnv>()
     }
     await c.env.DB.batch(statements);
     await resyncSchedule(c, event.id);
+    await afterPlanEdit(c, event);
     return c.json(await eventDetail(c, await loadEvent(c, event.id)));
   })
 
   .delete("/:eventId/tasks/:taskId", async (c) => {
     const { event } = await loadEditableEvent(c, c.req.param("eventId"));
-    const res = await c.env.DB.prepare("DELETE FROM tasks WHERE id = ? AND event_id = ?").bind(c.req.param("taskId"), event.id).run();
-    if (!res.meta.changes) fail(404, "Task not found.");
+    const res = await c.env.DB.prepare("DELETE FROM tasks WHERE id = ? AND event_id = ? AND status = 'upcoming'").bind(c.req.param("taskId"), event.id).run();
+    if (!res.meta.changes) {
+      const exists = await c.env.DB.prepare("SELECT 1 FROM tasks WHERE id = ? AND event_id = ?").bind(c.req.param("taskId"), event.id).first();
+      if (exists) fail(409, "This task has already started, so it can't be deleted.", { code: "task_started" });
+      fail(404, "Task not found.");
+    }
     await resyncSchedule(c, event.id);
+    await afterPlanEdit(c, event);
     return c.json(await eventDetail(c, await loadEvent(c, event.id)));
   })
 
@@ -320,17 +357,35 @@ export const events = new Hono<AppEnv>()
   .put("/:eventId/tasks/order", json(z.object({ taskIds: z.array(z.string()).max(500) })), async (c) => {
     const { event } = await loadEditableEvent(c, c.req.param("eventId"));
     const { taskIds } = c.req.valid("json");
-    const { results } = await c.env.DB.prepare("SELECT id FROM tasks WHERE event_id = ?").bind(event.id).all<{ id: string }>();
+    const { results } = await c.env.DB.prepare("SELECT id, status FROM tasks WHERE event_id = ? ORDER BY sort_order, created_at")
+      .bind(event.id)
+      .all<{ id: string; status: string }>();
     const current = new Set(results.map((r) => r.id));
+    // Tasks that have started or finished stay where they are.
+    const fixed = results.filter((r) => r.status !== "upcoming").map((r) => r.id);
+    if (fixed.some((id, i) => taskIds[i] !== id)) {
+      fail(409, "Tasks that have already started can't be moved.", { code: "task_started" });
+    }
     if (taskIds.length !== current.size || new Set(taskIds).size !== taskIds.length || taskIds.some((id) => !current.has(id))) {
       fail(400, "The agenda changed while you were editing. Reload and try again.", { code: "order_mismatch" });
     }
     await c.env.DB.batch(taskIds.map((id, i) => c.env.DB.prepare("UPDATE tasks SET sort_order = ? WHERE id = ?").bind(i, id)));
     await resyncSchedule(c, event.id);
+    await afterPlanEdit(c, event);
     return c.json(await eventDetail(c, await loadEvent(c, event.id)));
   });
 
 // ───────────── Helpers ─────────────
+
+/**
+ * After a change to an approved or live event: refresh every screen now, and
+ * email the people affected 2 minutes after the last change (batched).
+ */
+async function afterPlanEdit(c: Ctx, event: EventRow): Promise<void> {
+  if (!isPublished(event.status)) return;
+  await markChanged(c.env.DB, event.id);
+  await liveCommand(c, event.id, "edited", c.get("user")?.id ?? null);
+}
 
 type Ctx = Parameters<typeof loadEvent>[0];
 

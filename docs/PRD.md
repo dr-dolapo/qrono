@@ -136,6 +136,13 @@ Running a live event with many people involved, and keeping it free of dead air,
 Draft → Review → Approved → Live → Past
 ```
 
+**Changing an approved or live event (decided):** Admins and Approvers can change an approved event, and a live one, without sending it back for review. Everyone affected is notified automatically:
+- Everyone's screens update straight away.
+- Emails are batched. **2 minutes after the last change**, each person whose part changed gets one email with their new and old tasks. People newly added get the usual welcome (guests get their personal link), and people removed are told. Anyone whose part didn't change gets nothing.
+- Guests get a fresh personal link with each change email, and older links point them to the newest email.
+- Once an event is **live**, its start time and time zone are fixed. Tasks that have finished can't be changed, and tasks that have started can't be moved or deleted. The current task can still be lengthened.
+- While an event is **in review**, the plan stays locked. To change it, move it back to draft.
+
 ---
 
 ## 8. Event formats

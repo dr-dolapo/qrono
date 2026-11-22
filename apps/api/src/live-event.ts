@@ -1,6 +1,7 @@
 import { DurableObject } from "cloudflare:workers";
 import type { Env } from "./env";
 import { runCommand, type CommandResult, type LiveCommand } from "./live/commands";
+import { sendEmail } from "./mail";
 import { snapshot } from "./live/engine";
 
 /**
@@ -38,7 +39,7 @@ export class LiveEvent extends DurableObject<Env> {
 
     if (url.pathname === "/command" && request.method === "POST") {
       const cmd = (await request.json()) as LiveCommand;
-      const result = await runCommand(this.env.DB, eventId, cmd, Date.now());
+      const result = await runCommand(this.env.DB, eventId, cmd, Date.now(), this.hooks());
       if (result.ok) await this.afterChange(result);
       return Response.json(result, { status: result.status });
     }
@@ -49,7 +50,7 @@ export class LiveEvent extends DurableObject<Env> {
   async alarm(): Promise<void> {
     const eventId = await this.ctx.storage.get<string>("eventId");
     if (!eventId) return;
-    const result = await runCommand(this.env.DB, eventId, { action: "tick", by: null }, Date.now());
+    const result = await runCommand(this.env.DB, eventId, { action: "tick", by: null }, Date.now(), this.hooks());
     if (result.ok) await this.afterChange(result);
   }
 
@@ -68,6 +69,12 @@ export class LiveEvent extends DurableObject<Env> {
     send(this.ctx.getWebSockets(), JSON.stringify(result.snapshot));
     for (const d of result.deliveries) send(this.ctx.getWebSockets(`user:${d.userId}`), JSON.stringify(d.message));
     if (result.broadcastsChanged) send(this.ctx.getWebSockets("manager"), JSON.stringify({ type: "broadcasts-changed" }));
+    if (result.planChanged) send(this.ctx.getWebSockets(), JSON.stringify({ type: "plan-changed" }));
+  }
+
+  /** How the room emails change notices. */
+  private hooks() {
+    return { appOrigin: this.env.APP_ORIGIN, send: (email: Parameters<typeof sendEmail>[1]) => sendEmail(this.env, email) };
   }
 }
 

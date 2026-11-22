@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import type { EventDetail } from "../../api";
 import { useClock } from "../../useClock";
-import { formatCountdown, liveView, type LiveConnection, type LiveState } from "../../useLiveEvent";
+import { formatCountdown, formatStartsIn, liveView, type LiveConnection, type LiveState } from "../../useLiveEvent";
 
 /**
  * QR023–QR025 on the web: while an event is approved or live, everyone on it
@@ -35,7 +35,7 @@ export function LiveNow({
     return (
       <section className="live-now" aria-live="polite">
         <span className="live-label">Starts in</span>
-        <strong className="live-countdown">{startsIn > 0 ? formatCountdown(startsIn) : "a moment"}</strong>
+        <strong className="live-countdown">{startsIn > 0 ? formatStartsIn(startsIn) : "a moment"}</strong>
         {connection !== "connected" && <span className="muted small"> · reconnecting…</span>}
       </section>
     );

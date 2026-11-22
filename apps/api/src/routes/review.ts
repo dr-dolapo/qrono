@@ -1,12 +1,12 @@
 import { Hono } from "hono";
 import type { Context } from "hono";
 import { z } from "zod";
-import { newSecretToken, sha256Hex } from "../auth/crypto";
 import { currentUser, inBackground, requireVerifiedUser } from "../auth/session";
 import type { AppEnv } from "../env";
 import { fail } from "../errors";
 import { loadEvent, type EventRow, type EventStatus } from "../events/access";
 import { eventDetail } from "../events/detail";
+import { createGuestLink, writeBaseline } from "../live/changes";
 import { newId, nowIso } from "../ids";
 import {
   assignedEmail,
@@ -210,21 +210,14 @@ async function notifyOnApproval(c: Ctx, event: EventRow, approverName: string, a
     if (p.user_id) {
       inBackground(c, sendEmail(c.env, { to: p.email!, ...assignedEmail(p.first_name!, team!.name, event.name, when, tasksFor(p.id), eventLink) }));
     } else {
-      const token = newSecretToken();
-      writes.push(
-        db.prepare("UPDATE guest_access_links SET revoked_at = ? WHERE participant_id = ? AND revoked_at IS NULL").bind(now, p.id),
-        db.prepare("INSERT INTO guest_access_links (id, participant_id, token_hash, expires_at) VALUES (?, ?, ?, ?)").bind(
-          newId(),
-          p.id,
-          await sha256Hex(token),
-          event.end_at,
-        ),
-      );
+      const token = await createGuestLink(db, p.id, event.end_at);
       const link = `${c.env.APP_ORIGIN}/g/${token}`;
       inBackground(c, sendEmail(c.env, { to: p.guest_email!, ...guestInviteEmail(p.guest_name!, team!.name, event.name, when, tasksFor(p.id), link) }));
     }
   }
   writes.push(db.prepare("UPDATE event_participants SET notified_at = ? WHERE event_id = ?").bind(now, event.id));
   await db.batch(writes);
+  // Remember what everyone was told, so later changes only notify those affected.
+  await writeBaseline(db, event.id);
 }
 

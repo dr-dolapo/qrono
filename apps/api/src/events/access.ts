@@ -54,12 +54,20 @@ export async function loadEvent(c: Context<AppEnv>, eventId: string): Promise<Ev
   return { event, role: my_role, canManage };
 }
 
-/** For changes to the plan: Approvers/Admins only, and only while the event is a draft (QR020). */
+/**
+ * For changes to the plan (QR020): Approvers/Admins only. Drafts, approved and
+ * live events can be edited; changes to approved/live events are sent to the
+ * people affected. While in review the plan is locked; past events are final.
+ */
 export async function loadEditableEvent(c: Context<AppEnv>, eventId: string): Promise<EventAccess> {
   const access = await loadEvent(c, eventId);
   if (!access.canManage) fail(403, "Only Approvers and Admins can edit events.");
-  if (access.event.status !== "draft") {
-    fail(409, "Only draft events can be edited.", { code: "event_not_draft" });
+  if (access.event.status === "review") {
+    fail(409, "This event is in review, so its plan is locked. Move it back to draft to change it.", { code: "event_in_review" });
   }
+  if (access.event.status === "past") fail(409, "This event has ended, so it can't be changed.", { code: "event_past" });
   return access;
 }
+
+/** Whether edits to this event must be announced to the people affected. */
+export const isPublished = (status: EventStatus) => status === "approved" || status === "live";

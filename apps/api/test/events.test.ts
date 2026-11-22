@@ -67,12 +67,12 @@ describe("creating and editing events (QR019, QR020, QR022)", () => {
     expect(bad.status).toBe(400);
   });
 
-  it("only allows editing while the event is a draft", async () => {
+  it("locks the plan while the event is in review", async () => {
     const id = await createEvent();
     t.sqlite.prepare("UPDATE events SET status = 'review' WHERE id = ?").run(id);
     const res = await ada.request("PATCH", `/api/events/${id}`, { name: "Changed" });
     expect(res.status).toBe(409);
-    expect(res.json.code).toBe("event_not_draft");
+    expect(res.json.code).toBe("event_in_review");
     expect((await ada.post(`/api/events/${id}/tasks`, { title: "X", durationMinutes: 5 })).status).toBe(409);
     expect((await ada.get(`/api/events/${id}`)).json.permissions.canEdit).toBe(false);
   });

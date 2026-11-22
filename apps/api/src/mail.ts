@@ -147,3 +147,32 @@ export function guestInviteEmail(name: string, teamName: string, eventName: stri
     html: layout(`You're on the program for ${eventName}`, body, "See the program and confirm", link, footer, tasks),
   };
 }
+
+// ───────────── Changes after approval ─────────────
+
+export function planChangedEmail(
+  name: string,
+  eventName: string,
+  when: string,
+  now: string[],
+  before: string[],
+  link: string,
+): Omit<OutgoingEmail, "to"> {
+  const body = `Hi ${name}, the program for "${eventName}" (${when}) has changed. Your part is now:`;
+  const previously = before.length ? `Before the change: ${before.join("; ")}.` : "You had no tasks before.";
+  const footer = `${previously} Please check the program and let the team know if this doesn't work for you.`;
+  return {
+    subject: `Changes to the program: ${eventName}`,
+    text: withText(body, now.length ? now : ["No tasks at the moment"], link, footer),
+    html: layout(`"${eventName}" has changed`, body, "See the program", link, footer, now.length ? now : ["No tasks at the moment"]),
+  };
+}
+
+export function removedFromProgramEmail(name: string, eventName: string, when: string): Omit<OutgoingEmail, "to"> {
+  const body = `Hi ${name}, you're no longer on the program for "${eventName}" (${when}). You don't need to do anything.`;
+  return {
+    subject: `You're no longer on the program: ${eventName}`,
+    text: `${body}\n\nIf you think this is a mistake, contact the event team.`,
+    html: `<!doctype html><html><body style="margin:0;padding:24px;background:#f4f5f7;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#111"><table role="presentation" width="100%" style="max-width:520px;margin:0 auto;background:#fff;border-radius:12px;padding:32px"><tr><td><p style="font-weight:800;font-size:20px;margin:0 0 24px">Qrono</p><p style="line-height:1.5;margin:0 0 16px">${escapeHtml(body)}</p><p style="font-size:13px;color:#666;margin:0">If you think this is a mistake, contact the event team.</p></td></tr></table></body></html>`,
+  };
+}

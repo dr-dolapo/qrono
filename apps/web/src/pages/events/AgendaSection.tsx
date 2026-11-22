@@ -17,6 +17,11 @@ export function AgendaSection({ detail, mutate }: { detail: EventDetail; mutate:
 
   const nameOf = (pid: string) => participants.find((p) => p.id === pid)?.name ?? "Removed";
 
+  // Once live, tasks that have started stay where they are (the API enforces this too).
+  const firstMovable = tasks.findIndex((t) => t.status === "upcoming");
+  const movable = (t: Task) => t.status === "upcoming";
+  const STATUS_TAG: Record<string, string> = { done: "Done", in_progress: "Now", skipped: "Skipped" };
+
   async function move(task: Task, delta: -1 | 1) {
     const ids = tasks.map((t) => t.id);
     const i = ids.indexOf(task.id);
@@ -65,7 +70,10 @@ export function AgendaSection({ detail, mutate }: { detail: EventDetail; mutate:
                   <span className="muted small">{formatTime(task.endAt, event.timezone)}</span>
                 </div>
                 <div className="row-main">
-                  <strong>{task.title}</strong>
+                  <strong>
+                    {task.title}
+                    {STATUS_TAG[task.status] && <span className={`task-tag task-${task.status}`}>{STATUS_TAG[task.status]}</span>}
+                  </strong>
                   <span className="muted small">
                     {formatDuration(task.durationMinutes)}
                   </span>
@@ -82,16 +90,22 @@ export function AgendaSection({ detail, mutate }: { detail: EventDetail; mutate:
                   >
                     {commentCount(task.id) ? `Comments (${commentCount(task.id)})` : "Comment"}
                   </button>
-                {permissions.canEdit && (
+                {permissions.canEdit && task.status !== "done" && task.status !== "skipped" && (
                   <>
-                    <button type="button" className="icon-button" aria-label={`Move ${task.title} up`} disabled={index === 0} onClick={() => move(task, -1)}>
+                    <button
+                      type="button"
+                      className="icon-button"
+                      aria-label={`Move ${task.title} up`}
+                      disabled={!movable(task) || index === 0 || index <= firstMovable}
+                      onClick={() => move(task, -1)}
+                    >
                       ↑
                     </button>
                     <button
                       type="button"
                       className="icon-button"
                       aria-label={`Move ${task.title} down`}
-                      disabled={index === tasks.length - 1}
+                      disabled={!movable(task) || index === tasks.length - 1}
                       onClick={() => move(task, 1)}
                     >
                       ↓
@@ -99,13 +113,15 @@ export function AgendaSection({ detail, mutate }: { detail: EventDetail; mutate:
                     <button type="button" className="button button-small" onClick={() => setEditingId(task.id)}>
                       Edit
                     </button>
-                    <button
-                      type="button"
-                      className="button button-small"
-                      onClick={() => mutate(`/tasks/${task.id}`, "DELETE").catch(() => setError("Couldn't delete that task."))}
-                    >
-                      Delete
-                    </button>
+                    {movable(task) && (
+                      <button
+                        type="button"
+                        className="button button-small"
+                        onClick={() => mutate(`/tasks/${task.id}`, "DELETE").catch(() => setError("Couldn't delete that task."))}
+                      >
+                        Delete
+                      </button>
+                    )}
                   </>
                 )}
                 </div>
