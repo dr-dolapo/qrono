@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { NavLink, useNavigate } from "react-router";
+import { NavLink, useLocation, useNavigate } from "react-router";
 import { ROLE_LABEL } from "../api";
 import { useAuth } from "../auth/AuthContext";
 
@@ -7,6 +7,7 @@ import { useAuth } from "../auth/AuthContext";
 export function AppShell({ children }: { children: ReactNode }) {
   const { user, teams, currentTeam, setCurrentTeam, logout } = useAuth();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const activeTeams = teams.filter((t) => t.status === "active");
 
   return (
@@ -30,7 +31,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           ))}
         {currentTeam && <span className="badge">{ROLE_LABEL[currentTeam.role]}</span>}
         <nav className="topnav" aria-label="Main">
-          <NavLink to="/admin" end>
+          <NavLink to="/admin" className={() => (pathname.startsWith("/admin/team") ? "" : "active")}>
             Events
           </NavLink>
           <NavLink to="/admin/team">Team</NavLink>

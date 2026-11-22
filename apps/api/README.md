@@ -42,6 +42,14 @@ from there.
 | `POST /api/teams/:id/invite-link` | QR001: shareable link (30 days; joiners wait for approval) |
 | `GET /api/invites/:token`, `POST /api/invites/:token/accept` | Invite landing page and joining |
 
+| `GET/POST /api/teams/:id/events` | QR019 / QR022: list events, create a draft |
+| `GET/PATCH/DELETE /api/events/:eid` | QR020: view, edit or delete a draft |
+| `POST/PATCH/DELETE /api/events/:eid/stages[/:sid]` | Stages (halls) |
+| `POST/PATCH/DELETE /api/events/:eid/tasks[/:tid]`, `PUT …/tasks/order` | Agenda tasks, assignees and order |
+| `POST/DELETE /api/events/:eid/participants[/:pid]` | QR021: team members and guests |
+
+Agenda timing (`src/events/schedule.ts`): tasks run in agenda order. A task on a stage runs after the previous task on that stage, so stages run side by side. A task for "all stages" waits for every stage to finish, so breakouts can split off and come back together. Start times are recomputed and stored after every change.
+
 Team rules:
 - Approvers and Admins can invite, approve, change roles and remove people.
 - Only an Approver can make someone an Approver, or change or remove an Approver.

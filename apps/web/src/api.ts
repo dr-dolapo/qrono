@@ -77,3 +77,70 @@ export interface InviteInfo {
 }
 
 export const ROLE_LABEL: Record<Role, string> = { approver: "Approver", admin: "Admin", member: "Member" };
+
+export type EventStatus = "draft" | "review" | "approved" | "live" | "past";
+
+export const STATUS_LABEL: Record<EventStatus, string> = {
+  draft: "Draft",
+  review: "In review",
+  approved: "Approved",
+  live: "Live",
+  past: "Past",
+};
+
+export interface EventSummary {
+  id: string;
+  name: string;
+  startAt: string;
+  endAt: string;
+  timezone: string;
+  status: EventStatus;
+  taskCount: number;
+  participantCount: number;
+}
+
+export interface Stage {
+  id: string;
+  name: string;
+  venue: string | null;
+}
+
+export interface Task {
+  id: string;
+  stageId: string | null;
+  title: string;
+  description: string | null;
+  durationMinutes: number;
+  status: string;
+  startAt: string;
+  endAt: string;
+  assigneeIds: string[];
+}
+
+export interface Participant {
+  id: string;
+  kind: "member" | "guest";
+  userId: string | null;
+  name: string;
+  email: string;
+  response: "pending" | "acknowledged" | "declined";
+}
+
+export interface EventDetail {
+  event: {
+    id: string;
+    teamId: string;
+    name: string;
+    description: string | null;
+    startAt: string;
+    endAt: string;
+    timezone: string;
+    status: EventStatus;
+    progressionMode: "auto" | "manual";
+  };
+  permissions: { canEdit: boolean; canManage: boolean };
+  stages: Stage[];
+  tasks: Task[];
+  participants: Participant[];
+  schedule: { endsAt: string; overrunMinutes: number };
+}
