@@ -1,4 +1,5 @@
 import { broadcastMessage, nextSnoozeAt, recipientIds, releaseDueSnoozes, type BroadcastMessage } from "./broadcasts";
+import { flushChanges, notifyDueAt, type NotifyHooks } from "./changes";
 import { endEvent, goLive, LiveError, nextTask, snapshot, tick, type LiveSnapshot } from "./engine";
 
 /**
@@ -6,8 +7,9 @@ import { endEvent, goLive, LiveError, nextTask, snapshot, tick, type LiveSnapsho
  * - tick: apply whatever is due (alarm, or after approval).
  * - broadcast: deliver a new broadcast to its recipients.
  * - replied: someone answered a broadcast; refresh Admins' views and re-plan snoozes.
+ * - edited: an Admin changed an approved/live event; refresh screens, plan the notices.
  */
-export type LiveAction = "tick" | "start" | "next" | "end" | "broadcast" | "replied";
+export type LiveAction = "tick" | "start" | "next" | "end" | "broadcast" | "replied" | "edited";
 
 export interface LiveCommand {
   action: LiveAction | "arm";
@@ -31,6 +33,10 @@ export interface CommandResult {
   deliveries: Delivery[];
   /** Tell Approvers'/Admins' screens to refresh their broadcast replies. */
   broadcastsChanged: boolean;
+  /** Tell every screen the plan changed, so event pages reload it. */
+  planChanged: boolean;
+  /** Change notices emailed during this command. */
+  noticesSent: number;
 }
 
 const earliest = (...times: (number | null)[]) => {
@@ -43,9 +49,11 @@ const earliest = (...times: (number | null)[]) => {
  * room next needs to wake. Used by the LiveEvent Durable Object (and by
  * tests, without one).
  */
-export async function runCommand(db: D1Database, eventId: string, cmd: LiveCommand, now: number): Promise<CommandResult> {
+export async function runCommand(db: D1Database, eventId: string, cmd: LiveCommand, now: number, hooks?: NotifyHooks): Promise<CommandResult> {
   const deliveries: Delivery[] = [];
   let broadcastsChanged = false;
+  const planChanged = cmd.action === "edited";
+  let noticesSent = 0;
   try {
     if (cmd.action === "start") await goLive(db, eventId, now, cmd.by);
     if (cmd.action === "next") await nextTask(db, eventId, now);
@@ -71,9 +79,24 @@ export async function runCommand(db: D1Database, eventId: string, cmd: LiveComma
       wakeSnooze = await nextSnoozeAt(db, eventId);
     }
 
-    return { ok: true, status: 200, snapshot: snap, wakeAt: earliest(wakeTick, wakeSnooze), deliveries, broadcastsChanged };
+    // Batched change notices (2 minutes after the last edit).
+    if (hooks) noticesSent = await flushChanges(db, eventId, now, hooks);
+    const wakeNotify = await notifyDueAt(db, eventId);
+
+    return {
+      ok: true,
+      status: 200,
+      snapshot: snap,
+      wakeAt: earliest(wakeTick, wakeSnooze, wakeNotify),
+      deliveries,
+      broadcastsChanged,
+      planChanged,
+      noticesSent,
+    };
   } catch (err) {
-    if (err instanceof LiveError) return { ok: false, status: err.status, error: err.message, wakeAt: null, deliveries: [], broadcastsChanged: false };
+    if (err instanceof LiveError) {
+      return { ok: false, status: err.status, error: err.message, wakeAt: null, deliveries: [], broadcastsChanged: false, planChanged: false, noticesSent: 0 };
+    }
     throw err;
   }
 }

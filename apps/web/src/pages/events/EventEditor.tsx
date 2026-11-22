@@ -38,6 +38,8 @@ export function EventEditor() {
   const liveActive = detail?.event.status === "approved" || detail?.event.status === "live";
   const live = useLiveEvent(eventId, liveActive, (msg) => {
     if (msg.type === "broadcast" || msg.type === "broadcasts-changed") broadcastSignal.bump();
+    // Someone changed the plan: show the new one straight away.
+    if (msg.type === "plan-changed") load();
   });
 
   const mutate: Mutate = useCallback(
@@ -79,6 +81,7 @@ export function EventEditor() {
           <h2>Event details</h2>
           <EventDetailsForm
             initial={event}
+            startLocked={event.status === "live"}
             submitLabel="Save details"
             onCancel={() => setEditingDetails(false)}
             onSubmit={async (values) => {
@@ -103,7 +106,7 @@ export function EventEditor() {
               <button type="button" className="button button-small" onClick={() => setEditingDetails(true)}>
                 Edit details
               </button>
-              {confirmDelete ? (
+              {event.status === "draft" && (confirmDelete ? (
                 <>
                   <button
                     type="button"
@@ -127,7 +130,7 @@ export function EventEditor() {
                 <button type="button" className="button button-small" onClick={() => setConfirmDelete(true)}>
                   Delete draft
                 </button>
-              )}
+              ))}
             </div>
           )}
         </header>

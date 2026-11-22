@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router";
 import { ApiError, api, type EventDetail } from "../api";
 import { useClock } from "../useClock";
-import { formatCountdown, liveView, useLiveEvent, type LiveState } from "../useLiveEvent";
+import { formatCountdown, formatStartsIn, liveView, useLiveEvent, type LiveState } from "../useLiveEvent";
 import { formatTime } from "../time";
 
 /**
@@ -110,7 +110,7 @@ export function CommandCentre() {
         <section className="command-status">
           {startsIn > 0 ? (
             <>
-              Starts in <strong>{formatCountdown(startsIn)}</strong> at {formatTime(event.startAt, tz)}
+              Starts in <strong>{formatStartsIn(startsIn)}</strong> at {formatTime(event.startAt, tz)}
             </>
           ) : (
             "Starting…"

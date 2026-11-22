@@ -133,7 +133,10 @@ export function ReviewPanel({ detail, mutate }: { detail: EventDetail; mutate: M
       <section className="review-panel review-live" aria-label="Status">
         <div className="review-text">
           <strong>Live</strong>
-          <span className="muted small">The event is running. The plan can't be changed now.</span>
+          <span className="muted small">
+            The event is running.{" "}
+            {permissions.canEdit && "You can still change what hasn't happened yet; the people affected are emailed 2 minutes after your last change."}
+          </span>
         </div>
         {commandLink}
       </section>
@@ -159,6 +162,7 @@ export function ReviewPanel({ detail, mutate }: { detail: EventDetail; mutate: M
           {approvedBy.length > 0 &&
             `Approved by ${names(approvedBy)} on ${new Date(approvedBy[0]!.approvedAt!).toLocaleDateString([], { day: "numeric", month: "short" })}. `}
           Everyone on the program has been emailed their part.
+          {permissions.canEdit && " If you change the plan, the people affected are emailed 2 minutes after your last change."}
         </span>
       </div>
       {commandLink}

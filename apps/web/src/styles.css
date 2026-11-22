@@ -341,3 +341,9 @@ h1 { font-size: 1.75rem; margin: 0.5rem 0 1rem; }
 .broadcast-line { display: flex; gap: 1rem; align-items: center; justify-content: space-between; }
 .broadcast-receipts { margin: 0.75rem 0 0.25rem; }
 @media (max-width: 720px) { .broadcast-line { flex-direction: column; align-items: stretch; } }
+
+.task-tag { margin-left: 0.5rem; font-size: 0.7rem; font-weight: 700; padding: 0.1rem 0.45rem; border-radius: 999px; vertical-align: middle; }
+.task-in_progress { background: rgba(255, 92, 92, 0.18); color: #ff8a8a; }
+.task-done { background: rgba(52, 199, 123, 0.16); color: var(--ok); }
+.task-skipped { background: rgba(255, 255, 255, 0.08); color: var(--muted); }
+.field input:disabled, .field select:disabled { opacity: 0.55; cursor: not-allowed; }

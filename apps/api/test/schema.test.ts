@@ -52,6 +52,7 @@ describe("schema", () => {
       "events",
       "guest_access_links",
       "notifications",
+      "plan_notices",
       "rate_limits",
       "sessions",
       "stages",

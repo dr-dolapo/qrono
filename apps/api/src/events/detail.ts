@@ -155,7 +155,7 @@ export async function eventDetail(c: Context<AppEnv>, access: EventAccess) {
       updatedAt: event.updated_at,
     },
     permissions: {
-      canEdit: access.canManage && event.status === "draft",
+      canEdit: access.canManage && (event.status === "draft" || event.status === "approved" || event.status === "live"),
       canManage: access.canManage,
       canSubmit: access.canManage && event.status === "draft" && tasks.length > 0,
       canWithdraw: access.canManage && event.status === "review",

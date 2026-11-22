@@ -37,7 +37,8 @@ export interface LiveState {
  */
 export type LiveMessage =
   | { type: "broadcast"; broadcast: { id: string; body: string; sentBy: string; sentAt: string; realert: boolean } }
-  | { type: "broadcasts-changed" };
+  | { type: "broadcasts-changed" }
+  | { type: "plan-changed" };
 
 export function useLiveEvent(eventId: string | undefined, enabled = true, onMessage?: (msg: LiveMessage) => void) {
   const [connection, setConnection] = useState<LiveConnection>("connecting");
@@ -126,4 +127,16 @@ export function formatCountdown(ms: number): string {
   const mm = String(m).padStart(2, "0");
   const ss = String(s).padStart(2, "0");
   return h ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
+}
+
+/** Time until the start, readable at any distance: "3 days", "5 h 20 min", or "12:34". */
+export function formatStartsIn(ms: number): string {
+  const hours = ms / 3_600_000;
+  if (hours >= 48) return `${Math.floor(hours / 24)} days`;
+  if (hours >= 1) {
+    const h = Math.floor(hours);
+    const m = Math.floor((ms % 3_600_000) / 60_000);
+    return m ? `${h} h ${m} min` : `${h} h`;
+  }
+  return formatCountdown(ms);
 }

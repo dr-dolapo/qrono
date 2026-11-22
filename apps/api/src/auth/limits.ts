@@ -17,15 +17,19 @@ export interface Rule {
 export const RULES = {
   /** Wrong passwords for one email address: 5 in 15 minutes locks it for 15 minutes. */
   loginPerEmail: { max: 5, windowMinutes: 15, blockMinutes: 15 },
-  /** Wrong passwords from one network address across any emails (password spraying). */
-  loginPerIp: { max: 30, windowMinutes: 15, blockMinutes: 15 },
+  /**
+   * Wrong passwords from one network address across any emails (password spraying).
+   * Generous because many people share one address (mobile carriers, office and
+   * church Wi-Fi); the per-email limit above is what protects each account.
+   */
+  loginPerIp: { max: 100, windowMinutes: 15, blockMinutes: 15 },
   // Caps below allow exactly `max` per window (see useAllowance).
   /** Password-reset emails to one address. */
   resetPerEmail: { max: 5, windowMinutes: 60, blockMinutes: 60 },
   /** Verification emails for one account. */
   verifyPerUser: { max: 5, windowMinutes: 60, blockMinutes: 60 },
-  /** Sign-ups from one network address. */
-  signupPerIp: { max: 20, windowMinutes: 60, blockMinutes: 60 },
+  /** Sign-ups from one network address (generous: a whole team may sign up on one Wi-Fi). */
+  signupPerIp: { max: 100, windowMinutes: 60, blockMinutes: 60 },
 } satisfies Record<string, Rule>;
 
 const iso = (ms: number) => new Date(ms).toISOString();
