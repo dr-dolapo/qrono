@@ -3,6 +3,7 @@ import { HTTPException } from "hono/http-exception";
 import { loadSession } from "./auth/session";
 import type { AppEnv } from "./env";
 import { auth } from "./routes/auth";
+import { events, teamEvents } from "./routes/events";
 import { invites } from "./routes/invites";
 import { teams } from "./routes/teams";
 import { sameOriginOnly, securityHeaders } from "./security";
@@ -26,10 +27,6 @@ app.get("/health", async (c) => {
 app.use(sameOriginOnly);
 app.use(loadSession);
 
-app.route("/auth", auth);
-app.route("/teams", teams);
-app.route("/invites", invites);
-
 /**
  * WebSocket entry point for a live event. Every client watching the same
  * event connects to the same LiveEvent Durable Object.
@@ -43,6 +40,12 @@ app.get("/events/:eventId/live", async (c) => {
   const id = c.env.LIVE_EVENT.idFromName(c.req.param("eventId"));
   return c.env.LIVE_EVENT.get(id).fetch(c.req.raw);
 });
+
+app.route("/auth", auth);
+app.route("/teams", teams);
+app.route("/invites", invites);
+app.route("/teams", teamEvents);
+app.route("/events", events);
 
 app.notFound((c) => c.json({ error: "Not found" }, 404));
 

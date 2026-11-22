@@ -3,7 +3,6 @@ import { createRoot } from "react-dom/client";
 import { Outlet, RouterProvider, createBrowserRouter } from "react-router";
 import { AuthProvider } from "./auth/AuthContext";
 import { GuestOnly, RequireAuth } from "./auth/guards";
-import { AdminHome } from "./pages/AdminHome";
 import { CheckEmail } from "./pages/auth/CheckEmail";
 import { ForgotPassword } from "./pages/auth/ForgotPassword";
 import { LogIn } from "./pages/auth/LogIn";
@@ -11,6 +10,9 @@ import { ResetPassword } from "./pages/auth/ResetPassword";
 import { SignUp } from "./pages/auth/SignUp";
 import { VerifyEmail } from "./pages/auth/VerifyEmail";
 import { CommandCentre } from "./pages/CommandCentre";
+import { EventEditor } from "./pages/events/EventEditor";
+import { EventsList } from "./pages/events/EventsList";
+import { NewEvent } from "./pages/events/NewEvent";
 import { GuestView } from "./pages/GuestView";
 import { Home } from "./pages/Home";
 import { NotFound } from "./pages/NotFound";
@@ -44,7 +46,9 @@ const router = createBrowserRouter([
       { path: "/onboarding/team", element: <RequireAuth needsTeam={false}><CreateTeam /></RequireAuth> },
 
       // Admin & Approver area
-      { path: "/admin", element: <RequireAuth><AdminHome /></RequireAuth> },
+      { path: "/admin", element: <RequireAuth><EventsList /></RequireAuth> },
+      { path: "/admin/events/new", element: <RequireAuth><NewEvent /></RequireAuth> },
+      { path: "/admin/events/:eventId", element: <RequireAuth><EventEditor /></RequireAuth> },
       { path: "/admin/team", element: <RequireAuth><TeamPage /></RequireAuth> },
 
       // Team invitations (QR001, QR007)
