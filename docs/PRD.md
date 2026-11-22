@@ -232,7 +232,7 @@ Draft → Review → Approved → Live → Past
 | QR042 | Admin | see each participant's response to a broadcast | I can follow up with anyone who hasn't responded |
 
 **Broadcast rules (v1):**
-- Broadcasts go out as push notifications, plus an in-app alert.
+- Broadcasts go out as an in-app alert on the web app now; push notifications come with the mobile app.
 - **Snooze** brings the broadcast back after **3 minutes**.
 - Targeting selected participants (QR039) is in scope for v1. Targeting by stage comes with multi-stage events (Later).
 

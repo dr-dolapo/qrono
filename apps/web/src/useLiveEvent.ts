@@ -35,11 +35,17 @@ export interface LiveState {
  * and reconnects automatically (venue Wi-Fi drops; screens must recover on
  * their own). `clockOffset` corrects for the viewer's clock being wrong.
  */
-export function useLiveEvent(eventId: string | undefined, enabled = true) {
+export type LiveMessage =
+  | { type: "broadcast"; broadcast: { id: string; body: string; sentBy: string; sentAt: string; realert: boolean } }
+  | { type: "broadcasts-changed" };
+
+export function useLiveEvent(eventId: string | undefined, enabled = true, onMessage?: (msg: LiveMessage) => void) {
   const [connection, setConnection] = useState<LiveConnection>("connecting");
   const [state, setState] = useState<LiveState | null>(null);
   const [clockOffset, setClockOffset] = useState(0);
   const socketRef = useRef<WebSocket | null>(null);
+  const onMessageRef = useRef(onMessage);
+  onMessageRef.current = onMessage;
 
   useEffect(() => {
     if (!eventId || !enabled) return;
@@ -62,10 +68,12 @@ export function useLiveEvent(eventId: string | undefined, enabled = true) {
       socket.onmessage = (e) => {
         if (typeof e.data !== "string" || e.data === "pong") return;
         try {
-          const msg = JSON.parse(e.data) as LiveState;
+          const msg = JSON.parse(e.data) as LiveState | LiveMessage;
           if (msg.type === "state") {
             setState(msg);
             setClockOffset(Date.parse(msg.serverTime) - Date.now());
+          } else {
+            onMessageRef.current?.(msg);
           }
         } catch {
           /* ignore */

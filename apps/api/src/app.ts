@@ -3,6 +3,7 @@ import { HTTPException } from "hono/http-exception";
 import { loadSession } from "./auth/session";
 import type { AppEnv } from "./env";
 import { auth } from "./routes/auth";
+import { broadcasts } from "./routes/broadcasts";
 import { events, teamEvents } from "./routes/events";
 import { guest } from "./routes/guest";
 import { invites } from "./routes/invites";
@@ -37,6 +38,7 @@ app.route("/teams", teamEvents);
 app.route("/events", events);
 app.route("/events", review);
 app.route("/events", live);
+app.route("/events", broadcasts);
 app.route("/guest", guest);
 
 app.notFound((c) => c.json({ error: "Not found" }, 404));

@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { ApiError, STATUS_LABEL, api, type EventDetail } from "../../api";
+import { useLiveEvent } from "../../useLiveEvent";
 import { AppShell } from "../../components/AppShell";
 import { Alert } from "../../components/Form";
 import { formatDuration, formatRange, formatTime } from "../../time";
 import { AgendaSection } from "./AgendaSection";
 import { EventDetailsForm } from "./EventDetailsForm";
+import { BroadcastAlerts, BroadcastPanel, useBroadcastSignal } from "./Broadcasts";
 import { LiveNow } from "./LiveNow";
 import { MyPart } from "./MyPart";
 import { PeopleSection } from "./PeopleSection";
@@ -30,6 +32,13 @@ export function EventEditor() {
       .catch((err) => setLoadError(err instanceof ApiError ? err.message : "Couldn't load this event."));
   }, [eventId]);
   useEffect(load, [load]);
+
+  // One live connection for the page: the live strip and broadcast alerts.
+  const broadcastSignal = useBroadcastSignal();
+  const liveActive = detail?.event.status === "approved" || detail?.event.status === "live";
+  const live = useLiveEvent(eventId, liveActive, (msg) => {
+    if (msg.type === "broadcast" || msg.type === "broadcasts-changed") broadcastSignal.bump();
+  });
 
   const mutate: Mutate = useCallback(
     async (path, method, body) => {
@@ -126,7 +135,9 @@ export function EventEditor() {
 
       <Alert>{error}</Alert>
       <ReviewPanel detail={detail} mutate={mutate} />
-      <LiveNow detail={detail} onStatusChange={load} />
+      {event.status === "live" && detail.me.participant && <BroadcastAlerts eventId={event.id} version={broadcastSignal.version} />}
+      <LiveNow detail={detail} live={live} onStatusChange={load} />
+      {event.status === "live" && permissions.canManage && <BroadcastPanel detail={detail} version={broadcastSignal.version} />}
 
       <div className="summary-strip">
         <div>

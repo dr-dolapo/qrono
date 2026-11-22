@@ -1,7 +1,7 @@
 import { DurableObject } from "cloudflare:workers";
 import type { Env } from "./env";
-import { runCommand, type LiveCommand } from "./live/commands";
-import { snapshot, tick } from "./live/engine";
+import { runCommand, type CommandResult, type LiveCommand } from "./live/commands";
+import { snapshot } from "./live/engine";
 
 /**
  * One instance per event (addressed by event ID): the live "room".
@@ -27,7 +27,11 @@ export class LiveEvent extends DurableObject<Env> {
       if (request.headers.get("Upgrade") !== "websocket") return new Response("Expected a WebSocket upgrade", { status: 426 });
       const pair = new WebSocketPair();
       const [client, server] = Object.values(pair) as [WebSocket, WebSocket];
-      this.ctx.acceptWebSocket(server, [request.headers.get("X-Qrono-Viewer") ?? "participant"]);
+      // Tags let the room reach Approvers/Admins, or one person (broadcast alerts).
+      const tags = [request.headers.get("X-Qrono-Viewer") ?? "participant"];
+      const userId = request.headers.get("X-Qrono-User");
+      if (userId) tags.push(`user:${userId}`);
+      this.ctx.acceptWebSocket(server, tags);
       server.send(JSON.stringify(await snapshot(this.env.DB, eventId, Date.now())));
       return new Response(null, { status: 101, webSocket: client });
     }
@@ -35,7 +39,7 @@ export class LiveEvent extends DurableObject<Env> {
     if (url.pathname === "/command" && request.method === "POST") {
       const cmd = (await request.json()) as LiveCommand;
       const result = await runCommand(this.env.DB, eventId, cmd, Date.now());
-      if (result.ok) await this.afterChange(result.wakeAt, result.snapshot);
+      if (result.ok) await this.afterChange(result);
       return Response.json(result, { status: result.status });
     }
 
@@ -45,9 +49,8 @@ export class LiveEvent extends DurableObject<Env> {
   async alarm(): Promise<void> {
     const eventId = await this.ctx.storage.get<string>("eventId");
     if (!eventId) return;
-    const now = Date.now();
-    const wakeAt = await tick(this.env.DB, eventId, now);
-    await this.afterChange(wakeAt, await snapshot(this.env.DB, eventId, now));
+    const result = await runCommand(this.env.DB, eventId, { action: "tick", by: null }, Date.now());
+    if (result.ok) await this.afterChange(result);
   }
 
   async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {
@@ -58,16 +61,22 @@ export class LiveEvent extends DurableObject<Env> {
     // The runtime completes the close handshake itself on this compatibility date.
   }
 
-  private async afterChange(wakeAt: number | null, state: unknown): Promise<void> {
-    if (wakeAt === null) await this.ctx.storage.deleteAlarm();
-    else await this.ctx.storage.setAlarm(Math.max(wakeAt, Date.now() + 250));
-    const data = JSON.stringify(state);
-    for (const ws of this.ctx.getWebSockets()) {
-      try {
-        ws.send(data);
-      } catch {
-        // Already closed; the runtime cleans it up.
-      }
+  private async afterChange(result: CommandResult): Promise<void> {
+    if (result.wakeAt === null) await this.ctx.storage.deleteAlarm();
+    else await this.ctx.storage.setAlarm(Math.max(result.wakeAt, Date.now() + 250));
+
+    send(this.ctx.getWebSockets(), JSON.stringify(result.snapshot));
+    for (const d of result.deliveries) send(this.ctx.getWebSockets(`user:${d.userId}`), JSON.stringify(d.message));
+    if (result.broadcastsChanged) send(this.ctx.getWebSockets("manager"), JSON.stringify({ type: "broadcasts-changed" }));
+  }
+}
+
+function send(sockets: WebSocket[], data: string): void {
+  for (const ws of sockets) {
+    try {
+      ws.send(data);
+    } catch {
+      // Already closed; the runtime cleans it up.
     }
   }
 }

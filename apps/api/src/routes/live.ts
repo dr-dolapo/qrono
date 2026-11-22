@@ -7,12 +7,18 @@ import { loadEvent } from "../events/access";
 import type { CommandResult, LiveAction } from "../live/commands";
 
 /** Send a command to the event's live room (the LiveEvent Durable Object). */
-export async function liveCommand(c: Context<AppEnv>, eventId: string, action: LiveAction, by: string | null): Promise<CommandResult> {
+export async function liveCommand(
+  c: Context<AppEnv>,
+  eventId: string,
+  action: LiveAction | "arm",
+  by: string | null,
+  extra: { broadcastId?: string } = {},
+): Promise<CommandResult> {
   const room = c.env.LIVE_EVENT.get(c.env.LIVE_EVENT.idFromName(eventId));
   const res = await room.fetch("https://live/command", {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-Qrono-Event": eventId },
-    body: JSON.stringify({ action, by }),
+    body: JSON.stringify({ action, by, ...extra }),
   });
   return (await res.json()) as CommandResult;
 }
@@ -35,6 +41,7 @@ export const live = new Hono<AppEnv>()
     const headers = new Headers(c.req.raw.headers);
     headers.set("X-Qrono-Event", access.event.id);
     headers.set("X-Qrono-Viewer", access.canManage ? "manager" : "participant");
+    headers.set("X-Qrono-User", currentUser(c).id);
     return room.fetch(new Request("https://live/connect", { headers }));
   })
 
