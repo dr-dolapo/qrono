@@ -1,4 +1,4 @@
-import { useId, type InputHTMLAttributes, type ReactNode } from "react";
+import { Children, useId, type InputHTMLAttributes, type ReactNode } from "react";
 
 interface TextFieldProps extends Omit<InputHTMLAttributes<HTMLInputElement>, "onChange"> {
   label: string;
@@ -45,7 +45,8 @@ export function SubmitButton({ busy, children }: { busy: boolean; children: Reac
 }
 
 export function Alert({ kind = "error", children }: { kind?: "error" | "success" | "info"; children: ReactNode }) {
-  if (!children) return null;
+  // Children.toArray drops null/false/undefined, so `{error}{cond && <Link/>}` with no error renders nothing.
+  if (Children.toArray(children).length === 0) return null;
   return (
     <div className={`alert alert-${kind}`} role={kind === "error" ? "alert" : "status"}>
       {children}

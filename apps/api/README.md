@@ -75,6 +75,11 @@ Team rules:
 - Sessions are random tokens in an `HttpOnly`, `SameSite=Lax` cookie (`Secure` on https), valid for 30 days. Only their SHA-256 hashes are stored.
 - Requests that change data must come from `APP_ORIGIN` and be JSON (CSRF protection).
 - Accounts must confirm their email before creating a team.
+- Repeated attempts are limited (`src/auth/limits.ts`, counters in D1):
+  - 5 wrong passwords for an email pause logging in to it for 15 minutes, even with the right password. A successful login clears the count, and a password reset lifts the pause.
+  - 30 wrong passwords from one network address in 15 minutes pause that address, which stops attackers trying many accounts.
+  - Each address can get at most 5 reset emails an hour, each account 5 verification emails an hour, and each network address 20 sign-ups an hour.
+  - The limits behave the same whether or not an account exists, so they can't be used to find accounts.
 
 ## First deploy (once per Cloudflare account)
 

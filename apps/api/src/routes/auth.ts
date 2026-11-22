@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import type { Context } from "hono";
 import { z } from "zod";
 import { DUMMY_PASSWORD_HASH, hashPassword, newSecretToken, sha256Hex, verifyPassword } from "../auth/crypto";
+import { RULES, blockedUntil, clearAttempts, clientIp, minutesFrom, recordAttempt, useAllowance } from "../auth/limits";
 import { currentUser, endSession, inBackground, requireUser, startSession } from "../auth/session";
 import type { AppEnv } from "../env";
 import { newId, nowIso } from "../ids";
@@ -73,6 +74,10 @@ export const auth = new Hono<AppEnv>()
     ),
     async (c) => {
       const { firstName, lastName, email, password } = c.req.valid("json");
+      const signupBlock = await useAllowance(c.env.DB, `signup:ip:${clientIp(c)}`, RULES.signupPerIp);
+      if (signupBlock) {
+        return c.json({ error: `Too many sign-ups from this network. Try again in ${minutesFrom(Date.now(), signupBlock)}.`, code: "rate_limited" }, 429);
+      }
       const existing = await c.env.DB.prepare("SELECT id FROM users WHERE email = ?").bind(email).first();
       if (existing) {
         return c.json(
@@ -120,6 +125,11 @@ export const auth = new Hono<AppEnv>()
   .post("/resend-verification", requireUser, async (c) => {
     const user = currentUser(c);
     if (user.emailVerified) return c.json({ alreadyVerified: true });
+    const block = await useAllowance(c.env.DB, `verify:user:${user.id}`, RULES.verifyPerUser);
+    if (block) {
+      c.header("Retry-After", String(Math.ceil((block - Date.now()) / 1000)));
+      return c.json({ error: `You've asked for several emails already. Try again in ${minutesFrom(Date.now(), block)}.`, code: "rate_limited" }, 429);
+    }
     await sendVerification(c, user);
     return c.json({ sent: true });
   })
@@ -130,6 +140,14 @@ export const auth = new Hono<AppEnv>()
     json(z.object({ email: emailField, password: z.string({ error: "Enter your password." }).min(1, { error: "Enter your password." }).max(200) })),
     async (c) => {
       const { email, password } = c.req.valid("json");
+      const emailKey = `login:email:${email}`;
+      const ipKey = `login:ip:${clientIp(c)}`;
+      const now = Date.now();
+
+      // While paused, don't even check the password: guesses can't succeed.
+      const paused = Math.max((await blockedUntil(c.env.DB, emailKey, now)) ?? 0, (await blockedUntil(c.env.DB, ipKey, now)) ?? 0);
+      if (paused) return tooManyLogins(c, now, paused);
+
       const user = await c.env.DB.prepare(
         "SELECT id, first_name, last_name, email, email_verified_at, password_hash FROM users WHERE email = ?",
       )
@@ -138,8 +156,16 @@ export const auth = new Hono<AppEnv>()
 
       // Always run a hash comparison so response time doesn't reveal whether the email exists.
       const ok = await verifyPassword(password, user?.password_hash ?? DUMMY_PASSWORD_HASH);
-      if (!user || !ok) return c.json({ error: "That email and password don't match." }, 401);
+      if (!user || !ok) {
+        // Counted per email whether or not the account exists, so the limit reveals nothing.
+        const byEmail = await recordAttempt(c.env.DB, emailKey, RULES.loginPerEmail, now);
+        const byIp = await recordAttempt(c.env.DB, ipKey, RULES.loginPerIp, now);
+        const until = Math.max(byEmail ?? 0, byIp ?? 0);
+        if (until) return tooManyLogins(c, now, until);
+        return c.json({ error: "That email and password don't match." }, 401);
+      }
 
+      await clearAttempts(c.env.DB, emailKey);
       await startSession(c, user.id);
       return c.json({
         user: {
@@ -174,9 +200,15 @@ export const auth = new Hono<AppEnv>()
 
   /** QR005: request a password reset link. Always succeeds, so it can't be used to find accounts. */
   .post("/forgot-password", json(z.object({ email: emailField })), async (c) => {
-    const user = await c.env.DB.prepare("SELECT id, first_name, email FROM users WHERE email = ?")
-      .bind(c.req.valid("json").email)
-      .first<{ id: string; first_name: string; email: string }>();
+    const email = c.req.valid("json").email;
+    // Capped per address so this can't be used to flood someone's inbox.
+    // The answer is the same either way, so it reveals nothing.
+    const capped = await useAllowance(c.env.DB, `reset:email:${email}`, RULES.resetPerEmail);
+    const user = capped
+      ? null
+      : await c.env.DB.prepare("SELECT id, first_name, email FROM users WHERE email = ?")
+          .bind(email)
+          .first<{ id: string; first_name: string; email: string }>();
     if (user) {
       const token = await issueToken(c, user.id, "password_reset");
       const link = `${c.env.APP_ORIGIN}/reset-password?token=${encodeURIComponent(token)}`;
@@ -200,5 +232,19 @@ export const auth = new Hono<AppEnv>()
       ).bind(await hashPassword(password), now, now, userId),
       c.env.DB.prepare("DELETE FROM sessions WHERE user_id = ?").bind(userId),
     ]);
+    // Someone who has just proved they own the email can log in straight away.
+    const owner = await c.env.DB.prepare("SELECT email FROM users WHERE id = ?").bind(userId).first<{ email: string }>();
+    if (owner) await clearAttempts(c.env.DB, `login:email:${owner.email}`);
     return c.json({ reset: true });
   });
+
+function tooManyLogins(c: Context<AppEnv>, now: number, until: number) {
+  c.header("Retry-After", String(Math.ceil((until - now) / 1000)));
+  return c.json(
+    {
+      error: `Too many failed attempts. For your security, logging in is paused for ${minutesFrom(now, until)}. You can reset your password instead.`,
+      code: "too_many_attempts",
+    },
+    429,
+  );
+}
