@@ -11,9 +11,13 @@
     "dev:web": "npm run dev -w apps/web",
     "build": "npm run build -w apps/web",
     "typecheck": "npm run typecheck --workspaces",
-    "test": "npm run test --workspaces --if-present"
+    "test": "npm run test --workspaces --if-present && npm run test:scripts",
+    "test:scripts": "node --test scripts/deploy/config.test.mjs"
   },
   "engines": {
     "node": ">=20"
+  },
+  "devDependencies": {
+    "jsonc-parser": "^3.3.1"
   }
 }

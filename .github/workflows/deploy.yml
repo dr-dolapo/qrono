@@ -1,0 +1,101 @@
+# Deploys Qrono to Cloudflare whenever main changes (or when run by hand).
+# One-time setup is in docs/DEPLOYMENT.md.
+#
+#   checks → database migrations → API Worker → web Worker → health check
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Never run two deploys at once; let a running one finish.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  checks:
+    uses: ./.github/workflows/ci.yml
+
+  deploy:
+    needs: checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: production
+      url: ${{ steps.prepare.outputs.app_origin }}
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Check the Cloudflare secrets are set
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "::error::Add the CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID repository secrets (see docs/DEPLOYMENT.md)."
+            exit 1
+          fi
+
+      - name: Prepare production config (database, address, email)
+        id: prepare
+        env:
+          APP_ORIGIN: ${{ vars.APP_ORIGIN }}
+          EMAIL_MODE: ${{ vars.EMAIL_MODE }}
+          MAIL_FROM: ${{ vars.MAIL_FROM }}
+        run: node scripts/deploy/prepare.mjs
+
+      - name: Apply database migrations
+        working-directory: apps/api
+        run: npx wrangler d1 migrations apply qrono-db --remote
+
+      - name: Deploy the API
+        working-directory: apps/api
+        run: npx wrangler deploy
+
+      - name: Build and deploy the web app
+        run: |
+          npm run build -w apps/web
+          cd apps/web && npx wrangler deploy
+
+      - name: Health check
+        env:
+          APP_ORIGIN: ${{ steps.prepare.outputs.app_origin }}
+        run: |
+          for i in $(seq 1 20); do
+            body=$(curl -fsS "$APP_ORIGIN/api/health" || true)
+            if echo "$body" | grep -q '"database":"ok"'; then
+              echo "Healthy: $body"
+              exit 0
+            fi
+            sleep 6
+          done
+          echo "::error::$APP_ORIGIN/api/health didn't report healthy. Last response: $body"
+          exit 1
+
+      - name: Summary
+        env:
+          APP_ORIGIN: ${{ steps.prepare.outputs.app_origin }}
+          EMAIL_MODE: ${{ steps.prepare.outputs.email_mode }}
+        run: |
+          {
+            echo "### Qrono is live"
+            echo ""
+            echo "**$APP_ORIGIN**"
+            echo ""
+            if [ "$EMAIL_MODE" != "send" ]; then
+              echo "> Emails are not being sent yet (EMAIL_MODE=log). Sign-up and reset links appear in the"
+              echo "> Cloudflare dashboard: Workers & Pages → qrono-api → Logs. See docs/DEPLOYMENT.md to turn on email."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

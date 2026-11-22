@@ -8,6 +8,8 @@ The full product spec is in [`docs/PRD.md`](docs/PRD.md).
 
 ```
 qrono/
+├── .github/workflows/  CI on pull requests; deploy to Cloudflare on main
+├── scripts/deploy/     Production config for the deploy workflow
 ├── apps/
 │   ├── api/      Cloudflare Worker API, D1 database and live-event Durable Object
 │   ├── web/      React + Vite web app: command centre, admin screens, guest view
@@ -39,6 +41,10 @@ npm run dev:web
 ```
 
 Mobile: see [`apps/mobile/README.md`](apps/mobile/README.md).
+
+## Deploying
+
+Merging to `main` deploys to Cloudflare automatically. One-time setup: [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
 
 ## Checks
 
