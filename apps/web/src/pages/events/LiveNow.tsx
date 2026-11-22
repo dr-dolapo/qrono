@@ -1,15 +1,23 @@
 import { useEffect } from "react";
 import type { EventDetail } from "../../api";
 import { useClock } from "../../useClock";
-import { formatCountdown, liveView, useLiveEvent } from "../../useLiveEvent";
+import { formatCountdown, liveView, type LiveConnection, type LiveState } from "../../useLiveEvent";
 
 /**
  * QR023–QR025 on the web: while an event is approved or live, everyone on it
  * sees what's happening now and what's next, updated live.
  */
-export function LiveNow({ detail, onStatusChange }: { detail: EventDetail; onStatusChange: () => void }) {
+export function LiveNow({
+  detail,
+  live,
+  onStatusChange,
+}: {
+  detail: EventDetail;
+  live: { state: LiveState | null; connection: LiveConnection; clockOffset: number };
+  onStatusChange: () => void;
+}) {
   const active = detail.event.status === "approved" || detail.event.status === "live";
-  const { state, connection, clockOffset } = useLiveEvent(detail.event.id, active);
+  const { state, connection, clockOffset } = live;
   const now = useClock().getTime() + clockOffset;
 
   // When the room says the status changed (went live, ended), refresh the page's data.

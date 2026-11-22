@@ -60,6 +60,9 @@ from there.
 
 Live events (`src/live/`): the `LiveEvent` Durable Object is the event's live room. It holds the WebSockets and uses an alarm to wake exactly when something is due: going live at the start time, handing over automatically in auto mode (QR027), and ending at the end time. The state machine itself (`live/engine.ts`) is plain code over D1, so it's unit-tested without Cloudflare.
 
+| `GET/POST /api/events/:eid/broadcasts` | QR038 / QR039 / QR042: send to everyone or chosen people (live only); see replies |
+| `POST /api/events/:eid/broadcasts/:bid/respond` | QR041: Acknowledge, Snooze (back after 3 minutes) or Done |
+
 Agenda timing (`src/events/schedule.ts`): tasks run in agenda order. A task on a stage runs after the previous task on that stage, so stages run side by side. A task for "all stages" waits for every stage to finish, so breakouts can split off and come back together. Start times are recomputed and stored after every change.
 
 Team rules:
