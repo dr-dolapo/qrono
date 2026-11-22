@@ -47,3 +47,33 @@ export interface TeamSummary {
   role: Role;
   status: "pending_vetting" | "active" | "removed";
 }
+
+export interface Member {
+  id: string;
+  role: Role;
+  status: "pending_vetting" | "active";
+  joinedAt: string;
+  user: { id: string; firstName: string; lastName: string; email: string };
+}
+
+export interface PendingInvite {
+  id: string;
+  channel: "email" | "link" | "sms";
+  email: string | null;
+  role: Role;
+  expiresAt: string;
+  createdAt: string;
+  invitedBy: string;
+}
+
+export interface InviteInfo {
+  teamName: string;
+  invitedBy: string;
+  channel: "email" | "link" | "sms";
+  role: Role;
+  email: string | null;
+  needsApproval: boolean;
+  expiresAt: string;
+}
+
+export const ROLE_LABEL: Record<Role, string> = { approver: "Approver", admin: "Admin", member: "Member" };

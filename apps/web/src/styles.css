@@ -110,3 +110,55 @@ h1 { font-size: 1.75rem; margin: 0.5rem 0 1rem; }
   background: rgba(245, 179, 1, 0.15); color: var(--accent);
 }
 @media (max-width: 520px) { .topbar .muted { display: none; } }
+
+/* ───────── Admin pages ───────── */
+.page-wide { max-width: 56rem; }
+.topnav { display: flex; gap: 0.25rem; margin-left: 0.75rem; }
+.topnav a { color: var(--muted); padding: 0.4rem 0.7rem; border-radius: 8px; font-weight: 600; font-size: 0.925rem; }
+.topnav a:hover { color: var(--text); }
+.topnav a.active { color: var(--text); background: rgba(255, 255, 255, 0.06); }
+.team-switcher select, .row-actions select, .field select {
+  min-height: 36px; padding: 0 0.6rem; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--bg); color: var(--text); font: inherit; font-size: 0.925rem;
+}
+.field select { min-height: 44px; font-size: 16px; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+.section { margin: 2rem 0; }
+.section h2 { font-size: 1.1rem; margin: 0 0 0.35rem; display: flex; align-items: center; gap: 0.5rem; }
+.count { font-size: 0.8rem; color: var(--muted); background: rgba(255, 255, 255, 0.06); padding: 0.05rem 0.5rem; border-radius: 999px; }
+.rows { list-style: none; margin: 0.75rem 0 0; padding: 0; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.8rem 1rem; background: var(--panel); }
+.row + .row { border-top: 1px solid var(--line); }
+.row-main { display: grid; gap: 0.1rem; min-width: 0; }
+.row-main .small { overflow: hidden; text-overflow: ellipsis; }
+.row-actions { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; }
+.role-legend { margin-top: 0.75rem; line-height: 1.6; }
+.button-danger { background: #d64545; border-color: #d64545; color: #fff; }
+.button-row { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.75rem; }
+
+.inline-form { margin-top: 0.75rem; }
+.inline-form-fields { display: grid; grid-template-columns: 1fr 10rem auto; gap: 0.75rem; align-items: start; }
+.field-submit { padding-top: 1.55rem; }
+.field-submit .button { width: auto; }
+@media (max-width: 640px) {
+  .inline-form-fields { grid-template-columns: 1fr; }
+  .field-submit { padding-top: 0; }
+  .field-submit .button { width: 100%; }
+  .row { flex-direction: column; align-items: stretch; }
+  .row-actions { justify-content: flex-start; }
+  .topbar { flex-wrap: wrap; }
+  .topnav { margin-left: 0; order: 10; width: 100%; }
+}
+
+.link-box { display: flex; gap: 0.5rem; margin-top: 0.75rem; }
+.link-box input {
+  flex: 1; min-width: 0; min-height: 36px; padding: 0 0.7rem; border-radius: 8px;
+  border: 1px solid var(--line); background: var(--bg); color: var(--text); font: inherit; font-size: 0.875rem;
+}
+@media (max-width: 640px) {
+  .topbar { gap: 0.6rem; }
+  .topbar-spacer, .topbar .badge { display: none; }
+  .topbar > .button-small { margin-left: auto; }
+  .topbar-team, .team-switcher select { max-width: 52vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}

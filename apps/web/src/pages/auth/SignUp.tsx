@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import { api, type User } from "../../api";
 import { useAuth } from "../../auth/AuthContext";
 import { Alert, AuthLayout, SubmitButton, TextField } from "../../components/Form";
@@ -9,7 +9,8 @@ import { useForm } from "../../useForm";
 export function SignUp() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
-  const [email, setEmail] = useState("");
+  const [params] = useSearchParams();
+  const [email, setEmail] = useState(params.get("email") ?? "");
   const [password, setPassword] = useState("");
   const form = useForm();
   const { refresh } = useAuth();
@@ -43,7 +44,7 @@ export function SignUp() {
         <SubmitButton busy={form.busy}>Create account</SubmitButton>
       </form>
       <p className="auth-footer">
-        Already have an account? <Link to="/login">Log in</Link>
+        Already have an account? <Link to={`/login${params.get("next") ? `?next=${encodeURIComponent(params.get("next")!)}` : ""}`}>Log in</Link>
       </p>
     </AuthLayout>
   );

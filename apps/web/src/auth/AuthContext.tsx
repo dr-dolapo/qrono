@@ -1,20 +1,27 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { ApiError, api, type TeamSummary, type User } from "../api";
+import { storage } from "../storage";
 
 interface AuthState {
   /** undefined while the first check is in flight. */
   user: User | null | undefined;
+  /** Every team the user is on, including join requests waiting for approval. */
   teams: TeamSummary[];
+  /** The team the admin area is showing (an active membership), if any. */
+  currentTeam: TeamSummary | null;
+  setCurrentTeam: (teamId: string) => void;
   refresh: () => Promise<void>;
   setUser: (user: User) => void;
   logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthState | null>(null);
+const CURRENT_TEAM_KEY = "qrono.currentTeam";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUserState] = useState<User | null | undefined>(undefined);
   const [teams, setTeams] = useState<TeamSummary[]>([]);
+  const [currentTeamId, setCurrentTeamId] = useState<string | null>(() => storage.get(CURRENT_TEAM_KEY));
 
   const refresh = useCallback(async () => {
     try {
@@ -42,9 +49,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setTeams([]);
   }, []);
 
+  const setCurrentTeam = useCallback((teamId: string) => {
+    setCurrentTeamId(teamId);
+    storage.set(CURRENT_TEAM_KEY, teamId);
+  }, []);
+
+  const currentTeam = useMemo(() => {
+    const active = teams.filter((t) => t.status === "active");
+    return active.find((t) => t.id === currentTeamId) ?? active[0] ?? null;
+  }, [teams, currentTeamId]);
+
   const value = useMemo<AuthState>(
-    () => ({ user, teams, refresh, setUser: setUserState, logout }),
-    [user, teams, refresh, logout],
+    () => ({ user, teams, currentTeam, setCurrentTeam, refresh, setUser: setUserState, logout }),
+    [user, teams, currentTeam, setCurrentTeam, refresh, logout],
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

@@ -62,3 +62,30 @@ export function passwordResetEmail(firstName: string, link: string): Omit<Outgoi
     html: layout("Reset your password", body, "Choose a new password", link, footer),
   };
 }
+
+const ROLE_NAMES = { approver: "an Approver", admin: "an Admin", member: "a Member" } as const;
+
+export function teamInviteEmail(
+  inviterName: string,
+  teamName: string,
+  role: keyof typeof ROLE_NAMES,
+  link: string,
+): Omit<OutgoingEmail, "to"> {
+  const body = `${inviterName} invited you to join ${teamName} on Qrono as ${ROLE_NAMES[role]}. Qrono keeps live event programs on time and everyone in sync.`;
+  const footer = "This invitation expires in 7 days. If you weren't expecting it, you can ignore this email.";
+  return {
+    subject: `${inviterName} invited you to ${teamName} on Qrono`,
+    text: `${body}\n\n${link}\n\n${footer}`,
+    html: layout(`Join ${teamName} on Qrono`, body, "Accept invitation", link, footer),
+  };
+}
+
+export function joinRequestEmail(requesterName: string, teamName: string, link: string): Omit<OutgoingEmail, "to"> {
+  const body = `${requesterName} used your team's invite link to ask to join ${teamName}. Check who they are before letting them in.`;
+  const footer = "You're getting this because you're an Approver or Admin on this team.";
+  return {
+    subject: `${requesterName} wants to join ${teamName}`,
+    text: `${body}\n\n${link}\n\n${footer}`,
+    html: layout(`${requesterName} wants to join`, body, "Review request", link, footer),
+  };
+}

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { ApiError, api } from "../../api";
 import { useAuth } from "../../auth/AuthContext";
+import { homePath } from "../../auth/guards";
 import { Alert, AuthLayout } from "../../components/Form";
 
 type State = "working" | "done" | "failed";
@@ -46,7 +47,7 @@ export function VerifyEmail() {
   if (state === "done") {
     return (
       <AuthLayout title="Email confirmed" subtitle="Your Qrono account is ready.">
-        <Link className="button button-primary" to={user ? "/admin" : "/login"}>
+        <Link className="button button-primary" to={user ? homePath() : "/login"}>
           {user ? "Continue" : "Log in"}
         </Link>
       </AuthLayout>

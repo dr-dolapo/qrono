@@ -9,12 +9,13 @@ import { useForm } from "../../useForm";
 export function CreateTeam() {
   const [name, setName] = useState("");
   const form = useForm();
-  const { user, refresh } = useAuth();
+  const { user, refresh, setCurrentTeam } = useAuth();
   const navigate = useNavigate();
 
   const submit = form.handle(async () => {
-    await api("/teams", { body: { name } });
+    const { team } = await api<{ team: { id: string } }>("/teams", { body: { name } });
     await refresh();
+    setCurrentTeam(team.id);
     navigate("/admin", { replace: true });
   });
 
