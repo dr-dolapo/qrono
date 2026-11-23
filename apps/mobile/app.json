@@ -2,6 +2,7 @@
   "expo": {
     "name": "Qrono",
     "slug": "qrono-mobile",
+    "owner": "qrono",
     "scheme": "qrono",
     "version": "0.1.0",
     "orientation": "portrait",
