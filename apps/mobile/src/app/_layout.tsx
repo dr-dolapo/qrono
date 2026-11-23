@@ -3,6 +3,7 @@ import { StatusBar } from "expo-status-bar";
 import { View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AuthProvider, useAuth } from "../auth/AuthProvider";
+import { UpdateBanner } from "../components/UpdateBanner";
 import { NotificationRouter } from "../notifications/NotificationRouter";
 import { colors } from "../theme";
 
@@ -12,6 +13,7 @@ export default function RootLayout() {
       <AuthProvider>
         <StatusBar style="light" />
         <RootStack />
+        <UpdateBanner />
       </AuthProvider>
     </SafeAreaProvider>
   );
