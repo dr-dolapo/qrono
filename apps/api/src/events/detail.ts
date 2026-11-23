@@ -23,6 +23,7 @@ interface ParticipantRow {
   user_id: string | null;
   guest_name: string | null;
   guest_email: string | null;
+  contact_id: string | null;
   response: string;
   decline_reason: string | null;
   responded_at: string | null;
@@ -94,7 +95,7 @@ export async function eventDetail(c: Context<AppEnv>, access: EventAccess) {
   const [{ stages, tasks }, participants, assignments, comments, approvers] = await Promise.all([
     loadAgenda(c, event.id),
     db.prepare(
-      `SELECT p.id, p.user_id, p.guest_name, p.guest_email, p.response, p.decline_reason, p.responded_at,
+      `SELECT p.id, p.user_id, p.guest_name, p.guest_email, p.contact_id, p.response, p.decline_reason, p.responded_at,
               u.first_name, u.last_name, u.email
          FROM event_participants p LEFT JOIN users u ON u.id = p.user_id
         WHERE p.event_id = ?
@@ -196,7 +197,9 @@ export async function eventDetail(c: Context<AppEnv>, access: EventAccess) {
       kind: p.user_id ? ("member" as const) : ("guest" as const),
       userId: p.user_id,
       name: p.user_id ? `${p.first_name} ${p.last_name}` : p.guest_name!,
-      email: p.user_id ? p.email! : p.guest_email!,
+      // A guest without an email yet is stored with an empty one.
+      email: p.user_id ? p.email! : p.guest_email || null,
+      contactId: p.contact_id,
       response: p.response,
       declineReason: p.decline_reason,
       respondedAt: p.responded_at,

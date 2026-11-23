@@ -7,6 +7,7 @@
  * what they were told and email only those whose part changed, plus anyone
  * newly added (guests get their personal link) or removed.
  */
+import { inviteContactsOnProgram } from "../teams/contacts";
 import { newSecretToken, sha256Hex } from "../auth/crypto";
 import {
   assignedEmail,
@@ -85,7 +86,7 @@ async function currentParts(db: D1Database, event: EventInfo): Promise<Part[]> {
       kind: member ? "member" : "guest",
       name: member ? `${p.first_name} ${p.last_name}` : p.guest_name!,
       firstName: member ? p.first_name! : p.guest_name!,
-      email: member ? p.email! : p.guest_email!,
+      email: member ? p.email! : (p.guest_email ?? ""),
       lines,
       // Anything that should trigger a notice when it changes.
       summary: JSON.stringify({ event: event.name, start: event.start_at, end: event.end_at, tz: event.timezone, lines }),
@@ -97,7 +98,8 @@ async function currentParts(db: D1Database, event: EventInfo): Promise<Part[]> {
 export async function writeBaseline(db: D1Database, eventId: string, now = Date.now()): Promise<void> {
   const event = await loadEvent(db, eventId);
   if (!event) return;
-  const parts = await currentParts(db, event);
+  // People without an email yet can't be told anything (approved programs need one).
+  const parts = (await currentParts(db, event)).filter((p) => p.email);
   await db.batch([
     db.prepare("DELETE FROM plan_notices WHERE event_id = ?").bind(eventId),
     ...parts.map((p) =>
@@ -182,6 +184,9 @@ export async function flushChanges(db: D1Database, eventId: string, now: number,
 
   await writeBaseline(db, eventId, now);
   for (const e of emails) await hooks.send(e).catch((err) => console.error("Change notice failed", err));
+  // People new to the team who were just added are invited to join it too.
+  const creator = await db.prepare("SELECT created_by FROM events WHERE id = ?").bind(eventId).first<{ created_by: string }>();
+  if (creator) await inviteContactsOnProgram(db, hooks, eventId, creator.created_by);
   return emails.length;
 }
 

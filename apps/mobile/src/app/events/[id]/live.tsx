@@ -218,9 +218,9 @@ function Row({ task, at, tz, highlight }: { task: LiveTask; at: number; tz: stri
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.background },
+  screen: { flex: 1, backgroundColor: "transparent" },
   content: { padding: space.xl, paddingBottom: space.xxl * 2, gap: space.md },
-  center: { flex: 1, alignItems: "center", justifyContent: "center", gap: space.md, backgroundColor: colors.background },
+  center: { flex: 1, alignItems: "center", justifyContent: "center", gap: space.md, backgroundColor: "transparent" },
   connection: { flexDirection: "row", alignItems: "center", gap: space.sm },
   dot: { width: 8, height: 8, borderRadius: 4 },
   title: { color: colors.text, fontSize: 24, fontWeight: "800" },

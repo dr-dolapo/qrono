@@ -51,7 +51,7 @@ export function EventsList() {
               </Link>
               <div className="row-actions">
                 <span className="muted small">
-                  {e.taskCount} task{e.taskCount === 1 ? "" : "s"} · {e.participantCount} {e.participantCount === 1 ? "person" : "people"}
+                  {e.taskCount} item{e.taskCount === 1 ? "" : "s"} · {e.participantCount} {e.participantCount === 1 ? "person" : "people"}
                 </span>
                 <span className={`status-pill status-${e.status}`}>{STATUS_LABEL[e.status]}</span>
               </div>

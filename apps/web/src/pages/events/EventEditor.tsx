@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
-import { ApiError, STATUS_LABEL, api, type EventDetail } from "../../api";
+import { ApiError, STATUS_LABEL, api, type EventDetail, type Person } from "../../api";
 import { useLiveEvent } from "../../useLiveEvent";
 import { AppShell } from "../../components/AppShell";
 import { Alert } from "../../components/Form";
-import { formatDuration, formatRange, formatTime } from "../../time";
+import { formatClockWithZone, formatDuration, formatLongDate, formatTime } from "../../time";
 import { AgendaSection } from "./AgendaSection";
 import { EventDetailsForm } from "./EventDetailsForm";
 import { BroadcastAlerts, BroadcastPanel, useBroadcastSignal } from "./Broadcasts";
@@ -32,6 +32,18 @@ export function EventEditor() {
       .catch((err) => setLoadError(err instanceof ApiError ? err.message : "Couldn't load this event."));
   }, [eventId]);
   useEffect(load, [load]);
+
+  // The team's people list, for Who and for people's status (Approvers and Admins only).
+  const [people, setPeople] = useState<Person[]>([]);
+  const teamId = detail?.event.teamId;
+  const canEdit = detail?.permissions.canEdit ?? false;
+  const loadPeople = useCallback(() => {
+    if (!teamId || !canEdit) return;
+    api<{ people: Person[] }>(`/teams/${teamId}/people`)
+      .then((r) => setPeople(r.people))
+      .catch(() => undefined);
+  }, [teamId, canEdit]);
+  useEffect(loadPeople, [loadPeople]);
 
   // One live connection for the page: the live strip and broadcast alerts.
   const broadcastSignal = useBroadcastSignal();
@@ -95,10 +107,13 @@ export function EventEditor() {
           <div>
             <div className="event-title-row">
               <h1>{event.name}</h1>
-              <span className={`status-pill status-${event.status}`}>{STATUS_LABEL[event.status]}</span>
+              <span className={`status-badge status-badge-${event.status}`}>{STATUS_LABEL[event.status]}</span>
             </div>
-            <p className="event-when">{formatRange(event.startAt, event.endAt, tz)}</p>
-            <p className="muted small">Times in {tz.replace(/_/g, " ")}</p>
+            <p className="event-when">
+              <span>{formatLongDate(event.startAt, tz)}</span>
+              <span className="event-when-divider" aria-hidden="true" />
+              <span>{formatClockWithZone(event.startAt, tz)}</span>
+            </p>
             {event.description && <p className="event-description">{event.description}</p>}
           </div>
           {permissions.canEdit && (
@@ -146,7 +161,7 @@ export function EventEditor() {
         <div>
           <span className="muted small">Agenda</span>
           <strong>
-            {detail.tasks.length} task{detail.tasks.length === 1 ? "" : "s"}
+            {detail.tasks.length} item{detail.tasks.length === 1 ? "" : "s"}
           </strong>
         </div>
         <div>
@@ -158,10 +173,10 @@ export function EventEditor() {
           <strong>{detail.participants.length}</strong>
         </div>
         <div>
-          <span className="muted small">Moving to the next task</span>
+          <span className="muted small">Moving to the next item</span>
           {permissions.canEdit ? (
             <select
-              aria-label="Moving to the next task"
+              aria-label="Moving to the next item"
               value={event.progressionMode}
               onChange={(e) => mutate("", "PATCH", { progressionMode: e.target.value }).catch(() => setError("Couldn't save that setting."))}
             >
@@ -182,8 +197,8 @@ export function EventEditor() {
       )}
 
       <MyPart detail={detail} mutate={mutate} />
-      <AgendaSection detail={detail} mutate={mutate} />
-      <PeopleSection detail={detail} mutate={mutate} />
+      <AgendaSection detail={detail} mutate={mutate} people={people} reloadPeople={loadPeople} />
+      <PeopleSection detail={detail} mutate={mutate} people={people} reloadPeople={loadPeople} reloadEvent={load} />
     </AppShell>
   );
 }

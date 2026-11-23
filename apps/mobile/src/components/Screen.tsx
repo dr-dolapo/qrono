@@ -20,7 +20,7 @@ export function Screen({ children, centered = false }: { children: ReactNode; ce
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.background },
+  safe: { flex: 1, backgroundColor: "transparent" },
   flex: { flex: 1 },
   content: { flexGrow: 1, padding: space.xl, gap: space.lg },
   centered: { justifyContent: "center" },

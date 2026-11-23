@@ -136,7 +136,7 @@ export default function TaskScreen() {
 }
 
 const styles = StyleSheet.create({
-  center: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.background },
+  center: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "transparent" },
   header: { gap: 6, marginBottom: space.sm },
   title: { color: colors.text, fontSize: 24, fontWeight: "800" },
   when: { color: colors.text, fontSize: 16, fontVariant: ["tabular-nums"] },

@@ -195,10 +195,18 @@ describe("agenda (stages, tasks, timing)", () => {
     expect(res.json.fields.stageId).toBeDefined();
   });
 
-  it("validates durations", async () => {
+  it("only accepts durations from the editor's list", async () => {
     const id = await createEvent();
-    const res = await ada.post(`/api/events/${id}/tasks`, { title: "Zero", durationMinutes: 0 });
-    expect(res.json.fields.durationMinutes).toBe("A task lasts at least 1 minute.");
+    const expectRejected = async (durationMinutes: number) => {
+      const res = await ada.post(`/api/events/${id}/tasks`, { title: "Item", durationMinutes });
+      expect(res.status).toBe(400);
+      expect(res.json.fields.durationMinutes).toMatch(/Choose a duration from the list/);
+    };
+    // 1–15 by 1, 20–60 by 5, 75–120 by 15.
+    for (const ok of [1, 7, 15, 20, 35, 60, 75, 120]) {
+      expect((await ada.post(`/api/events/${id}/tasks`, { title: `${ok} min`, durationMinutes: ok })).status).toBe(201);
+    }
+    for (const bad of [0, 16, 17, 62, 70, 135, 150]) await expectRejected(bad);
   });
 
   it("rejects a stale reorder", async () => {

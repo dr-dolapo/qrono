@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { linkGuestPlacesToMember } from "../teams/contacts";
 import type { Context } from "hono";
 import { sha256Hex } from "../auth/crypto";
 import { currentUser, inBackground, requireVerifiedUser } from "../auth/session";
@@ -99,6 +100,8 @@ export const invites = new Hono<AppEnv>()
         );
       }
       await c.env.DB.batch(statements);
+      // Places they had on the team's programs as a guest become theirs as a member.
+      await linkGuestPlacesToMember(c.env.DB, invite.team_id, user.id, user.email);
       const role = existing?.status === "active" ? existing.role : invite.role;
       return c.json({ team: { ...team, role, status: "active" } });
     }
