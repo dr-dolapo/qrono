@@ -72,6 +72,8 @@ jobs:
           command: eas update --auto --non-interactive
           qr-target: expo-go
 
+      # The "main" channel is what the permanent QR code in apps/mobile/README.md opens,
+      # so Expo Go always gets the latest merged app.
       - name: Publish main
         if: steps.setup.outputs.ready == 'true' && github.event_name == 'push'
-        run: eas update --auto --non-interactive
+        run: eas update --channel main --message "main @ ${GITHUB_SHA::7}" --non-interactive

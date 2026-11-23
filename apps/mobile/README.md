@@ -4,24 +4,37 @@ The Qrono participant app for iOS and Android, built with React Native and [Expo
 
 ## Try it on your phone (no terminal needed)
 
-Every pull request that changes the app gets a comment with a **QR code**. Install
+### The latest app: scan once
+
+<img src="https://qr.expo.dev/eas-update?projectId=31a3c6e8-b533-445a-ba52-77d9b7fe0f67&runtimeVersion=exposdk%3A58.0.0&channel=main" width="200" height="200" alt="QR code that opens the latest Qrono app in Expo Go" />
+
+Scan this with your phone's camera (iPhone) or Expo Go (Android). It always opens
+the **latest version merged to `main`**, so after the first scan just reopen Qrono
+from Expo Go's home screen. If a merge happened in the last few minutes, close the
+app fully and reopen it to get the newest version.
+
+This code is tied to Expo SDK 58. After an Expo upgrade, update `runtimeVersion` in
+the link (`exposdk%3A<version>`) and scan once more.
+
+### Testing a pull request
+
+Every pull request that changes the app gets a comment with its own **QR code**. Install
 **Expo Go** from the App Store or Play Store, scan the code with your phone's camera
 (iPhone) or with Expo Go (Android), and the app opens with that pull request's changes.
-Each merge to `main` publishes too.
+That code opens that pull request's version only. Go back to the code above afterwards.
 
 The app talks to the live Qrono at `https://app.qrono.co.uk`. Log in with an account
 created on the web.
 
-### Previews: one-time setup (all in the browser)
+### How previews are set up
 
-1. **Expo account:** sign up at [expo.dev](https://expo.dev).
-2. **Expo project:** done. The project `qrono-mobile` is linked in `app.json`
-   (`expo.extra.eas.projectId` and `expo.updates.url`).
-3. **Access token:** on expo.dev, go to **Account settings → Access tokens → Create token**.
-4. **GitHub secret:** in this repo on GitHub, go to **Settings → Secrets and variables →
-   Actions → New repository secret**, named `EXPO_TOKEN`, with the token as its value.
-
-Until step 4 is done, the **Mobile preview** workflow skips itself.
+- Expo project **`qrono-mobile`** in the **qrono** organisation on expo.dev, linked in
+  `app.json` (`owner`, `extra.eas.projectId`, `updates.url`).
+- GitHub secret **`EXPO_TOKEN`**: an access token for a robot user in that organisation
+  (Developer role). To replace it, create a new token on expo.dev under the organisation's
+  **Access tokens** and update the secret in GitHub under **Settings → Secrets and variables → Actions**.
+- The **Mobile preview** workflow (`.github/workflows/mobile-preview.yml`) publishes each
+  pull request and every merge to `main`. It skips itself if the secret is missing.
 
 ## Run it from a computer (for developers)
 

@@ -1,13 +1,14 @@
-import { Stack, useLocalSearchParams } from "expo-router";
+import { Stack, router, useLocalSearchParams } from "expo-router";
 import { useMemo, useState } from "react";
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
-import { Button } from "../../components/Button";
-import { StatusPill } from "../../components/StatusPill";
-import type { EventDetail } from "../../events/types";
-import { countdownTo, deviceTimeZone, formatDuration, formatRange, formatTime, zoneCity } from "../../lib/time";
-import { useApi } from "../../lib/useApi";
-import { useNow } from "../../lib/useNow";
-import { colors, radius, space } from "../../theme";
+import { Button } from "../../../components/Button";
+import { StatusPill } from "../../../components/StatusPill";
+import { RespondPanel } from "../../../events/RespondPanel";
+import type { EventDetail } from "../../../events/types";
+import { countdownTo, deviceTimeZone, formatDuration, formatRange, formatTime, zoneCity } from "../../../lib/time";
+import { useApi } from "../../../lib/useApi";
+import { useNow } from "../../../lib/useNow";
+import { colors, radius, space } from "../../../theme";
 
 type Filter = "all" | "mine";
 type Task = EventDetail["tasks"][number];
@@ -15,7 +16,7 @@ type Task = EventDetail["tasks"][number];
 /** QR023 the event's program, QR024 filtered to my tasks, QR025 the countdown to the start. */
 export default function EventScreen() {
   const { id, team } = useLocalSearchParams<{ id: string; team?: string }>();
-  const { data, error, loading, refreshing, refresh } = useApi<EventDetail>(`/events/${encodeURIComponent(id)}`);
+  const { data, error, loading, refreshing, refresh, setData } = useApi<EventDetail>(`/events/${encodeURIComponent(id)}`);
   const [filter, setFilter] = useState<Filter>("all");
 
   const myParticipantId = data?.me.participant?.id ?? null;
@@ -26,6 +27,11 @@ export default function EventScreen() {
     [data, myParticipantId],
   );
   const tasks = filter === "mine" ? myTasks : data?.tasks ?? [];
+  const commentCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const cm of data?.comments ?? []) counts.set(cm.taskId, (counts.get(cm.taskId) ?? 0) + 1);
+    return counts;
+  }, [data]);
 
   if (loading && !data) {
     return (
@@ -71,7 +77,7 @@ export default function EventScreen() {
             {event.description ? <Text style={styles.description}>{event.description}</Text> : null}
 
             <StartPanel status={event.status} startAt={event.startAt} />
-            <MyPart data={data} myTaskCount={myTasks.length} />
+            <RespondPanel data={data} myTaskCount={myTasks.length} onUpdated={setData} />
 
             <View style={styles.programHeader}>
               <Text style={styles.sectionTitle}>Program</Text>
@@ -86,6 +92,10 @@ export default function EventScreen() {
             mine={myParticipantId !== null && item.assigneeIds.includes(myParticipantId)}
             people={item.assigneeIds.map((pid) => (pid === myParticipantId ? "You" : names.get(pid) ?? "Someone"))}
             stage={item.stageId ? stages.get(item.stageId) ?? null : null}
+            comments={commentCounts.get(item.id) ?? 0}
+            onPress={() =>
+              router.push({ pathname: "/events/[id]/tasks/[taskId]", params: { id: event.id, taskId: item.id } })
+            }
           />
         )}
         ListEmptyComponent={
@@ -137,29 +147,6 @@ function StartPanel({ status, startAt }: { status: EventDetail["event"]["status"
   );
 }
 
-/** Where I stand in this event. Replying to the invitation comes in the next step. */
-function MyPart({ data, myTaskCount }: { data: EventDetail; myTaskCount: number }) {
-  const participant = data.me.participant;
-  if (!participant) return null;
-  const published = data.event.status === "approved" || data.event.status === "live";
-  const reply =
-    participant.response === "acknowledged"
-      ? "You've confirmed you're taking part."
-      : participant.response === "declined"
-        ? "You said you can't take part."
-        : published
-          ? "The organisers are waiting for you to confirm."
-          : null;
-  const tasks = myTaskCount === 0 ? "No tasks are assigned to you yet." : `You have ${myTaskCount} ${myTaskCount === 1 ? "task" : "tasks"}.`;
-  return (
-    <View style={styles.myPart}>
-      <Text style={styles.cardTitle}>Your part</Text>
-      <Text style={styles.body}>{tasks}</Text>
-      {reply ? <Text style={[styles.body, participant.response === "pending" && styles.attention]}>{reply}</Text> : null}
-    </View>
-  );
-}
-
 function FilterToggle({ value, onChange, mineCount }: { value: Filter; onChange(f: Filter): void; mineCount: number }) {
   const options: [Filter, string][] = [
     ["all", "All"],
@@ -185,11 +172,26 @@ function FilterToggle({ value, onChange, mineCount }: { value: Filter; onChange(
   );
 }
 
-function TaskRow({ task, timezone, mine, people, stage }: { task: Task; timezone: string; mine: boolean; people: string[]; stage: string | null }) {
+interface TaskRowProps {
+  task: Task;
+  timezone: string;
+  mine: boolean;
+  people: string[];
+  stage: string | null;
+  comments: number;
+  onPress(): void;
+}
+
+function TaskRow({ task, timezone, mine, people, stage, comments, onPress }: TaskRowProps) {
   const finished = task.status === "done" || task.status === "skipped";
   const onNow = task.status === "in_progress";
   return (
-    <View style={[styles.task, mine && styles.taskMine, finished && styles.taskDone]}>
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityHint="Opens the task and its comments"
+      style={({ pressed }) => [styles.task, mine && styles.taskMine, finished && styles.taskDone, pressed && styles.pressed]}
+    >
       <View style={styles.taskTime}>
         <Text style={styles.time}>{formatTime(task.startAt, timezone)}</Text>
         <Text style={styles.duration}>{formatDuration(task.durationMinutes)}</Text>
@@ -207,8 +209,11 @@ function TaskRow({ task, timezone, mine, people, stage }: { task: Task; timezone
         ) : null}
         {people.length > 0 ? <Text style={[styles.people, mine && styles.peopleMine]}>{people.join(", ")}</Text> : null}
         {stage ? <Text style={styles.muted}>{stage}</Text> : null}
+        <Text style={styles.commentCount}>
+          {comments === 0 ? "Add a comment" : `${comments} ${comments === 1 ? "comment" : "comments"}`}
+        </Text>
       </View>
-    </View>
+    </Pressable>
   );
 }
 
@@ -221,8 +226,6 @@ const styles = StyleSheet.create({
   when: { color: colors.text, fontSize: 16 },
   muted: { color: colors.muted, fontSize: 13 },
   description: { color: colors.text, fontSize: 15, lineHeight: 22, marginTop: space.xs },
-  body: { color: colors.text, fontSize: 15, lineHeight: 21 },
-  attention: { color: colors.warningText, fontWeight: "600" },
   cardTitle: { color: colors.text, fontSize: 16, fontWeight: "700" },
   panel: { marginTop: space.md, backgroundColor: colors.surface, borderRadius: radius.lg, padding: space.lg, gap: space.sm },
   livePanel: { backgroundColor: colors.liveSurface },
@@ -232,7 +235,6 @@ const styles = StyleSheet.create({
   unit: { alignItems: "center", minWidth: 60 },
   unitNumber: { color: colors.text, fontSize: 32, fontWeight: "800", fontVariant: ["tabular-nums"] },
   unitLabel: { color: colors.muted, fontSize: 12 },
-  myPart: { marginTop: space.md, backgroundColor: colors.surface, borderRadius: radius.lg, padding: space.lg, gap: 6 },
   programHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: space.xl },
   sectionTitle: { color: colors.text, fontSize: 20, fontWeight: "700" },
   toggle: { flexDirection: "row", backgroundColor: colors.surface, borderRadius: 999, padding: 3 },
@@ -255,4 +257,6 @@ const styles = StyleSheet.create({
   taskDescription: { color: colors.muted, fontSize: 14, lineHeight: 19 },
   people: { color: colors.muted, fontSize: 13 },
   peopleMine: { color: colors.accent, fontWeight: "600" },
+  commentCount: { color: colors.accent, fontSize: 13, marginTop: 2 },
+  pressed: { opacity: 0.75 },
 });

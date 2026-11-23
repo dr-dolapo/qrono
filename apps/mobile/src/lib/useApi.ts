@@ -10,6 +10,8 @@ interface Resource<T> {
   /** True while a pull-to-refresh is running. */
   refreshing: boolean;
   refresh(): Promise<void>;
+  /** Replace the data with a fresher copy, e.g. what the API returned after a change. */
+  setData(data: T): void;
 }
 
 /** Loads `path` from the API, and again whenever the screen comes back into view. */
@@ -47,5 +49,5 @@ export function useApi<T>(path: string): Resource<T> {
     setRefreshing(false);
   }, [load]);
 
-  return { data, error, loading, refreshing, refresh };
+  return { data, error, loading, refreshing, refresh, setData };
 }
