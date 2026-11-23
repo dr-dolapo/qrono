@@ -40,7 +40,7 @@ npm run dev:api
 npm run dev:web
 ```
 
-Mobile: see [`apps/mobile/README.md`](apps/mobile/README.md).
+Mobile: see [`apps/mobile/README.md`](apps/mobile/README.md). It has a QR code that opens the latest app in Expo Go.
 
 ## Deploying
 

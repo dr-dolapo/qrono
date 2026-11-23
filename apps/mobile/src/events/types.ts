@@ -28,6 +28,7 @@ export interface EventDetail {
     timezone: string;
     status: EventStatus;
   };
+  permissions: { canRespond: boolean; canComment: boolean };
   me: { userId: string; participant: { id: string; response: Response; declineReason: string | null } | null };
   stages: { id: string; name: string; venue: string | null }[];
   tasks: {
@@ -42,4 +43,12 @@ export interface EventDetail {
     assigneeIds: string[];
   }[];
   participants: { id: string; name: string; kind: "member" | "guest" }[];
+  comments: {
+    id: string;
+    taskId: string;
+    author: { id: string; name: string };
+    body: string;
+    postedDuring: EventStatus;
+    createdAt: string;
+  }[];
 }
