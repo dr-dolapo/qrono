@@ -1,9 +1,14 @@
 {
   "expo": {
     "name": "Qrono",
-    "slug": "qrono",
+    "slug": "qrono-mobile",
+    "owner": "qrono",
     "scheme": "qrono",
     "version": "0.1.0",
+    "platforms": [
+      "ios",
+      "android"
+    ],
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -27,8 +32,21 @@
       },
       "predictiveBackGestureEnabled": false
     },
-    "web": {
-      "favicon": "./assets/favicon.png"
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-web-browser"
+    ],
+    "runtimeVersion": {
+      "policy": "sdkVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/31a3c6e8-b533-445a-ba52-77d9b7fe0f67"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "31a3c6e8-b533-445a-ba52-77d9b7fe0f67"
+      }
     }
   }
 }

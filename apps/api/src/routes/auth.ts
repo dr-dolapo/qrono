@@ -3,7 +3,7 @@ import type { Context } from "hono";
 import { z } from "zod";
 import { DUMMY_PASSWORD_HASH, hashPassword, newSecretToken, sha256Hex, verifyPassword } from "../auth/crypto";
 import { RULES, blockedUntil, clearAttempts, clientIp, minutesFrom, recordAttempt, useAllowance } from "../auth/limits";
-import { currentUser, endSession, inBackground, requireUser, startSession } from "../auth/session";
+import { currentUser, endSession, inBackground, isMobileClient, requireUser, startSession } from "../auth/session";
 import type { AppEnv } from "../env";
 import { newId, nowIso } from "../ids";
 import { passwordResetEmail, sendEmail, verificationEmail } from "../mail";
@@ -166,7 +166,7 @@ export const auth = new Hono<AppEnv>()
       }
 
       await clearAttempts(c.env.DB, emailKey);
-      await startSession(c, user.id);
+      const session = await startSession(c, user.id);
       return c.json({
         user: {
           id: user.id,
@@ -175,6 +175,8 @@ export const auth = new Hono<AppEnv>()
           email: user.email,
           emailVerified: user.email_verified_at !== null,
         },
+        // Only the mobile app gets the token; the web app's session lives in an httpOnly cookie.
+        ...(isMobileClient(c) ? { session } : {}),
       });
     },
   )
