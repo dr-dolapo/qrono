@@ -20,7 +20,10 @@
     },
     "ios": {
       "bundleIdentifier": "uk.co.qrono.app",
-      "supportsTablet": false
+      "supportsTablet": false,
+      "config": {
+        "usesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "uk.co.qrono.app",

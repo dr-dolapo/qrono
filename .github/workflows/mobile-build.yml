@@ -1,8 +1,10 @@
 # Builds the mobile app on Expo's servers (EAS Build). Run it from GitHub:
 # Actions → "Mobile build" → Run workflow, then choose the platform and profile.
 #
-#   preview     Android: an APK you install from a link on expo.dev. iOS: needs registered devices.
-#   production  Store builds (Android App Bundle / iOS for TestFlight and the App Store).
+#   preview     Android only: an APK you install from a link on expo.dev.
+#   production  Store builds. iOS ones are uploaded to App Store Connect and appear in
+#               TestFlight about 15 minutes after the build finishes. Android ones are
+#               uploaded to Google Play by hand for now.
 #
 # The build continues on expo.dev after this job ends; the job prints the link.
 #
@@ -75,6 +77,30 @@ jobs:
             echo "EXPO_APPLE_TEAM_ID=$APPLE_TEAM_ID"
             echo "EXPO_APPLE_TEAM_TYPE=COMPANY_OR_ORGANIZATION"
           } >> "$GITHUB_ENV"
+          # EAS Submit reads the API key from eas.json, so add it there for this run only (never committed).
+          node -e '
+            const fs = require("fs");
+            const eas = JSON.parse(fs.readFileSync("eas.json", "utf8"));
+            Object.assign(eas.submit.production.ios, {
+              ascApiKeyPath: process.argv[1],
+              ascApiKeyId: process.env.ASC_KEY_ID,
+              ascApiKeyIssuerId: process.env.ASC_ISSUER_ID,
+            });
+            fs.writeFileSync("eas.json", JSON.stringify(eas, null, 2));
+          ' "$key"
 
-      - name: Start the build on Expo
-        run: eas build --platform ${{ inputs.platform }} --profile ${{ inputs.profile }} --non-interactive --no-wait
+      - name: Start the Android build on Expo
+        if: inputs.platform != 'ios'
+        run: eas build --platform android --profile ${{ inputs.profile }} --non-interactive --no-wait
+
+      - name: Start the iOS build on Expo
+        if: inputs.platform != 'android'
+        run: |
+          if [ "${{ inputs.profile }}" = "preview" ]; then
+            echo "::error title=Use production for iPhone::iPhone test builds go through TestFlight. Run again with the production profile."
+            exit 1
+          fi
+          # Store builds go straight on to TestFlight when they finish.
+          submit=""
+          if [ "${{ inputs.profile }}" = "production" ]; then submit="--auto-submit"; fi
+          eas build --platform ios --profile ${{ inputs.profile }} --non-interactive --no-wait $submit
