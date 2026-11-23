@@ -1,0 +1,77 @@
+# Publishes the mobile app to Expo for every pull request that changes it, and comments
+# a QR code on the pull request. Scan it with Expo Go to try the change on your phone.
+# Pushes to main publish too, so the latest merged app is always available.
+#
+# Needs: the EXPO_TOKEN repository secret, and the Expo project ID in apps/mobile/app.json.
+# Until both are there, this workflow skips itself. See apps/mobile/README.md → "Previews".
+name: Mobile preview
+
+on:
+  pull_request:
+    paths:
+      - "apps/mobile/**"
+      - ".github/workflows/mobile-preview.yml"
+  push:
+    branches: [main]
+    paths:
+      - "apps/mobile/**"
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: mobile-preview-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check Expo is set up
+        id: setup
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          project_id=$(node -p "require('./app.json').expo.extra?.eas?.projectId ?? ''")
+          if [ -z "$EXPO_TOKEN" ] || [ -z "$project_id" ]; then
+            echo "::notice title=Mobile preview skipped::Add the EXPO_TOKEN secret and the Expo project ID to get a QR code here (apps/mobile/README.md → Previews)."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - if: steps.setup.outputs.ready == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/mobile/package-lock.json
+
+      - if: steps.setup.outputs.ready == 'true'
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          packager: npm
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - if: steps.setup.outputs.ready == 'true'
+        run: npm ci
+
+      - name: Publish and comment a QR code
+        if: steps.setup.outputs.ready == 'true' && github.event_name == 'pull_request'
+        uses: expo/expo-github-action/preview@v8
+        with:
+          working-directory: apps/mobile
+          command: eas update --auto --non-interactive
+          qr-target: expo-go
+
+      - name: Publish main
+        if: steps.setup.outputs.ready == 'true' && github.event_name == 'push'
+        run: eas update --auto --non-interactive

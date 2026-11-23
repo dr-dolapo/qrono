@@ -2,36 +2,64 @@
 
 The Qrono participant app for iOS and Android, built with React Native and [Expo](https://docs.expo.dev/) (TypeScript).
 
-## Run it
+## Try it on your phone (no terminal needed)
 
-Requirements: **Node 20+** and the **Expo Go** app on your phone (App Store or Play Store).
+Every pull request that changes the app gets a comment with a **QR code**. Install
+**Expo Go** from the App Store or Play Store, scan the code with your phone's camera
+(iPhone) or with Expo Go (Android), and the app opens with that pull request's changes.
+Each merge to `main` publishes too.
+
+The app talks to the live Qrono at `https://app.qrono.co.uk`. Log in with an account
+created on the web.
+
+### Previews: one-time setup (all in the browser)
+
+1. **Expo account:** sign up at [expo.dev](https://expo.dev).
+2. **Expo project:** on expo.dev, choose **Create a project**, name it `Qrono` with the
+   slug `qrono`. Copy its **project ID** and add it to `app.json` under
+   `expo.extra.eas.projectId`, plus `expo.updates.url` = `https://u.expo.dev/<project ID>`
+   (or ask Claude to do it).
+3. **Access token:** on expo.dev, go to **Account settings → Access tokens → Create token**.
+4. **GitHub secret:** in this repo on GitHub, go to **Settings → Secrets and variables →
+   Actions → New repository secret**, named `EXPO_TOKEN`, with the token as its value.
+
+Until steps 2 and 4 are done, the **Mobile preview** workflow skips itself.
+
+## Run it from a computer (for developers)
+
+Requirements: **Node 20+**.
 
 ```bash
 cd apps/mobile
 npm install
-cp .env.example .env   # then set EXPO_PUBLIC_QRONO_URL (see below)
-npm start              # then scan the QR code with your phone's camera (iOS) or Expo Go (Android)
+npm start          # scan the QR code with Expo Go
 ```
 
-### Which Qrono the app talks to
+### Use your local API
 
-`EXPO_PUBLIC_QRONO_URL` in `apps/mobile/.env` is the Qrono web address. The API is
-under `/api` on the same address. Restart `npm start` after you change it.
+The app uses the live Qrono unless `EXPO_PUBLIC_QRONO_URL` is set in `apps/mobile/.env`
+(see `.env.example`). Your phone can't reach `localhost`, so make the API and web
+servers visible on your Wi-Fi and use your computer's local IP:
 
-- **Your deployed Qrono** (easiest): the address you open in the browser, e.g.
-  `https://qrono-web.<your-subdomain>.workers.dev`. Log in with an account you
-  created on the web.
-- **Your local API**: your phone can't reach `localhost`, so start the API and
-  web servers so they're visible on your Wi-Fi, then use your computer's local IP:
+```bash
+# from the repo root, in two terminals
+npm run dev:api
+npm run dev -w apps/web -- --host
+```
 
-  ```bash
-  # from the repo root, in two terminals
-  npm run dev:api
-  npm run dev -w apps/web -- --host
-  ```
+Then set `EXPO_PUBLIC_QRONO_URL=http://<your computer's IP>:5173` and restart `npm start`.
 
-  Then set `EXPO_PUBLIC_QRONO_URL=http://<your computer's IP>:5173`. Your phone and
-  computer must be on the same Wi-Fi.
+You don't need Xcode or Android Studio. The `ios/` and `android/` folders aren't
+committed: Expo generates them from `app.json` when you build, so configure native
+settings there instead.
+
+```bash
+npm run typecheck  # TypeScript check (also runs in CI)
+npm run doctor     # Expo's project health check
+```
+
+This app is its own npm project rather than a root workspace, because React
+Native needs an exact React version that differs from the web app's.
 
 ## How login works
 
@@ -82,8 +110,7 @@ eas init           # links the app to your Expo account
 | `eas submit --platform all` | Uploads the latest store builds to App Store Connect and Google Play |
 | `eas update` | Sends a JavaScript-only fix to installed apps, with no store review |
 
-Before the first build, set `EXPO_PUBLIC_QRONO_URL` for each profile in
-`eas.json` (under `"env"`), since `.env` isn't used for cloud builds.
+Store builds point at `https://app.qrono.co.uk` (set per profile in `eas.json`).
 
 > **Check the bundle ID before the first release.** `app.json` uses
 > `uk.co.qrono.app` (from the qrono.co.uk domain) for both stores. It can't be
