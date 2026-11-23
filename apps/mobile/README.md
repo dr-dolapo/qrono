@@ -105,37 +105,50 @@ Native needs an exact React version that differs from the web app's.
 
 ## Build and release (EAS)
 
-Builds run in Expo's cloud, so iOS builds don't need a Mac. One-time setup:
+Real builds of the app are made on Expo's servers. Push notifications only work in a
+real build, not in Expo Go.
+
+### Start a build (no terminal)
+
+On GitHub, go to **Actions → Mobile build → Run workflow**, then choose:
+
+| Platform | Profile | What you get |
+|---|---|---|
+| `android` | `preview` | An APK to install straight onto Android phones. The download link and QR code are on expo.dev under **Builds**. |
+| `android` | `production` | An App Bundle for Google Play. |
+| `ios` | `production` | An iPhone build for TestFlight and the App Store. |
+
+The job starts the build and finishes. The build itself takes about 10–20 minutes on
+expo.dev. Store builds point at `https://app.qrono.co.uk` (set per profile in `eas.json`).
+
+### One-time setup
+
+**Android**
+- `google-services.json` (Firebase project `qrono-fd89f`) is in this folder. It
+  identifies the app to Firebase and isn't a secret.
+- Upload the Firebase **service account key** (Firebase → Project settings → Service
+  accounts → Generate new private key) on expo.dev: **project → Credentials → Android →
+  FCM V1 service account key**. It is a secret: never commit it.
+- The first Android build creates the app's signing key on Expo's servers.
+
+**iOS** (needs Admin access on the Apple Developer account)
+1. In App Store Connect, create the app: name **Qrono**, bundle ID `uk.co.qrono.app`.
+2. **App Store Connect API key** with **Admin** access (Users and Access → Integrations).
+   Add it to GitHub under **Settings → Secrets and variables → Actions**:
+   - secrets: `ASC_API_KEY_P8` (the whole `.p8` file), `ASC_KEY_ID`, `ASC_ISSUER_ID`
+   - variable: `APPLE_TEAM_ID`
+3. **Apple Push Notifications key** (Certificates, Identifiers & Profiles → Keys): upload the
+   `.p8` on expo.dev under **project → Credentials → iOS → Push Notifications**.
+
+### From a computer (for developers)
 
 ```bash
 npm install -g eas-cli
-eas login
-eas init           # links the app to your Expo account
+eas build --profile preview --platform android
+eas submit --platform all          # upload the latest store builds
+eas update --channel production    # a JavaScript-only fix to installed store builds
 ```
-
-| Command | What it makes |
-|---|---|
-| `eas build --profile development` | A development build, needed once the app uses native modules that Expo Go doesn't include |
-| `eas build --profile preview` | An installable build to share with testers |
-| `eas build --profile production --platform all` | Store builds for iOS and Android together |
-| `eas submit --platform all` | Uploads the latest store builds to App Store Connect and Google Play |
-| `eas update` | Sends a JavaScript-only fix to installed apps, with no store review |
-
-Store builds point at `https://app.qrono.co.uk` (set per profile in `eas.json`).
-
-> **Check the bundle ID before the first release.** `app.json` uses
-> `uk.co.qrono.app` (from the qrono.co.uk domain) for both stores. It can't be
-> changed after the app is published.
 
 ## App icon
 
 The icons in `assets/` are exported from the masters in [`docs/brand/icon`](../../docs/brand/icon).
-
-## Planned packages
-
-Add them with `npx expo install <package>` so the versions match the Expo SDK.
-
-| Need | Package |
-|---|---|
-| Push notifications (broadcasts, with Acknowledge / Snooze / Done actions) | `expo-notifications` |
-| Live agenda over WebSocket | built-in `WebSocket` |

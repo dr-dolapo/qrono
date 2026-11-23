@@ -24,6 +24,7 @@
     },
     "android": {
       "package": "uk.co.qrono.app",
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#0A0712",
         "foregroundImage": "./assets/android-icon-foreground.png",

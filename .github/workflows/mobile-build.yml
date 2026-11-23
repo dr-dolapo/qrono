@@ -1,0 +1,80 @@
+# Builds the mobile app on Expo's servers (EAS Build). Run it from GitHub:
+# Actions → "Mobile build" → Run workflow, then choose the platform and profile.
+#
+#   preview     Android: an APK you install from a link on expo.dev. iOS: needs registered devices.
+#   production  Store builds (Android App Bundle / iOS for TestFlight and the App Store).
+#
+# The build continues on expo.dev after this job ends; the job prints the link.
+#
+# Needs the EXPO_TOKEN secret. iOS also needs an App Store Connect API key, so EAS
+# can create and renew Apple certificates without anyone signing in:
+#   secrets  ASC_API_KEY_P8 (the .p8 file's contents), ASC_KEY_ID, ASC_ISSUER_ID
+#   variable APPLE_TEAM_ID
+# See apps/mobile/README.md → "Build and release".
+name: Mobile build
+
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: Which phones
+        type: choice
+        options: [android, ios, all]
+        default: android
+      profile:
+        description: Kind of build
+        type: choice
+        options: [preview, production]
+        default: preview
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/mobile/package-lock.json
+
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          packager: npm
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - run: npm ci
+
+      - name: Set up the App Store Connect API key (iOS)
+        if: inputs.platform != 'android'
+        env:
+          ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+        run: |
+          if [ -z "$ASC_API_KEY_P8" ] || [ -z "$ASC_KEY_ID" ] || [ -z "$ASC_ISSUER_ID" ] || [ -z "$APPLE_TEAM_ID" ]; then
+            echo "::error title=iOS isn't set up yet::Add the ASC_API_KEY_P8, ASC_KEY_ID and ASC_ISSUER_ID secrets and the APPLE_TEAM_ID variable (apps/mobile/README.md → Build and release)."
+            exit 1
+          fi
+          key="$RUNNER_TEMP/AuthKey_${ASC_KEY_ID}.p8"
+          printf '%s\n' "$ASC_API_KEY_P8" > "$key"
+          {
+            echo "EXPO_ASC_API_KEY_PATH=$key"
+            echo "EXPO_ASC_KEY_ID=$ASC_KEY_ID"
+            echo "EXPO_ASC_ISSUER_ID=$ASC_ISSUER_ID"
+            echo "EXPO_APPLE_TEAM_ID=$APPLE_TEAM_ID"
+            echo "EXPO_APPLE_TEAM_TYPE=COMPANY_OR_ORGANIZATION"
+          } >> "$GITHUB_ENV"
+
+      - name: Start the build on Expo
+        run: eas build --platform ${{ inputs.platform }} --profile ${{ inputs.profile }} --non-interactive --no-wait
