@@ -1,6 +1,12 @@
 # Publishes the mobile app to Expo for every pull request that changes it, and comments
 # a QR code on the pull request. Scan it with Expo Go to try the change on your phone.
-# Pushes to main publish too, so the latest merged app is always available.
+#
+# Merges to main publish to:
+#   main                  Expo Go (the QR code in apps/mobile/README.md)
+#   preview, production   installed builds (Android APK, TestFlight / App Store), which
+#                         download it in the background and offer a restart. A build only
+#                         gets updates matching its native code (app.config.js), so a
+#                         change that needs a new build never reaches older ones.
 #
 # Needs: the EXPO_TOKEN repository secret, and the Expo project ID in apps/mobile/app.json.
 # Until both are there, this workflow skips itself. See apps/mobile/README.md → "Previews".
@@ -66,6 +72,8 @@ jobs:
 
       - name: Publish and comment a QR code
         if: steps.setup.outputs.ready == 'true' && github.event_name == 'pull_request'
+        env:
+          QRONO_EXPO_GO: "1"
         uses: expo/expo-github-action/preview@v8
         with:
           working-directory: apps/mobile
@@ -76,4 +84,15 @@ jobs:
       # so Expo Go always gets the latest merged app.
       - name: Publish main
         if: steps.setup.outputs.ready == 'true' && github.event_name == 'push'
+        env:
+          QRONO_EXPO_GO: "1"
         run: eas update --channel main --message "main @ ${GITHUB_SHA::7}" --non-interactive
+
+      # Installed builds. Their runtime version is a fingerprint of the native code, so this
+      # reaches only builds made from the same native code. Others wait for a new build.
+      - name: Update installed builds
+        if: steps.setup.outputs.ready == 'true' && github.event_name == 'push'
+        run: |
+          for channel in preview production; do
+            eas update --channel "$channel" --message "main @ ${GITHUB_SHA::7}" --non-interactive
+          done

@@ -121,6 +121,20 @@ On GitHub, go to **Actions → Mobile build → Run workflow**, then choose:
 The job starts the build and finishes. The build itself takes about 10–20 minutes on
 expo.dev. Store builds point at `https://app.qrono.co.uk` (set per profile in `eas.json`).
 
+### Updates without reinstalling
+
+Every merge to `main` that changes the app is published as an over-the-air update to
+installed builds. The app downloads it in the background (on launch and whenever it
+comes back to the foreground) and shows **"A new version of Qrono is ready. Restart"**.
+
+An update only reaches builds made from the **same native code**. The runtime version
+is a fingerprint of the native parts (see `app.config.js`). If a change adds or upgrades
+a native module, older builds don't get it: run **Mobile build** again and install the
+new build. To check, compare the runtime version on an update and a build on expo.dev.
+
+> Before the public App Store / Play launch, consider releasing `production` updates by
+> hand instead of on every merge, so testers see changes before customers do.
+
 ### One-time setup
 
 **Android**
