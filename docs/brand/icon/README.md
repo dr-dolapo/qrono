@@ -14,7 +14,7 @@ The ring and tail are #A97BFF, the glow is #9B6BFF at 22%, and the eyes are whit
 | `AppIcon-1024.png` | App Store Connect upload (no alpha) |
 | `play-store-512.png` | Google Play Console upload |
 
-The exported icons live in `apps/web/public/` (web) and `apps/mobile/assets/icon/` (Flutter).
+The exported icons live in `apps/web/public/` (web) and `apps/mobile/assets/` (Expo).
 To re-export after editing an SVG, use `rsvg-convert`, for example:
 
 ```bash

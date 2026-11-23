@@ -1,6 +1,6 @@
 # @qrono/api
 
-The Cloudflare Worker that serves the Qrono API to the web app and the Flutter app.
+The Cloudflare Worker that serves the Qrono API to the web app and the mobile app.
 
 | Piece | Where |
 |---|---|

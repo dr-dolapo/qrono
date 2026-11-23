@@ -13,21 +13,21 @@ qrono/
 ├── apps/
 │   ├── api/      Cloudflare Worker API, D1 database and live-event Durable Object
 │   ├── web/      React + Vite web app: command centre, admin screens, guest view
-│   └── mobile/   Flutter participant app for iOS and Android
+│   └── mobile/   React Native (Expo) participant app for iOS and Android
 └── docs/
     └── PRD.md    Product requirements
 ```
 
 | Surface | Tech | Who uses it |
 |---|---|---|
-| Mobile app | Flutter | Participants during an event, and Approvers approving on the go |
+| Mobile app | React Native + Expo | Participants during an event, and Approvers approving on the go |
 | Web app | React + Vite, served from Cloudflare Workers | Admins and Approvers: create and edit events, manage the team, run the command centre on an HDMI screen |
 | Guest view | Same web app, opened on a phone browser | Guest speakers with a personal link (no app download needed) |
 | API | Cloudflare Workers + D1 + Durable Objects + Queues | Everything above |
 
 ## Getting started
 
-Requirements: **Node 20+**, and **Flutter 3.x** for the mobile app.
+Requirements: **Node 20+**. The mobile app also uses the Expo Go app on your phone.
 
 ```bash
 npm install                 # installs api + web dependencies

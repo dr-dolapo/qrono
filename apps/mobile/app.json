@@ -1,0 +1,34 @@
+{
+  "expo": {
+    "name": "Qrono",
+    "slug": "qrono",
+    "scheme": "qrono",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#0b0d12",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0b0d12"
+    },
+    "ios": {
+      "bundleIdentifier": "uk.co.qrono.app",
+      "supportsTablet": false
+    },
+    "android": {
+      "package": "uk.co.qrono.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#0A0712",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    }
+  }
+}
