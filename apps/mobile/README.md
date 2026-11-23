@@ -116,7 +116,7 @@ On GitHub, go to **Actions → Mobile build → Run workflow**, then choose:
 |---|---|---|
 | `android` | `preview` | An APK to install straight onto Android phones. The download link and QR code are on expo.dev under **Builds**. |
 | `android` | `production` | An App Bundle for Google Play. |
-| `ios` | `production` | An iPhone build for TestFlight and the App Store. |
+| `ios` | `production` | An iPhone build, uploaded to App Store Connect automatically. It appears in **TestFlight** about 15 minutes after the build finishes. |
 
 The job starts the build and finishes. The build itself takes about 10–20 minutes on
 expo.dev. Store builds point at `https://app.qrono.co.uk` (set per profile in `eas.json`).
@@ -132,13 +132,16 @@ expo.dev. Store builds point at `https://app.qrono.co.uk` (set per profile in `e
 - The first Android build creates the app's signing key on Expo's servers.
 
 **iOS** (needs Admin access on the Apple Developer account)
-1. In App Store Connect, create the app: name **Qrono**, bundle ID `uk.co.qrono.app`.
+1. In App Store Connect, create the app: name **Qrono**, bundle ID `uk.co.qrono.app`. Done:
+   Apple ID `6838359617`, team `56U8M8Y68H` (both in `eas.json`).
 2. **App Store Connect API key** with **Admin** access (Users and Access → Integrations).
    Add it to GitHub under **Settings → Secrets and variables → Actions**:
    - secrets: `ASC_API_KEY_P8` (the whole `.p8` file), `ASC_KEY_ID`, `ASC_ISSUER_ID`
    - variable: `APPLE_TEAM_ID`
-3. **Apple Push Notifications key** (Certificates, Identifiers & Profiles → Keys): upload the
-   `.p8` on expo.dev under **project → Credentials → iOS → Push Notifications**.
+3. **Apple Push Notifications key** (Certificates, Identifiers & Profiles → Keys). After the
+   first iOS build has created `uk.co.qrono.app` on expo.dev, upload the `.p8` there under
+   **project → Credentials → iOS → uk.co.qrono.app → Push Notifications**.
+4. In TestFlight, add yourself and your team as **internal testers** to install builds.
 
 ### From a computer (for developers)
 
