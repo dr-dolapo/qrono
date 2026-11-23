@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "852192331283",
+    "project_id": "qrono-fd89f",
+    "storage_bucket": "qrono-fd89f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:852192331283:android:12c85a0cad47e1a7b361e6",
+        "android_client_info": {
+          "package_name": "uk.co.qrono.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBH9tShExRZUp_VuWf5mrracqaVYkAGXxw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

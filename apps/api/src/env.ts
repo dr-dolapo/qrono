@@ -23,6 +23,8 @@ export interface Env {
   /** Sender address, e.g. "Qrono <no-reply@qrono.com>". Must be on a domain onboarded to Email Service. */
   MAIL_FROM: string;
   EMAIL?: EmailBinding;
+  /** Optional Expo access token, needed only if push "enhanced security" is on. Set as a Worker secret. */
+  EXPO_ACCESS_TOKEN?: string;
 }
 
 /** Variables set on the request context by middleware. */

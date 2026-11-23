@@ -13,11 +13,16 @@
     },
     "preview": {
       "distribution": "internal",
+      "channel": "preview",
+      "android": {
+        "buildType": "apk"
+      },
       "env": {
         "EXPO_PUBLIC_QRONO_URL": "https://app.qrono.co.uk"
       }
     },
     "production": {
+      "channel": "production",
       "autoIncrement": true,
       "env": {
         "EXPO_PUBLIC_QRONO_URL": "https://app.qrono.co.uk"
