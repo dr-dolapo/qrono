@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { hashPassword, verifyPassword } from "../src/auth/crypto";
+import { app } from "../src/app";
 import { Browser, createTestEnv, tokenFromEmail } from "./helpers/client";
 
 const ada = { firstName: "Ada", lastName: "Okafor", email: "Ada@Example.com", password: "correct horse battery" };
@@ -185,5 +186,77 @@ describe("emails", () => {
     t.env.EMAIL_MODE = "log";
     await browser.post("/api/auth/signup", ada);
     expect(t.emails).toHaveLength(0);
+  });
+});
+
+describe("mobile app sessions (bearer tokens)", () => {
+  /** Calls the API the way the mobile app does: no cookies, no Origin header. */
+  async function phone(method: string, path: string, opts: { body?: unknown; token?: string } = {}) {
+    const res = await app.request(
+      path,
+      {
+        method,
+        headers: {
+          "X-Qrono-Client": "mobile",
+          ...(opts.body !== undefined ? { "Content-Type": "application/json" } : {}),
+          ...(opts.token ? { Authorization: `Bearer ${opts.token}` } : {}),
+        },
+        body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
+      },
+      t.env,
+    );
+    const json = res.headers.get("Content-Type")?.includes("application/json") ? ((await res.json()) as any) : null;
+    return { status: res.status, json, headers: res.headers };
+  }
+
+  async function phoneLogin() {
+    await signUpAndVerify(new Browser(t.env));
+    return phone("POST", "/api/auth/login", { body: { email: ada.email, password: ada.password } });
+  }
+
+  it("returns a session token instead of setting a cookie", async () => {
+    const res = await phoneLogin();
+    expect(res.status).toBe(200);
+    expect(res.json.user).toMatchObject({ email: "ada@example.com", emailVerified: true });
+    expect(res.json.session.token).toMatch(/^[A-Za-z0-9_-]{20,}$/);
+    expect(Date.parse(res.json.session.expiresAt)).toBeGreaterThan(Date.now());
+    expect(res.headers.getSetCookie()).toHaveLength(0);
+  });
+
+  it("never gives the web app a token in the response", async () => {
+    await signUpAndVerify();
+    const res = await new Browser(t.env).post("/api/auth/login", { email: ada.email, password: ada.password });
+    expect(res.status).toBe(200);
+    expect(res.json.session).toBeUndefined();
+  });
+
+  it("signs requests in with the bearer token", async () => {
+    const { token } = (await phoneLogin()).json.session;
+    const me = await phone("GET", "/api/auth/me", { token });
+    expect(me.status).toBe(200);
+    expect(me.json.user.email).toBe("ada@example.com");
+  });
+
+  it("rejects an unknown or expired token", async () => {
+    const { token } = (await phoneLogin()).json.session;
+    expect((await phone("GET", "/api/auth/me", { token: "x".repeat(43) })).status).toBe(401);
+    t.sqlite.exec("UPDATE sessions SET expires_at = '2000-01-01T00:00:00.000Z'");
+    expect((await phone("GET", "/api/auth/me", { token })).status).toBe(401);
+  });
+
+  it("logs out by ending the token's session", async () => {
+    const { token } = (await phoneLogin()).json.session;
+    expect((await phone("POST", "/api/auth/logout", { token })).status).toBe(200);
+    expect((await phone("GET", "/api/auth/me", { token })).status).toBe(401);
+  });
+
+  it("ends phone sessions too when the password is reset", async () => {
+    const { token } = (await phoneLogin()).json.session;
+    await phone("POST", "/api/auth/forgot-password", { body: { email: ada.email } });
+    const reset = await phone("POST", "/api/auth/reset-password", {
+      body: { token: tokenFromEmail(t.emails.at(-1)), password: "a brand new password" },
+    });
+    expect(reset.status).toBe(200);
+    expect((await phone("GET", "/api/auth/me", { token })).status).toBe(401);
   });
 });
