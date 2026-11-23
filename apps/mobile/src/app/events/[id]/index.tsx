@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
 import { Button } from "../../../components/Button";
 import { StatusPill } from "../../../components/StatusPill";
+import { ApprovalPanel } from "../../../events/ApprovalPanel";
 import { RespondPanel } from "../../../events/RespondPanel";
 import type { EventDetail } from "../../../events/types";
 import { countdownTo, deviceTimeZone, formatDuration, formatRange, formatTime, zoneCity } from "../../../lib/time";
@@ -76,6 +77,7 @@ export default function EventScreen() {
             ) : null}
             {event.description ? <Text style={styles.description}>{event.description}</Text> : null}
 
+            <ApprovalPanel data={data} onApproved={setData} />
             <StartPanel status={event.status} startAt={event.startAt} />
             {event.status === "live" || event.status === "approved" ? (
               <Button
