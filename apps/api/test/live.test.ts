@@ -86,4 +86,20 @@ describe("running an event live", () => {
     const res = await ada.request("GET", `/api/events/${eventId}/live`, undefined, { Upgrade: "websocket", Origin: "https://evil.example" });
     expect(res.status).toBe(403);
   });
+
+  it("lets the mobile app open the live socket with its token, whatever Origin it sends", async () => {
+    await approve();
+    const login = await new Browser(t.env).request(
+      "POST",
+      "/api/auth/login",
+      { email: "chi@example.com", password: "correct horse battery" },
+      { "X-Qrono-Client": "mobile" },
+    );
+    const phone = new Browser(t.env);
+    const headers = { Upgrade: "websocket", Origin: "https://app.example", Authorization: `Bearer ${login.json.session.token}` };
+    // 501 = the request reached the live room (the test double doesn't simulate WebSockets).
+    expect((await phone.request("GET", `/api/events/${eventId}/live`, undefined, headers)).status).toBe(501);
+    // A made-up token isn't let through.
+    expect((await phone.request("GET", `/api/events/${eventId}/live`, undefined, { ...headers, Authorization: `Bearer ${"x".repeat(43)}` })).status).toBe(401);
+  });
 });

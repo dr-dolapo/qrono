@@ -77,6 +77,13 @@ export default function EventScreen() {
             {event.description ? <Text style={styles.description}>{event.description}</Text> : null}
 
             <StartPanel status={event.status} startAt={event.startAt} />
+            {event.status === "live" || event.status === "approved" ? (
+              <Button
+                label={event.status === "live" ? "Follow live" : "Open the live view"}
+                onPress={() => router.push({ pathname: "/events/[id]/live", params: { id: event.id } })}
+                accessibilityHint="Shows what's on now and when you're up, updated as the event runs"
+              />
+            ) : null}
             <RespondPanel data={data} myTaskCount={myTasks.length} onUpdated={setData} />
 
             <View style={styles.programHeader}>
