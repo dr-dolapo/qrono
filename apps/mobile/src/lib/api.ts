@@ -21,6 +21,11 @@ export function setAuthToken(token: string | null): void {
   authToken = token;
 }
 
+/** The current session token, for connections fetch() doesn't make (the live WebSocket). */
+export function getAuthToken(): string | null {
+  return authToken;
+}
+
 /** Called when the API says the stored session is no longer valid. */
 export function setUnauthorizedHandler(handler: (() => void) | null): void {
   onUnauthorized = handler;

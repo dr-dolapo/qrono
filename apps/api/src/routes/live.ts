@@ -29,13 +29,17 @@ export const live = new Hono<AppEnv>()
 
   /**
    * WebSocket for anyone who can see the event: Approvers/Admins (command
-   * centre) and participants (their live view). Checked against the app's
-   * origin so other sites can't open it with the user's cookie.
+   * centre) and participants (their live view, on the web or in the app).
+   * Cookie connections are checked against the app's origin so other sites
+   * can't open one with the user's cookie. The mobile app signs in with a
+   * bearer token instead, which other sites can't send, so it isn't checked.
    */
   .get("/:eventId/live", async (c) => {
     if (c.req.header("Upgrade") !== "websocket") return c.json({ error: "Expected a WebSocket upgrade" }, 426);
+    // loadSession only accepts a bearer token when it's valid, so a signed-in user here means token auth.
+    const viaToken = /^Bearer\s/.test(c.req.header("Authorization") ?? "");
     const origin = c.req.header("Origin");
-    if (origin && origin !== c.env.APP_ORIGIN) return c.json({ error: "Cross-site request blocked." }, 403);
+    if (!viaToken && origin && origin !== c.env.APP_ORIGIN) return c.json({ error: "Cross-site request blocked." }, 403);
     const access = await loadEvent(c, c.req.param("eventId"));
     const room = c.env.LIVE_EVENT.get(c.env.LIVE_EVENT.idFromName(access.event.id));
     const headers = new Headers(c.req.raw.headers);

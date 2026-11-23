@@ -18,7 +18,11 @@ export function EventCard({ event, now }: { event: MyEvent; now: number }) {
 
   return (
     <Pressable
-      onPress={() => router.push({ pathname: "/events/[id]", params: { id: event.id, team: event.team.name } })}
+      onPress={() => {
+        router.push({ pathname: "/events/[id]", params: { id: event.id, team: event.team.name } });
+        // A live event opens straight into the live view; back goes to its program.
+        if (event.status === "live") router.push({ pathname: "/events/[id]/live", params: { id: event.id } });
+      }}
       accessibilityRole="button"
       accessibilityHint="Opens the event's program"
       style={({ pressed }) => [styles.card, pressed && styles.pressed]}
