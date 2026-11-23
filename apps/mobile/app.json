@@ -35,7 +35,14 @@
     "plugins": [
       "expo-router",
       "expo-secure-store",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#A97BFF"
+        }
+      ]
     ],
     "runtimeVersion": {
       "policy": "sdkVersion"

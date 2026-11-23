@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { ReactNode } from "react";
 import { ApiError, api, setAuthToken, setUnauthorizedHandler } from "../lib/api";
 import { clearSession, loadSession, saveSession } from "../lib/sessionStore";
+import { unregisterPush } from "../notifications/push";
 import type { User } from "./types";
 
 type Status = "loading" | "signedOut" | "signedIn";
@@ -79,7 +80,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logOut = useCallback(async () => {
-    // End the session on the server too, but never let a network problem keep someone logged in.
+    // Stop broadcasts to this phone and end the session on the server too,
+    // but never let a network problem keep someone logged in.
+    await unregisterPush();
     await api("/auth/logout", { method: "POST" }).catch(() => undefined);
     await signOutLocally();
   }, [signOutLocally]);

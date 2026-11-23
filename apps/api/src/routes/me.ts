@@ -1,6 +1,12 @@
 import { Hono } from "hono";
+import { z } from "zod";
 import { currentUser, requireVerifiedUser } from "../auth/session";
 import type { AppEnv } from "../env";
+import { nowIso, newId } from "../ids";
+import { EXPO_TOKEN_PATTERN } from "../push";
+import { json } from "../validation";
+
+const deviceToken = z.string().regex(EXPO_TOKEN_PATTERN, { error: "That isn't a push token." });
 
 interface MyEventRow {
   id: string;
@@ -70,4 +76,28 @@ export const me = new Hono<AppEnv>()
         awaitingMyApproval: e.awaiting_my_approval === 1,
       })),
     });
+  })
+
+  /**
+   * The mobile app registers its push token after login so broadcasts reach this phone (QR040).
+   * A token belongs to one phone: if someone else logs in on it, it moves to them.
+   */
+  .post("/devices", json(z.object({ token: deviceToken, platform: z.enum(["ios", "android"]) })), async (c) => {
+    const user = currentUser(c);
+    const { token, platform } = c.req.valid("json");
+    const now = nowIso();
+    await c.env.DB.prepare(
+      `INSERT INTO device_tokens (id, user_id, platform, token, last_seen_at) VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT(token) DO UPDATE SET user_id = excluded.user_id, platform = excluded.platform,
+                                        last_seen_at = excluded.last_seen_at, updated_at = excluded.last_seen_at`,
+    )
+      .bind(newId(), user.id, platform, token, now)
+      .run();
+    return c.json({ registered: true });
+  })
+
+  /** Called on log out, so this phone stops getting the user's broadcasts. */
+  .post("/devices/unregister", json(z.object({ token: deviceToken })), async (c) => {
+    await c.env.DB.prepare("DELETE FROM device_tokens WHERE token = ? AND user_id = ?").bind(c.req.valid("json").token, currentUser(c).id).run();
+    return c.json({ unregistered: true });
   });

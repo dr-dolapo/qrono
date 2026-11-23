@@ -2,6 +2,7 @@ import { DurableObject } from "cloudflare:workers";
 import type { Env } from "./env";
 import { runCommand, type CommandResult, type LiveCommand } from "./live/commands";
 import { sendEmail } from "./mail";
+import { pushBroadcasts } from "./push";
 import { snapshot } from "./live/engine";
 
 /**
@@ -68,6 +69,11 @@ export class LiveEvent extends DurableObject<Env> {
 
     send(this.ctx.getWebSockets(), JSON.stringify(result.snapshot));
     for (const d of result.deliveries) send(this.ctx.getWebSockets(`user:${d.userId}`), JSON.stringify(d.message));
+    // Also push broadcasts to recipients' phones (QR040), so they're seen with the app closed.
+    if (result.deliveries.length) {
+      const eventId = await this.ctx.storage.get<string>("eventId");
+      if (eventId) this.ctx.waitUntil(pushBroadcasts(this.env, eventId, result.deliveries).catch((err) => console.error("Push failed", err)));
+    }
     if (result.broadcastsChanged) send(this.ctx.getWebSockets("manager"), JSON.stringify({ type: "broadcasts-changed" }));
     if (result.planChanged) send(this.ctx.getWebSockets(), JSON.stringify({ type: "plan-changed" }));
   }

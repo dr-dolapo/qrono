@@ -2,6 +2,7 @@ import { Stack, router, useLocalSearchParams } from "expo-router";
 import { useKeepAwake } from "expo-keep-awake";
 import { useMemo } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
+import { BroadcastHistory, BroadcastModal, useBroadcasts } from "../../../broadcasts/BroadcastAlerts";
 import { Button } from "../../../components/Button";
 import type { EventDetail } from "../../../events/types";
 import { formatTime, shortCountdown } from "../../../lib/time";
@@ -19,9 +20,12 @@ export default function LiveScreen() {
   // The screen stays on while someone is following the event.
   useKeepAwake();
   const detail = useApi<EventDetail>(`/events/${encodeURIComponent(id)}`);
+  const broadcasts = useBroadcasts(id);
   const { connection, state, clockOffset } = useLiveEvent(id, (msg) => {
     // The organisers changed the plan: refresh who's on which task.
     if (msg.type === "plan-changed") void detail.refresh();
+    // QR040: a broadcast (or a snoozed one coming back) pops up with reply buttons.
+    if (msg.type === "broadcast") broadcasts.incoming(msg.broadcast);
   });
   const now = useNow(1000) + clockOffset;
 
@@ -136,7 +140,9 @@ export default function LiveScreen() {
         </>
       ) : null}
 
+      <BroadcastHistory items={broadcasts.history} timezone={tz} />
       <Button label="See the full program" variant="link" onPress={() => router.back()} />
+      <BroadcastModal broadcast={broadcasts.current} waiting={broadcasts.waiting} timezone={tz} onReply={broadcasts.reply} />
     </ScrollView>
   );
 }
