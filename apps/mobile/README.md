@@ -15,15 +15,13 @@ created on the web.
 ### Previews: one-time setup (all in the browser)
 
 1. **Expo account:** sign up at [expo.dev](https://expo.dev).
-2. **Expo project:** on expo.dev, choose **Create a project**, name it `Qrono` with the
-   slug `qrono`. Copy its **project ID** and add it to `app.json` under
-   `expo.extra.eas.projectId`, plus `expo.updates.url` = `https://u.expo.dev/<project ID>`
-   (or ask Claude to do it).
+2. **Expo project:** done. The project `qrono-mobile` is linked in `app.json`
+   (`expo.extra.eas.projectId` and `expo.updates.url`).
 3. **Access token:** on expo.dev, go to **Account settings → Access tokens → Create token**.
 4. **GitHub secret:** in this repo on GitHub, go to **Settings → Secrets and variables →
    Actions → New repository secret**, named `EXPO_TOKEN`, with the token as its value.
 
-Until steps 2 and 4 are done, the **Mobile preview** workflow skips itself.
+Until step 4 is done, the **Mobile preview** workflow skips itself.
 
 ## Run it from a computer (for developers)
 
