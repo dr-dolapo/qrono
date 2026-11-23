@@ -34,6 +34,7 @@ function RootStack() {
     >
       <Stack.Protected guard={signedIn}>
         <Stack.Screen name="index" />
+        <Stack.Screen name="events/[id]" options={{ headerShown: true, title: "", headerBackTitle: "Events" }} />
       </Stack.Protected>
       <Stack.Protected guard={!signedIn}>
         <Stack.Screen name="login" />

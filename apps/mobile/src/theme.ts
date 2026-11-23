@@ -10,6 +10,9 @@ export const colors = {
   danger: "#ff8a8a",
   warningSurface: "#2a2210",
   warningText: "#ffd57a",
+  live: "#4ade80",
+  liveSurface: "#123020",
+  mineSurface: "#1f1838",
 } as const;
 
 export const space = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32 } as const;

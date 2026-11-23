@@ -8,6 +8,7 @@ import { events, teamEvents } from "./routes/events";
 import { guest } from "./routes/guest";
 import { invites } from "./routes/invites";
 import { live } from "./routes/live";
+import { me } from "./routes/me";
 import { review } from "./routes/review";
 import { teams } from "./routes/teams";
 import { sameOriginOnly, securityHeaders } from "./security";
@@ -32,6 +33,7 @@ app.use(sameOriginOnly);
 app.use(loadSession);
 
 app.route("/auth", auth);
+app.route("/me", me);
 app.route("/teams", teams);
 app.route("/invites", invites);
 app.route("/teams", teamEvents);
