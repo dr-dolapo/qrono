@@ -1,33 +1,62 @@
-# qrono_mobile
+# qrono-mobile
 
-The Qrono participant app for iOS and Android, built with Flutter.
+The Qrono participant app for iOS and Android, built with React Native and [Expo](https://docs.expo.dev/) (TypeScript).
 
-## First-time setup
+## Run it
 
-The repo holds only the Dart code (`lib/`, `test/`, `pubspec.yaml`). Generate
-the iOS and Android project folders once on your machine:
+Requirements: **Node 20+** and the **Expo Go** app on your phone (App Store or Play Store).
 
 ```bash
 cd apps/mobile
-flutter create . --org com.qrono --project-name qrono_mobile --platforms=ios,android
-flutter pub get
-dart run flutter_launcher_icons   # app icon, from assets/icon/
-flutter test
-flutter run
+npm install
+npm start          # then scan the QR code with your phone's camera (iOS) or Expo Go (Android)
 ```
 
-`flutter create .` keeps the existing `lib/main.dart` and `pubspec.yaml`. Commit
-the generated `ios/` and `android/` folders afterwards.
+You don't need Xcode or Android Studio for day-to-day work. The `ios/` and
+`android/` folders aren't committed: Expo generates them from `app.json` when
+you build, so configure native settings there instead.
 
-> **Check the org ID first.** `com.qrono` becomes the app's bundle ID on the
-> App Store and Play Store, and it can't be changed after the first release.
-> Use a domain you own, e.g. `com.yourcompany.qrono`.
+```bash
+npm run typecheck  # TypeScript check (also runs in CI)
+npm run doctor     # Expo's project health check
+```
+
+This app is its own npm project rather than a root workspace, because React
+Native needs an exact React version that differs from the web app's.
+
+## Build and release (EAS)
+
+Builds run in Expo's cloud, so iOS builds don't need a Mac. One-time setup:
+
+```bash
+npm install -g eas-cli
+eas login
+eas init           # links the app to your Expo account
+```
+
+| Command | What it makes |
+|---|---|
+| `eas build --profile development` | A development build, needed once the app uses native modules that Expo Go doesn't include |
+| `eas build --profile preview` | An installable build to share with testers |
+| `eas build --profile production --platform all` | Store builds for iOS and Android together |
+| `eas submit --platform all` | Uploads the latest store builds to App Store Connect and Google Play |
+| `eas update` | Sends a JavaScript-only fix to installed apps, with no store review |
+
+> **Check the bundle ID before the first release.** `app.json` uses
+> `uk.co.qrono.app` (from the qrono.co.uk domain) for both stores. It can't be
+> changed after the app is published.
+
+## App icon
+
+The icons in `assets/` are exported from the masters in [`docs/brand/icon`](../../docs/brand/icon).
 
 ## Planned packages
 
+Add them with `npx expo install <package>` so the versions match the Expo SDK.
+
 | Need | Package |
 |---|---|
-| Push notifications (broadcasts) | `firebase_messaging` |
-| Live agenda over WebSocket | `web_socket_channel` |
-| API calls | `http` or `dio` |
-| Secure session storage | `flutter_secure_storage` |
+| Push notifications (broadcasts, with Acknowledge / Snooze / Done actions) | `expo-notifications` |
+| Screens and navigation | `expo-router` |
+| Live agenda over WebSocket | built-in `WebSocket` |
+| Secure session storage | `expo-secure-store` |

@@ -1,6 +1,6 @@
 # Qrono — Product Requirements Document
 
-*Cleaned-up version of the original Qrono PRD spreadsheet, updated with the decisions made since (platforms, tech stack, permissions matrix, QR031–QR046, broadcast rules, data model, single-stage v1). Pricing is deferred until after launch, to be set from real usage. Open questions are tracked in section 11, and post-v1 items in section 12.*
+*Cleaned-up version of the original Qrono PRD spreadsheet, updated with the decisions made since (platforms, tech stack, permissions matrix, QR031–QR046, broadcast rules, data model, single-stage v1, React Native for mobile). Pricing is deferred until after launch, to be set from real usage. Open questions are tracked in section 11, and post-v1 items in section 12.*
 
 ---
 
@@ -16,7 +16,7 @@ Qrono ships on these surfaces in the first version:
 
 | Surface | Technology | Primary users | Purpose |
 |---|---|---|---|
-| **Mobile app** | Flutter, published to the **Apple App Store** and **Google Play Store** | Participants (any role) during a live event | A simple, native way to follow the event on a phone: the program, my tasks, the countdown, task comments, broadcasts (push notifications with Acknowledge, Snooze and Done), and accepting or declining a role in an event. **Approvers can also review and approve events on mobile** (view tasks, comment, approve). The app includes **log in** and **password reset**. New users are sent to the **web sign-up page** with a link. |
+| **Mobile app** | React Native (Expo), released on the **Apple App Store** and **Google Play Store** at the same time | Participants (any role) during a live event | A simple, native way to follow the event on a phone: the program, my tasks, the countdown, task comments, broadcasts (push notifications with Acknowledge, Snooze and Done), and accepting or declining a role in an event. **Approvers can also review and approve events on mobile** (view tasks, comment, approve). The app includes **log in** and **password reset**. New users are sent to the **web sign-up page** with a link. |
 | **Web app (command centre)** | Runs in a desktop browser. No separate Windows or Mac app. | Approvers and Admins | **Web only:** creating and editing events, signing up, and team management (invites, roles, vetting new joiners). The command centre runs from a desktop or laptop connected to a screen by **HDMI** and controls the live flow of the event. |
 | **Mobile web (guest view)** | The web app in a phone browser, opened from a link | Unregistered participants, e.g. guest speakers | Guests don't have to download the app. They're told about the event by **email**, and the link opens their program and tasks in the phone browser, where they can acknowledge or decline. Each link is personal and expires after the event. No live broadcasts. |
 
@@ -30,7 +30,7 @@ Qrono ships on these surfaces in the first version:
 
 | Layer | Choice | Used for |
 |---|---|---|
-| **Mobile apps** | **Flutter** (iOS and Android) | The participant app on the App Store and Play Store |
+| **Mobile apps** | **React Native + Expo** (TypeScript, iOS and Android) | The participant app on the App Store and Play Store. Built in the cloud with EAS Build, so iOS builds don't need a Mac. Small JavaScript fixes can go out the same day with EAS Update, without waiting for store review. |
 | **Web frontend** | **React + Vite** | The command centre, Admin screens (events, team, sign-up), and the guest mobile web view, all in one web app that works on desktop and phone |
 | **Web hosting** | Cloudflare Workers (static assets) | Serves the React app |
 | **API** | Cloudflare Workers (TypeScript) | One API for the mobile apps and the web app |
@@ -38,10 +38,12 @@ Qrono ships on these surfaces in the first version:
 | **Live events** | Cloudflare Durable Objects (WebSockets + alarms) | One live "room" per event: current task, auto-progression timers, broadcast delivery, 3-minute snooze re-alerts. Keeps every phone and the command centre in sync. |
 | **Background jobs** | Cloudflare Queues | Sending notifications without slowing down the app |
 | **Email** | Cloudflare Email Service | Invites, review requests, guest links and approval emails. *Currently in public beta, and needs the Workers paid plan.* |
-| **Push notifications** | Firebase Cloud Messaging, called from Workers | Push to both Android and iPhone. Not a Cloudflare service; Cloudflare has no push offering. |
+| **Push notifications** | Expo push notifications (`expo-notifications` in the app, the Expo Push API called from Workers) | One API for both Android and iPhone; Expo passes messages on to Apple and Google. Not a Cloudflare service; Cloudflare has no push offering. |
 | **Text messages** | Third-party SMS provider *(to choose)* | Team invites by text (QR008). Cloudflare has no SMS service. |
 | **Logins** | Built in the Workers API (with an auth library) | Email and password, email verification, password reset and sessions. Cloudflare has no user-login service for customer apps. |
 | **File storage** | Cloudflare R2 | Not needed in v1. Ready for later items such as countdown videos. |
+
+**Why React Native (decided):** the web app and the API are already written in TypeScript and React, so the mobile app shares the same language, data types and API code. The Flutter version was only a starter screen, so switching cost almost nothing. Expo also brings cloud builds and same-day fixes (EAS Update), which matter for an app used during live events.
 
 ## 2. Problem
 
@@ -303,7 +305,7 @@ Draft → Review → Approved → Live → Past
 | `id` | ID | |
 | `user_id` | → User | A user can have several devices |
 | `platform` | enum: `ios`, `android` | |
-| `token` | text | Push token from Apple or Google |
+| `token` | text | Expo push token for the device |
 | `last_seen_at` | timestamp | Lets old tokens be cleaned up |
 
 ### 10.2 Events & agenda

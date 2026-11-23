@@ -28,3 +28,22 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+
+  # The Expo app is its own npm project (not a root workspace), so it gets its own job.
+  mobile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/mobile/package-lock.json
+
+      - run: npm ci
+      - run: npm run typecheck
