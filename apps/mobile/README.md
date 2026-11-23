@@ -11,6 +11,7 @@ the iOS and Android project folders once on your machine:
 cd apps/mobile
 flutter create . --org com.qrono --project-name qrono_mobile --platforms=ios,android
 flutter pub get
+dart run flutter_launcher_icons   # app icon, from assets/icon/
 flutter test
 flutter run
 ```
