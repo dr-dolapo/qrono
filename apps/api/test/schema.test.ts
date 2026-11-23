@@ -58,6 +58,7 @@ describe("schema", () => {
       "stages",
       "task_assignments",
       "tasks",
+      "team_contacts",
       "team_invites",
       "team_memberships",
       "teams",

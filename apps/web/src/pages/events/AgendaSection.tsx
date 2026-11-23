@@ -1,25 +1,63 @@
-import { useState } from "react";
-import type { EventDetail, Task } from "../../api";
+import { useMemo, useState } from "react";
+import { api, type EventDetail, type Person, type Task } from "../../api";
 import { Alert } from "../../components/Form";
-import { formatDuration, formatTime } from "../../time";
+import { durationLabel, formatShortClock, formatTime } from "../../time";
+import { AgendaItemEditor, type AgendaItemValues } from "./agenda/AgendaItemEditor";
+import { TemplatePicker } from "./agenda/TemplatePicker";
+import type { PickerPerson } from "./agenda/WhoPicker";
 import type { Mutate } from "./EventEditor";
 import { TaskComments } from "./TaskComments";
-import { TaskForm, type TaskValues } from "./TaskForm";
 
-/** The timed agenda: tasks in order (single stage), with computed times and assignees. */
-export function AgendaSection({ detail, mutate }: { detail: EventDetail; mutate: Mutate }) {
+/** Everyone "Who" can offer: the team's people list, plus anyone already on this event who isn't on it. */
+export function pickerPeople(detail: EventDetail, people: Person[]): PickerPerson[] {
+  const list: PickerPerson[] = people.map((p) =>
+    p.kind === "member"
+      ? { key: `u:${p.userId}`, name: p.name, email: p.email, ref: { userId: p.userId }, status: p.status }
+      : { key: `c:${p.contactId}`, name: p.name, email: p.email, ref: { contactId: p.contactId }, status: p.status },
+  );
+  const known = new Set(list.map((p) => p.key));
+  for (const part of detail.participants) {
+    const key = part.userId ? `u:${part.userId}` : part.contactId ? `c:${part.contactId}` : `p:${part.id}`;
+    if (!known.has(key)) list.push({ key, name: part.name, email: part.email, ref: { participantId: part.id }, status: "guest" });
+  }
+  return list;
+}
+
+/** The program: What, Duration and Who for each item, in order, with start times worked out. */
+export function AgendaSection({ detail, mutate, people, reloadPeople }: { detail: EventDetail; mutate: Mutate; people: Person[]; reloadPeople: () => void }) {
   const { tasks, participants, permissions, event } = detail;
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [adding, setAdding] = useState(tasks.length === 0);
+  const [adding, setAdding] = useState(false);
+  const [choosingTemplate, setChoosingTemplate] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [openComments, setOpenComments] = useState<string | null>(null);
   const commentCount = (taskId: string) => detail.comments.filter((c) => c.taskId === taskId).length;
 
+  const pickable = useMemo(() => pickerPeople(detail, people), [detail, people]);
+  // Who on an existing item, as picker entries.
+  const whoFor = (task: Task): PickerPerson[] =>
+    task.assigneeIds.flatMap((pid) => {
+      const part = participants.find((p) => p.id === pid);
+      if (!part) return [];
+      const key = part.userId ? `u:${part.userId}` : part.contactId ? `c:${part.contactId}` : `p:${part.id}`;
+      return [pickable.find((p) => p.key === key) ?? { key, name: part.name, email: part.email, ref: { participantId: part.id }, status: "guest" as const }];
+    });
   const nameOf = (pid: string) => participants.find((p) => p.id === pid)?.name ?? "Removed";
 
-  // Once live, tasks that have started stay where they are (the API enforces this too).
+  const published = event.status === "approved" || event.status === "live";
+  const createPerson = async (name: string, email: string | null): Promise<PickerPerson> => {
+    const { person } = await api<{ person: Person }>(`/teams/${event.teamId}/people`, { method: "POST", body: email ? { name, email } : { name } });
+    reloadPeople();
+    return person.kind === "member"
+      ? { key: `u:${person.userId}`, name: person.name, email: person.email, ref: { userId: person.userId }, status: "member" }
+      : { key: `c:${person.contactId}`, name: person.name, email: person.email, ref: { contactId: person.contactId }, status: person.status };
+  };
+
+  const toBody = (v: AgendaItemValues) => ({ title: v.title, durationMinutes: v.durationMinutes, who: v.who });
+
+  // Once live, items that have started stay where they are (the API enforces this too).
   const firstMovable = tasks.findIndex((t) => t.status === "upcoming");
-  const movable = (t: Task) => t.status === "upcoming";
+  const editable = (t: Task) => permissions.canEdit && t.status !== "done" && t.status !== "skipped";
   const STATUS_TAG: Record<string, string> = { done: "Done", in_progress: "Now", skipped: "Skipped" };
 
   async function move(task: Task, delta: -1 | 1) {
@@ -32,99 +70,100 @@ export function AgendaSection({ detail, mutate }: { detail: EventDetail; mutate:
     try {
       await mutate("/tasks/order", "PUT", { taskIds: ids });
     } catch {
-      setError("Couldn't move that task. Reload the page and try again.");
+      setError("Couldn't move that item. Reload the page and try again.");
     }
   }
 
-  // v1 events are single-stage: every task runs on the one stage, one after another.
-  const toBody = (v: TaskValues) => ({ ...v, durationMinutes: Number(v.durationMinutes) });
+  const editorProps = {
+    teamId: event.teamId,
+    people: pickable,
+    needEmailForNew: published,
+    onCreatePerson: createPerson,
+  };
 
   return (
-    <section className="section" aria-labelledby="agenda-heading">
-      <h2 id="agenda-heading">
-        Agenda <span className="count">{tasks.length}</span>
+    <section className="section agenda-section" aria-labelledby="agenda-heading">
+      <h2 id="agenda-heading" className="visually-hidden">
+        Agenda
       </h2>
       <Alert>{error}</Alert>
 
       {tasks.length > 0 && (
-        <ol className="rows agenda">
+        <ol className="agenda-list">
           {tasks.map((task, index) =>
             editingId === task.id ? (
-              <li key={task.id} className="row row-editing">
-                <TaskForm
-                  detail={detail}
+              <li key={task.id}>
+                <AgendaItemEditor
+                  {...editorProps}
                   initial={task}
-                  submitLabel="Save task"
+                  initialWho={whoFor(task)}
                   onCancel={() => setEditingId(null)}
-                  onSubmit={async (v) => {
+                  onSave={async (v) => {
                     await mutate(`/tasks/${task.id}`, "PATCH", toBody(v));
                     setEditingId(null);
+                    reloadPeople();
                   }}
+                  onDelete={
+                    task.status === "upcoming"
+                      ? async () => {
+                          await mutate(`/tasks/${task.id}`, "DELETE");
+                          setEditingId(null);
+                        }
+                      : undefined
+                  }
                 />
               </li>
             ) : (
-              <li key={task.id} className="row agenda-row agenda-item">
-                <div className="agenda-line">
-                <div className="agenda-time">
-                  <strong>{formatTime(task.startAt, event.timezone)}</strong>
-                  <span className="muted small">{formatTime(task.endAt, event.timezone)}</span>
-                </div>
-                <div className="row-main">
-                  <strong>
-                    {task.title}
-                    {STATUS_TAG[task.status] && <span className={`task-tag task-${task.status}`}>{STATUS_TAG[task.status]}</span>}
-                  </strong>
-                  <span className="muted small">
-                    {formatDuration(task.durationMinutes)}
+              <li key={task.id} className={`agenda-card task-${task.status}`}>
+                <div className="agenda-card-row">
+                  <span className="agenda-time" title={`${formatTime(task.startAt, event.timezone)} – ${formatTime(task.endAt, event.timezone)}`}>
+                    {formatShortClock(task.startAt, event.timezone)}
                   </span>
-                  {task.assigneeIds.length > 0 && (
-                    <span className="small assignees">{task.assigneeIds.map(nameOf).join(", ")}</span>
+                  {editable(task) ? (
+                    <button type="button" className="agenda-card-main" onClick={() => { setAdding(false); setEditingId(task.id); }} aria-label={`Edit ${task.title}`}>
+                      <CardCells task={task} who={task.assigneeIds.map(nameOf)} tag={STATUS_TAG[task.status]} />
+                    </button>
+                  ) : (
+                    <div className="agenda-card-main">
+                      <CardCells task={task} who={task.assigneeIds.map(nameOf)} tag={STATUS_TAG[task.status]} />
+                    </div>
                   )}
-                </div>
-                <div className="row-actions">
-                  <button
-                    type="button"
-                    className={`button button-small ${commentCount(task.id) ? "has-comments" : ""}`}
-                    aria-expanded={openComments === task.id}
-                    onClick={() => setOpenComments(openComments === task.id ? null : task.id)}
-                  >
-                    {commentCount(task.id) ? `Comments (${commentCount(task.id)})` : "Comment"}
-                  </button>
-                {permissions.canEdit && task.status !== "done" && task.status !== "skipped" && (
-                  <>
+                  <div className="agenda-card-actions">
                     <button
                       type="button"
-                      className="icon-button"
-                      aria-label={`Move ${task.title} up`}
-                      disabled={!movable(task) || index === 0 || index <= firstMovable}
-                      onClick={() => move(task, -1)}
+                      className={`agenda-icon ${commentCount(task.id) ? "has-comments" : ""}`}
+                      aria-expanded={openComments === task.id}
+                      aria-label={commentCount(task.id) ? `${commentCount(task.id)} comments on ${task.title}` : `Comment on ${task.title}`}
+                      onClick={() => setOpenComments(openComments === task.id ? null : task.id)}
                     >
-                      ↑
+                      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                        <path d="M4 5h16v11H9l-5 4z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+                      </svg>
+                      {commentCount(task.id) > 0 && <span className="agenda-icon-count">{commentCount(task.id)}</span>}
                     </button>
-                    <button
-                      type="button"
-                      className="icon-button"
-                      aria-label={`Move ${task.title} down`}
-                      disabled={!movable(task) || index === tasks.length - 1}
-                      onClick={() => move(task, 1)}
-                    >
-                      ↓
-                    </button>
-                    <button type="button" className="button button-small" onClick={() => setEditingId(task.id)}>
-                      Edit
-                    </button>
-                    {movable(task) && (
-                      <button
-                        type="button"
-                        className="button button-small"
-                        onClick={() => mutate(`/tasks/${task.id}`, "DELETE").catch(() => setError("Couldn't delete that task."))}
-                      >
-                        Delete
-                      </button>
+                    {editable(task) && (
+                      <>
+                        <button
+                          type="button"
+                          className="agenda-icon"
+                          aria-label={`Move ${task.title} up`}
+                          disabled={task.status !== "upcoming" || index === 0 || index <= firstMovable}
+                          onClick={() => move(task, -1)}
+                        >
+                          ↑
+                        </button>
+                        <button
+                          type="button"
+                          className="agenda-icon"
+                          aria-label={`Move ${task.title} down`}
+                          disabled={task.status !== "upcoming" || index === tasks.length - 1}
+                          onClick={() => move(task, 1)}
+                        >
+                          ↓
+                        </button>
+                      </>
                     )}
-                  </>
-                )}
-                </div>
+                  </div>
                 </div>
                 {openComments === task.id && <TaskComments detail={detail} task={task} mutate={mutate} />}
               </li>
@@ -133,27 +172,68 @@ export function AgendaSection({ detail, mutate }: { detail: EventDetail; mutate:
         </ol>
       )}
 
-      {tasks.length === 0 && !permissions.canEdit && <p className="muted">No tasks yet.</p>}
+      {tasks.length === 0 && !permissions.canEdit && <p className="muted">Nothing on the agenda yet.</p>}
 
       {permissions.canEdit &&
         (adding ? (
-          <div className="card-panel">
-            <h3>Add a task</h3>
-            <TaskForm
-              detail={detail}
-              submitLabel="Add task"
-              onCancel={tasks.length ? () => setAdding(false) : undefined}
-              onSubmit={async (v) => {
-                await mutate("/tasks", "POST", toBody(v));
-              }}
-              resetOnSubmit
-            />
-          </div>
+          <AgendaItemEditor
+            // A fresh form after each save, for quick entry.
+            key={tasks.length}
+            {...editorProps}
+            onCancel={() => setAdding(false)}
+            onSave={async (v) => {
+              await mutate("/tasks", "POST", toBody(v));
+              reloadPeople();
+            }}
+          />
+        ) : choosingTemplate ? (
+          <TemplatePicker
+            teamId={event.teamId}
+            eventId={event.id}
+            onClose={() => setChoosingTemplate(false)}
+            onUse={async (sourceEventId) => {
+              await mutate("/copy-from", "POST", { sourceEventId });
+              setChoosingTemplate(false);
+            }}
+          />
         ) : (
-          <button type="button" className="button button-auto" onClick={() => setAdding(true)}>
-            + Add a task
-          </button>
+          <>
+            <button
+              type="button"
+              className="agenda-add"
+              aria-label="Add an agenda item"
+              onClick={() => {
+                setEditingId(null);
+                setAdding(true);
+              }}
+            >
+              <svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true">
+                <path d="M12 4v16M4 12h16" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" />
+              </svg>
+            </button>
+            {tasks.length === 0 && (
+              <p className="agenda-template-link">
+                or{" "}
+                <button type="button" className="link-button purple-link" onClick={() => setChoosingTemplate(true)}>
+                  add from a template
+                </button>
+              </p>
+            )}
+          </>
         ))}
     </section>
+  );
+}
+
+function CardCells({ task, who, tag }: { task: Task; who: string[]; tag?: string }) {
+  return (
+    <>
+      <span className="agenda-cell-what">
+        {task.title}
+        {tag && <span className={`task-tag task-${task.status}`}>{tag}</span>}
+      </span>
+      <span className="agenda-cell-duration">{durationLabel(task.durationMinutes)}</span>
+      <span className="agenda-cell-who">{who.length ? who.join(", ") : <span className="muted">Nobody yet</span>}</span>
+    </>
   );
 }

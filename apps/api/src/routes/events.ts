@@ -5,6 +5,7 @@ import type { AppEnv } from "../env";
 import { fail } from "../errors";
 import { isPublished, loadEditableEvent, loadEvent, type EventRow } from "../events/access";
 import { eventDetail, resyncSchedule } from "../events/detail";
+import { AGENDA_DURATIONS, isAgendaDuration } from "../events/durations";
 import { newId, nowIso } from "../ids";
 import { markChanged } from "../live/changes";
 import { liveCommand } from "./live";
@@ -53,11 +54,16 @@ const taskFields = z.object({
   description,
   stageId: z.string().nullable().optional(),
   durationMinutes: z
-    .number({ error: "Enter a duration in minutes." })
-    .int({ error: "Use whole minutes." })
-    .min(1, { error: "A task lasts at least 1 minute." })
-    .max(24 * 60, { error: "A task can last at most 24 hours." }),
+    .number({ error: "Choose a duration." })
+    .int({ error: "Choose a duration." })
+    .refine(isAgendaDuration, { error: `Choose a duration from the list (${AGENDA_DURATIONS[0]}–${AGENDA_DURATIONS.at(-1)} minutes).` }),
   assigneeIds: z.array(z.string()).max(50).optional(),
+  /** Who runs it, from the team's people list. Takes the place of assigneeIds; adds them to the event as needed. */
+  who: z
+    .array(z.union([z.object({ participantId: z.string() }), z.object({ userId: z.string() }), z.object({ contactId: z.string() })]))
+    .min(1, { error: "Choose who runs this." })
+    .max(50)
+    .optional(),
 });
 
 const endAfterStart = (start: string, end: string) => {
@@ -286,7 +292,7 @@ export const events = new Hono<AppEnv>()
     const { event } = await loadEditableEvent(c, c.req.param("eventId"));
     const body = c.req.valid("json");
     await checkStage(c, event.id, body.stageId ?? null);
-    const assignees = await checkAssignees(c, event.id, body.assigneeIds ?? []);
+    const assignees = body.who ? await resolveWho(c, event, body.who) : await checkAssignees(c, event.id, body.assigneeIds ?? []);
     const max = await c.env.DB.prepare("SELECT COALESCE(MAX(sort_order), -1) AS m FROM tasks WHERE event_id = ?").bind(event.id).first<{ m: number }>();
     const id = newId();
     await c.env.DB.batch([
@@ -330,8 +336,8 @@ export const events = new Hono<AppEnv>()
         taskId,
       ),
     ];
-    if (body.assigneeIds !== undefined) {
-      const assignees = await checkAssignees(c, event.id, body.assigneeIds);
+    if (body.who !== undefined || body.assigneeIds !== undefined) {
+      const assignees = body.who ? await resolveWho(c, event, body.who) : await checkAssignees(c, event.id, body.assigneeIds!);
       statements.push(c.env.DB.prepare("DELETE FROM task_assignments WHERE task_id = ?").bind(taskId), ...assignmentStatements(c, taskId, assignees));
     }
     await c.env.DB.batch(statements);
@@ -351,6 +357,39 @@ export const events = new Hono<AppEnv>()
     await resyncSchedule(c, event.id);
     await afterPlanEdit(c, event);
     return c.json(await eventDetail(c, await loadEvent(c, event.id)));
+  })
+
+  /**
+   * Start an empty agenda from a template: a copy of one of the team's previous
+   * programs. Copies each item's What and Duration; Who is chosen fresh.
+   */
+  .post("/:eventId/copy-from", json(z.object({ sourceEventId: z.string().min(1) })), async (c) => {
+    const { event } = await loadEditableEvent(c, c.req.param("eventId"));
+    const { sourceEventId } = c.req.valid("json");
+    const db = c.env.DB;
+    const source = await db.prepare("SELECT id, team_id, status FROM events WHERE id = ?").bind(sourceEventId).first<{ id: string; team_id: string; status: string }>();
+    // Only the same team's programs: nothing is shared between organisations.
+    if (!source || source.team_id !== event.team_id || source.id === event.id) fail(404, "Template not found.");
+    const existing = await db.prepare("SELECT COUNT(*) AS n FROM tasks WHERE event_id = ?").bind(event.id).first<{ n: number }>();
+    if (existing && existing.n > 0) fail(409, "Templates can only be used on an empty agenda.", { code: "agenda_not_empty" });
+    const { results } = await db
+      .prepare("SELECT title, description, duration_minutes FROM tasks WHERE event_id = ? ORDER BY sort_order, created_at")
+      .bind(source.id)
+      .all<{ title: string; description: string | null; duration_minutes: number }>();
+    if (results.length === 0) fail(409, "That program has no agenda items to copy.");
+    await db.batch(
+      results.map((t, i) =>
+        db
+          .prepare(
+            `INSERT INTO tasks (id, event_id, stage_id, title, description, sort_order, planned_start_at, duration_minutes)
+             VALUES (?, ?, NULL, ?, ?, ?, ?, ?)`,
+          )
+          .bind(newId(), event.id, t.title, t.description, i, event.start_at, t.duration_minutes),
+      ),
+    );
+    await resyncSchedule(c, event.id);
+    await afterPlanEdit(c, event);
+    return c.json(await eventDetail(c, await loadEvent(c, event.id)), 201);
   })
 
   /** Reorder the agenda. Send every task ID in the new order. */
@@ -407,6 +446,75 @@ async function checkAssignees(c: Ctx, eventId: string, ids: string[]): Promise<s
     fail(400, "Please check the highlighted fields.", { fields: { assigneeIds: "Only people added to this event can be assigned." } });
   }
   return unique;
+}
+
+type WhoRef = { participantId: string } | { userId: string } | { contactId: string };
+
+/**
+ * Turns "who" (people from the team's list) into this event's participants, adding
+ * them to the event when they aren't on it yet. Order is kept as the roll-call order.
+ */
+async function resolveWho(c: Ctx, event: EventRow, who: WhoRef[]): Promise<string[]> {
+  const db = c.env.DB;
+  const ids: string[] = [];
+  const bad = (msg: string): never => fail(400, "Please check the highlighted fields.", { fields: { who: msg } });
+
+  const placeForUser = async (userId: string): Promise<string> => {
+    const member = await db.prepare("SELECT 1 FROM team_memberships WHERE team_id = ? AND user_id = ? AND status = 'active'").bind(event.team_id, userId).first();
+    if (!member) bad("Choose people from your team's list.");
+    const existing = await db.prepare("SELECT id FROM event_participants WHERE event_id = ? AND user_id = ?").bind(event.id, userId).first<{ id: string }>();
+    if (existing) return existing.id;
+    const id = newId();
+    await db.prepare("INSERT INTO event_participants (id, event_id, user_id) VALUES (?, ?, ?)").bind(id, event.id, userId).run();
+    return id;
+  };
+
+  for (const ref of who) {
+    if ("participantId" in ref) {
+      const p = await db.prepare("SELECT id FROM event_participants WHERE id = ? AND event_id = ?").bind(ref.participantId, event.id).first<{ id: string }>();
+      if (!p) bad("Choose people from your team's list.");
+      ids.push(p!.id);
+    } else if ("userId" in ref) {
+      ids.push(await placeForUser(ref.userId));
+    } else {
+      const contact = await db
+        .prepare("SELECT id, name, email FROM team_contacts WHERE id = ? AND team_id = ?")
+        .bind(ref.contactId, event.team_id)
+        .first<{ id: string; name: string; email: string | null }>();
+      if (!contact) bad("Choose people from your team's list.");
+      // Already on the team under this email? Use the member.
+      if (contact!.email) {
+        const member = await db
+          .prepare("SELECT u.id FROM team_memberships m JOIN users u ON u.id = m.user_id WHERE m.team_id = ? AND m.status = 'active' AND u.email = ?")
+          .bind(event.team_id, contact!.email)
+          .first<{ id: string }>();
+        if (member) {
+          ids.push(await placeForUser(member.id));
+          continue;
+        }
+      }
+      // An approved program invites new people straight away, so they need an email first.
+      if (isPublished(event.status) && !contact!.email) {
+        bad(`Add an email for ${contact!.name} first. This program is already approved, so they're invited straight away.`);
+      }
+      const existing = await db
+        .prepare("SELECT id FROM event_participants WHERE event_id = ? AND (contact_id = ? OR (user_id IS NULL AND ? <> '' AND guest_email = ?))")
+        .bind(event.id, contact!.id, contact!.email ?? "", contact!.email ?? "")
+        .first<{ id: string }>();
+      if (existing) {
+        await db.prepare("UPDATE event_participants SET contact_id = ? WHERE id = ?").bind(contact!.id, existing.id).run();
+        ids.push(existing.id);
+        continue;
+      }
+      const id = newId();
+      await db
+        .prepare("INSERT INTO event_participants (id, event_id, guest_name, guest_email, contact_id) VALUES (?, ?, ?, ?, ?)")
+        .bind(id, event.id, contact!.name, contact!.email ?? "", contact!.id)
+        .run();
+      ids.push(id);
+    }
+  }
+  return [...new Set(ids)];
 }
 
 function assignmentStatements(c: Ctx, taskId: string, participantIds: string[]) {

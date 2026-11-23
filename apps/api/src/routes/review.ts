@@ -7,6 +7,7 @@ import { fail } from "../errors";
 import { loadEvent, type EventRow, type EventStatus } from "../events/access";
 import { eventDetail } from "../events/detail";
 import { createGuestLink, writeBaseline } from "../live/changes";
+import { contactsMissingEmail, inviteContactsOnProgram, listNames } from "../teams/contacts";
 import { newId, nowIso } from "../ids";
 import {
   assignedEmail,
@@ -59,6 +60,7 @@ export const review = new Hono<AppEnv>()
 
       const tasks = await c.env.DB.prepare("SELECT COUNT(*) AS n FROM tasks WHERE event_id = ?").bind(event.id).first<{ n: number }>();
       if (!tasks?.n) fail(409, "Add at least one task to the agenda before sending it for review.", { code: "agenda_empty" });
+      await requireEmails(c, event.id);
 
       const ids = [...new Set(c.req.valid("json").approverIds)];
       const { results: approvers } = await c.env.DB.prepare(
@@ -113,6 +115,8 @@ export const review = new Hono<AppEnv>()
     const me = currentUser(c);
     const chosen = await c.env.DB.prepare("SELECT 1 FROM event_approvers WHERE event_id = ? AND user_id = ?").bind(event.id, me.id).first();
     if (!chosen || access.role !== "approver") fail(403, "Only the Approvers chosen for this event can approve it.");
+    // Approval sends everyone their invitation, so everyone needs an email by now.
+    await requireEmails(c, event.id);
 
     const now = nowIso();
     await c.env.DB.batch([
@@ -168,6 +172,16 @@ export const review = new Hono<AppEnv>()
     return c.json(await eventDetail(c, await loadEvent(c, event.id)));
   });
 
+/** Everyone on the program must have an email before it's sent for review or approved. */
+async function requireEmails(c: Ctx, eventId: string): Promise<void> {
+  const missing = await contactsMissingEmail(c.env.DB, eventId);
+  if (missing.length) {
+    fail(409, `Add an email for ${listNames(missing)} first. Everyone on the program is invited by email once it's approved.`, {
+      code: "missing_emails",
+    });
+  }
+}
+
 /** Emails everyone affected by an approval and creates guests' personal links. */
 async function notifyOnApproval(c: Ctx, event: EventRow, approverName: string, approverId: string): Promise<void> {
   const db = c.env.DB;
@@ -215,6 +229,13 @@ async function notifyOnApproval(c: Ctx, event: EventRow, approverName: string, a
       inBackground(c, sendEmail(c.env, { to: p.guest_email!, ...guestInviteEmail(p.guest_name!, team!.name, event.name, when, tasksFor(p.id), link) }));
     }
   }
+  // People new to the team are also invited to join it.
+  inBackground(
+    c,
+    inviteContactsOnProgram(db, { appOrigin: c.env.APP_ORIGIN, send: (e) => sendEmail(c.env, e) }, event.id, approverId).catch((err) =>
+      console.error("Inviting new people failed", err),
+    ),
+  );
   writes.push(db.prepare("UPDATE event_participants SET notified_at = ? WHERE event_id = ?").bind(now, event.id));
   await db.batch(writes);
   // Remember what everyone was told, so later changes only notify those affected.

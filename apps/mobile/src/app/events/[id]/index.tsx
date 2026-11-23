@@ -227,9 +227,9 @@ function TaskRow({ task, timezone, mine, people, stage, comments, onPress }: Tas
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.background },
+  screen: { flex: 1, backgroundColor: "transparent" },
   content: { padding: space.xl, paddingBottom: space.xxl * 2 },
-  center: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.background },
+  center: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "transparent" },
   header: { gap: space.sm, marginBottom: space.md },
   title: { color: colors.text, fontSize: 26, fontWeight: "800", marginTop: space.xs },
   when: { color: colors.text, fontSize: 16 },

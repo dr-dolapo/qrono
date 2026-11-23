@@ -76,3 +76,47 @@ export function allTimeZones(): string[] {
     return [browserTimeZone(), "UTC"];
   }
 }
+
+/** "15 minutes", "1 hour", "1 hour 15 minutes", "2 hours". */
+export function durationLabel(minutes: number): string {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  const mins = `${m} minute${m === 1 ? "" : "s"}`;
+  if (h === 0) return mins;
+  const hours = `${h} hour${h === 1 ? "" : "s"}`;
+  return m ? `${hours} ${mins}` : hours;
+}
+
+const ordinal = (n: number) => {
+  const tens = n % 100;
+  if (tens >= 11 && tens <= 13) return `${n}th`;
+  return `${n}${{ 1: "st", 2: "nd", 3: "rd" }[n % 10] ?? "th"}`;
+};
+
+/** "Monday 23rd November 2026", in the event's time zone. */
+export function formatLongDate(iso: string, timeZone: string): string {
+  const parts = new Intl.DateTimeFormat("en-GB", { timeZone, weekday: "long", day: "numeric", month: "long", year: "numeric" }).formatToParts(new Date(iso));
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+  return `${get("weekday")} ${ordinal(Number(get("day")))} ${get("month")} ${get("year")}`;
+}
+
+/** The zone's short name, e.g. "WAT" or "BST", falling back to "GMT+1" when none is known. */
+function zoneAbbreviation(iso: string, timeZone: string): string {
+  let fallback = "";
+  for (const locale of ["en-US", "en-GB", "en-NG", "en-ZA", "en-KE", "en-IN", "en-AU"]) {
+    const name = new Intl.DateTimeFormat(locale, { timeZone, timeZoneName: "short" }).formatToParts(new Date(iso)).find((p) => p.type === "timeZoneName")?.value ?? "";
+    if (name && !/^(GMT|UTC)[+-]/.test(name)) return name;
+    fallback ||= name;
+  }
+  return fallback;
+}
+
+/** "6:00PM", in the event's time zone. */
+export function formatShortClock(iso: string, timeZone: string): string {
+  return new Intl.DateTimeFormat("en-US", { timeZone, hour: "numeric", minute: "2-digit", hour12: true }).format(new Date(iso)).replace(/\s/g, "");
+}
+
+/** "6:00PM WAT", in the event's time zone. */
+export function formatClockWithZone(iso: string, timeZone: string): string {
+  return `${formatShortClock(iso, timeZone)} ${zoneAbbreviation(iso, timeZone)}`.trim();
+}

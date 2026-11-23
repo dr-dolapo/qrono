@@ -1,44 +1,40 @@
-import { useEffect, useState } from "react";
-import { api, type EventDetail, type Member } from "../../api";
-import { Alert, TextField } from "../../components/Form";
-import { useForm } from "../../useForm";
+import { useState } from "react";
+import { ApiError, api, type EventDetail, type Participant, type Person } from "../../api";
+import { Alert } from "../../components/Form";
+import { StatusTag } from "./agenda/WhoPicker";
 import type { Mutate } from "./EventEditor";
 
-/** QR021: the people running this event — team members and guests (e.g. speakers without an account). */
-export function PeopleSection({ detail, mutate }: { detail: EventDetail; mutate: Mutate }) {
+/**
+ * Everyone on this program (added through Who on the agenda): whether they've joined
+ * the team or are still to accept, emails still needed, and their replies once approved.
+ */
+export function PeopleSection({
+  detail,
+  mutate,
+  people,
+  reloadPeople,
+  reloadEvent,
+}: {
+  detail: EventDetail;
+  mutate: Mutate;
+  people: Person[];
+  reloadPeople: () => void;
+  reloadEvent: () => void;
+}) {
   const { participants, permissions, event, tasks } = detail;
-  const [teamMembers, setTeamMembers] = useState<Member[]>([]);
-  const [memberId, setMemberId] = useState("");
-  const [guestName, setGuestName] = useState("");
-  const [guestEmail, setGuestEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const memberForm = useForm();
-  const guestForm = useForm();
-
-  useEffect(() => {
-    if (!permissions.canEdit) return;
-    api<{ members: Member[] }>(`/teams/${event.teamId}/members`)
-      .then((r) => setTeamMembers(r.members.filter((m) => m.status === "active")))
-      .catch(() => setTeamMembers([]));
-  }, [event.teamId, permissions.canEdit]);
-
-  const alreadyIn = new Set(participants.map((p) => p.userId).filter(Boolean));
-  const available = teamMembers.filter((m) => !alreadyIn.has(m.user.id));
   const taskCount = (pid: string) => tasks.filter((t) => t.assigneeIds.includes(pid)).length;
   const showResponses = event.status === "approved" || event.status === "live" || event.status === "past";
   const confirmed = participants.filter((p) => p.response === "acknowledged").length;
+  const missingEmail = participants.filter((p) => !p.email);
 
-  const addMember = memberForm.handle(async () => {
-    if (!memberId) return;
-    await mutate("/participants", "POST", { userId: memberId });
-    setMemberId("");
-  });
+  const statusOf = (p: Participant) => {
+    if (p.userId) return { status: "member" as const, email: p.email };
+    const listed = people.find((x) => x.kind === "contact" && x.contactId === p.contactId);
+    return listed ? { status: listed.status, email: listed.email } : { status: "guest" as const, email: p.email };
+  };
 
-  const addGuest = guestForm.handle(async () => {
-    await mutate("/participants", "POST", { guestName, guestEmail });
-    setGuestName("");
-    setGuestEmail("");
-  });
+  if (participants.length === 0) return null;
 
   return (
     <section className="section" aria-labelledby="people-heading">
@@ -50,85 +46,93 @@ export function PeopleSection({ detail, mutate }: { detail: EventDetail; mutate:
           {confirmed} of {participants.length} confirmed.
         </p>
       ) : (
-        <p className="muted small">Add the people running this event, then assign them to tasks. They're notified once the event is approved.</p>
+        <p className="muted small">Everyone chosen under Who. When the program is approved, they're emailed their part, and anyone new is invited to join the team.</p>
+      )}
+      {missingEmail.length > 0 && permissions.canEdit && (
+        <Alert kind="info">
+          Add an email for {missingEmail.map((p) => p.name).join(", ")} before sending this program for review.
+        </Alert>
       )}
       <Alert>{error}</Alert>
 
-      {participants.length > 0 && (
-        <ul className="rows">
-          {participants.map((p) => (
-            <li key={p.id} className="row">
-              <div className="row-main">
-                <strong>
-                  {p.name} {p.kind === "guest" && <span className="badge badge-muted">Guest</span>}
-                </strong>
-                <span className="muted small">
-                  {p.email} · {taskCount(p.id) ? `${taskCount(p.id)} task${taskCount(p.id) === 1 ? "" : "s"}` : "no tasks yet"}
+      <ul className="rows">
+        {participants.map((p) => (
+          <li key={p.id} className="row">
+            <div className="row-main">
+              <strong className="person-line">
+                {p.name}
+                {permissions.canEdit && <StatusTag person={statusOf(p)} />}
+              </strong>
+              <span className="muted small">
+                {p.email ?? "No email yet"} · {taskCount(p.id) ? `${taskCount(p.id)} item${taskCount(p.id) === 1 ? "" : "s"}` : "not on any item"}
+              </span>
+              {showResponses && p.response === "declined" && p.declineReason && <span className="small decline-reason">“{p.declineReason}”</span>}
+              {!p.email && p.contactId && permissions.canEdit && (
+                <AddEmail
+                  name={p.name}
+                  onSave={async (email) => {
+                    await api(`/teams/${event.teamId}/people/${p.contactId}`, { method: "PATCH", body: { email } });
+                    reloadPeople();
+                    reloadEvent();
+                  }}
+                />
+              )}
+            </div>
+            {showResponses && (
+              <div className="row-actions">
+                <span className={`response response-${p.response}`}>
+                  {p.response === "acknowledged" ? "Confirmed" : p.response === "declined" ? "Can't make it" : "No reply yet"}
                 </span>
-                {showResponses && p.response === "declined" && p.declineReason && <span className="small decline-reason">“{p.declineReason}”</span>}
               </div>
-              {showResponses && (
-                <div className="row-actions">
-                  <span className={`response response-${p.response}`}>
-                    {p.response === "acknowledged" ? "Confirmed" : p.response === "declined" ? "Can't make it" : "No reply yet"}
-                  </span>
-                </div>
-              )}
-              {permissions.canEdit && (
-                <div className="row-actions">
-                  <button
-                    type="button"
-                    className="button button-small"
-                    onClick={() => mutate(`/participants/${p.id}`, "DELETE").catch(() => setError("Couldn't remove that person."))}
-                  >
-                    Remove
-                  </button>
-                </div>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {permissions.canEdit && (
-        <div className="two-col">
-          <form onSubmit={addMember} noValidate className="card-panel">
-            <h3>Add from your team</h3>
-            <Alert>{memberForm.error}</Alert>
-            {available.length === 0 ? (
-              <p className="muted small">Everyone on the team is already in this event.</p>
-            ) : (
-              <>
-                <div className="field">
-                  <label htmlFor="add-member">Team member</label>
-                  <select id="add-member" value={memberId} onChange={(e) => setMemberId(e.target.value)}>
-                    <option value="">Choose someone…</option>
-                    {available.map((m) => (
-                      <option key={m.user.id} value={m.user.id}>
-                        {m.user.firstName} {m.user.lastName}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <button type="submit" className="button button-small" disabled={!memberId || memberForm.busy}>
-                  Add to event
-                </button>
-              </>
             )}
-          </form>
-
-          <form onSubmit={addGuest} noValidate className="card-panel">
-            <h3>Add a guest</h3>
-            <p className="muted small">For people without a Qrono account, like guest speakers. They won't need the app.</p>
-            <Alert>{guestForm.error}</Alert>
-            <TextField label="Guest name" value={guestName} onChange={setGuestName} error={guestForm.fields.guestName} />
-            <TextField label="Guest email" type="email" inputMode="email" value={guestEmail} onChange={setGuestEmail} error={guestForm.fields.guestEmail} />
-            <button type="submit" className="button button-small" disabled={guestForm.busy}>
-              Add guest
-            </button>
-          </form>
-        </div>
-      )}
+            {permissions.canEdit && (
+              <div className="row-actions">
+                <button
+                  type="button"
+                  className="button button-small"
+                  onClick={() => mutate(`/participants/${p.id}`, "DELETE").catch(() => setError("Couldn't remove that person."))}
+                >
+                  Remove
+                </button>
+              </div>
+            )}
+          </li>
+        ))}
+      </ul>
     </section>
+  );
+}
+
+function AddEmail({ name, onSave }: { name: string; onSave: (email: string) => Promise<void> }) {
+  const [email, setEmail] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  return (
+    <form
+      className="add-email"
+      noValidate
+      onSubmit={async (e) => {
+        e.preventDefault();
+        setBusy(true);
+        setError(null);
+        try {
+          await onSave(email.trim());
+          setEmail("");
+        } catch (err) {
+          setError(err instanceof ApiError ? (err.fields.email ?? err.message) : "Couldn't save the email.");
+        } finally {
+          setBusy(false);
+        }
+      }}
+    >
+      <label className="visually-hidden" htmlFor={`email-${name}`}>
+        Email for {name}
+      </label>
+      <input id={`email-${name}`} type="email" inputMode="email" placeholder={`${name}'s email`} value={email} onChange={(e) => setEmail(e.target.value)} />
+      <button type="submit" className="button button-small" disabled={busy || !email.trim()}>
+        Add email
+      </button>
+      {error && <span className="field-error">{error}</span>}
+    </form>
   );
 }

@@ -50,7 +50,7 @@ export function ReviewPanel({ detail, mutate }: { detail: EventDetail; mutate: M
         <div className="review-text">
           <strong>Draft</strong>
           <span className="muted small">
-            {tasks.length === 0 ? "Add tasks to the agenda, then send it for approval." : "When the plan is ready, send it to an Approver."}
+            {tasks.length === 0 ? "Add items to the agenda, then send it for approval." : "When the plan is ready, send it to an Approver."}
           </span>
         </div>
         {!choosing && (
@@ -101,7 +101,7 @@ export function ReviewPanel({ detail, mutate }: { detail: EventDetail; mutate: M
         <div className="review-text">
           <strong>Waiting for approval</strong>
           <span className="muted small">
-            Sent to {names(approvers)}. Comment on any task below. The plan is locked while it's in review.
+            Sent to {names(approvers)}. Comment on any item below. The plan is locked while it's in review.
           </span>
           <Alert>{error}</Alert>
         </div>

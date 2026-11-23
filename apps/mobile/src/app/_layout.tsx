@@ -5,14 +5,16 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AuthProvider, useAuth } from "../auth/AuthProvider";
 import { UpdateBanner } from "../components/UpdateBanner";
 import { NotificationRouter } from "../notifications/NotificationRouter";
-import { colors } from "../theme";
+import { backdrop, colors } from "../theme";
 
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <AuthProvider>
         <StatusBar style="light" />
-        <RootStack />
+        <View style={backdrop}>
+          <RootStack />
+        </View>
         <UpdateBanner />
       </AuthProvider>
     </SafeAreaProvider>
@@ -22,7 +24,7 @@ export default function RootLayout() {
 function RootStack() {
   const { status } = useAuth();
   // The saved session is read from secure storage before the first screen shows.
-  if (status === "loading") return <View style={{ flex: 1, backgroundColor: colors.background }} />;
+  if (status === "loading") return null;
 
   const signedIn = status === "signedIn";
   return (
@@ -31,7 +33,7 @@ function RootStack() {
       <Stack
         screenOptions={{
           headerShown: false,
-          contentStyle: { backgroundColor: colors.background },
+          contentStyle: { backgroundColor: "transparent" },
           headerStyle: { backgroundColor: colors.background },
           headerTintColor: colors.text,
           headerShadowVisible: false,

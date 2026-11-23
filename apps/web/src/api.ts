@@ -121,8 +121,11 @@ export interface Participant {
   id: string;
   kind: "member" | "guest";
   userId: string | null;
+  /** For guests: who they are on the team's people list. */
+  contactId: string | null;
   name: string;
-  email: string;
+  /** null for a guest whose email hasn't been added yet. */
+  email: string | null;
   response: "pending" | "acknowledged" | "declined";
   declineReason: string | null;
   respondedAt: string | null;
@@ -177,3 +180,37 @@ export interface GuestProgram {
   me: { name: string; response: Participant["response"]; declineReason: string | null };
   program: { id: string; title: string; durationMinutes: number; startAt: string; endAt: string; mine: boolean }[];
 }
+
+/** Someone on the team's people list (GET /teams/:teamId/people). */
+export type Person =
+  | { kind: "member"; userId: string; name: string; email: string; status: "member" }
+  | { kind: "contact"; contactId: string; name: string; email: string | null; status: "invited" | "not_invited" };
+
+export const PERSON_STATUS_LABEL: Record<Person["status"], string> = {
+  member: "Joined",
+  invited: "Invited",
+  not_invited: "Not invited yet",
+};
+
+/** A previous program to start an agenda from (GET /teams/:teamId/templates). */
+export interface Template {
+  eventId: string;
+  name: string;
+  startAt: string;
+  timezone: string;
+  items: number;
+  minutes: number;
+}
+
+/**
+ * The Duration dropdown, matching the API's rule: every minute from 1 to 15,
+ * every 5 minutes to 60, then every 15 minutes to 120.
+ */
+export const AGENDA_DURATIONS: readonly number[] = [
+  ...Array.from({ length: 15 }, (_, i) => i + 1),
+  ...Array.from({ length: 9 }, (_, i) => 20 + i * 5),
+  75,
+  90,
+  105,
+  120,
+];

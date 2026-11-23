@@ -147,7 +147,7 @@ function VerifyEmailBanner({ email, onConfirmed }: { email: string; onConfirmed(
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.background },
+  safe: { flex: 1, backgroundColor: "transparent" },
   content: { padding: space.xl, paddingBottom: space.xxl, flexGrow: 1 },
   header: { gap: space.lg, marginBottom: space.sm },
   brand: { color: colors.text, fontSize: 30, fontWeight: "800" },
