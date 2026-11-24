@@ -10,7 +10,7 @@ const REPLIES = new Set<string>(["acknowledged", "snoozed", "done"]);
 /**
  * While signed in: registers this phone for push, and handles taps on broadcast
  * notifications. A reply button (Acknowledge / Snooze / Done) sends the reply;
- * either way the app opens the event's live view.
+ * either way the app opens the event's live view. Inbox pushes open the Inbox at that item.
  */
 export function NotificationRouter() {
   const { status, user } = useAuth();
@@ -30,7 +30,14 @@ export function NotificationRouter() {
       if (handled.current.has(key)) return;
       handled.current.add(key);
 
-      const data = response.notification.request.content.data as { type?: string; eventId?: string; broadcastId?: string } | undefined;
+      const data = response.notification.request.content.data as
+        | { type?: string; eventId?: string; broadcastId?: string; inboxKey?: string }
+        | undefined;
+      // Something waiting in the Inbox: open it there.
+      if (data?.type === "inbox") {
+        router.navigate({ pathname: "/inbox", params: data.inboxKey ? { focus: data.inboxKey } : {} });
+        return;
+      }
       if (data?.type !== "broadcast" || !data.eventId || !data.broadcastId) return;
       if (REPLIES.has(response.actionIdentifier)) {
         await replyToBroadcast(data.eventId, data.broadcastId, response.actionIdentifier as BroadcastReply).catch(() => undefined);

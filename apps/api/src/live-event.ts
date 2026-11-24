@@ -4,6 +4,7 @@ import { runCommand, type CommandResult, type LiveCommand } from "./live/command
 import { sendEmail } from "./mail";
 import { pushBroadcasts } from "./push";
 import { snapshot } from "./live/engine";
+import { notifyNote } from "./inbox";
 
 /**
  * One instance per event (addressed by event ID): the live "room".
@@ -80,7 +81,11 @@ export class LiveEvent extends DurableObject<Env> {
 
   /** How the room emails change notices. */
   private hooks() {
-    return { appOrigin: this.env.APP_ORIGIN, send: (email: Parameters<typeof sendEmail>[1]) => sendEmail(this.env, email) };
+    return {
+      appOrigin: this.env.APP_ORIGIN,
+      send: (email: Parameters<typeof sendEmail>[1]) => sendEmail(this.env, email),
+      note: (userIds: string[], note: Parameters<typeof notifyNote>[2]) => notifyNote(this.env, userIds, note),
+    };
   }
 }
 

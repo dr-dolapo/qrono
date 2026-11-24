@@ -52,6 +52,8 @@ describe("schema", () => {
       "events",
       "guest_access_links",
       "hidden_suggestions",
+      "inbox_notes",
+      "inbox_seen",
       "notifications",
       "pinned_templates",
       "plan_notices",

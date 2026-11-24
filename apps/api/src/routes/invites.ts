@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { notifyWaiting } from "../inbox";
 import { linkGuestPlacesToMember } from "../teams/contacts";
 import type { Context } from "hono";
 import { sha256Hex } from "../auth/crypto";
@@ -24,15 +25,24 @@ interface InviteRow {
 
 async function findInvite(c: Context<AppEnv>, token: string): Promise<InviteRow> {
   if (token.length < 20 || token.length > 200) fail(404, "This invitation doesn't exist.", { code: "invite_invalid" });
+  return loadInvite(c, "i.token_hash", await sha256Hex(token));
+}
+
+/** An invitation by its id (the Inbox's Join button). */
+export async function findInviteById(c: Context<AppEnv>, id: string): Promise<InviteRow> {
+  return loadInvite(c, "i.id", id);
+}
+
+async function loadInvite(c: Context<AppEnv>, column: "i.token_hash" | "i.id", value: string): Promise<InviteRow> {
   const invite = await c.env.DB.prepare(
     `SELECT i.id, i.team_id, t.name AS team_name, i.channel, i.recipient, i.role, i.status, i.expires_at,
             u.first_name AS inviter_first, u.last_name AS inviter_last
        FROM team_invites i
        JOIN teams t ON t.id = i.team_id
        JOIN users u ON u.id = i.created_by
-      WHERE i.token_hash = ?`,
+      WHERE ${column} = ?`,
   )
-    .bind(await sha256Hex(token))
+    .bind(value)
     .first<InviteRow>();
   if (!invite || invite.status === "revoked") {
     fail(404, "This invitation has been cancelled or doesn't exist. Ask the team for a new one.", { code: "invite_invalid" });
@@ -65,8 +75,10 @@ export const invites = new Hono<AppEnv>()
    *  - Email invite (QR007): must be accepted by that email's account; joins straight away with the invited role.
    *  - Invite link (QR001): joins as a Member waiting for approval; Admins and Planners are emailed.
    */
-  .post("/:token/accept", requireVerifiedUser, async (c) => {
-    const invite = await findInvite(c, c.req.param("token"));
+  .post("/:token/accept", requireVerifiedUser, async (c) => acceptInvite(c, await findInvite(c, c.req.param("token"))));
+
+/** Accepting an invitation, from its emailed link or the Inbox. */
+export async function acceptInvite(c: Context<AppEnv>, invite: InviteRow) {
     const user = currentUser(c);
 
     if (invite.channel === "email" && invite.recipient?.toLowerCase() !== user.email.toLowerCase()) {
@@ -127,6 +139,7 @@ export const invites = new Hono<AppEnv>()
     }
     if (existing?.status === "pending_vetting") return c.json({ team: { ...team, role: "member", status: "pending_vetting" } });
 
+    const membershipId = existing?.id ?? newId();
     if (existing) {
       await c.env.DB.prepare(
         "UPDATE team_memberships SET role = 'member', status = 'pending_vetting', approved_by = NULL, updated_at = ? WHERE id = ?",
@@ -137,19 +150,27 @@ export const invites = new Hono<AppEnv>()
       await c.env.DB.prepare(
         "INSERT INTO team_memberships (id, team_id, user_id, role, status) VALUES (?, ?, ?, 'member', 'pending_vetting')",
       )
-        .bind(newId(), invite.team_id, user.id)
+        .bind(membershipId, invite.team_id, user.id)
         .run();
     }
 
     // Tell the people who can let them in.
     const { results: managers } = await c.env.DB.prepare(
-      `SELECT u.email FROM team_memberships m JOIN users u ON u.id = m.user_id
+      `SELECT u.id, u.email FROM team_memberships m JOIN users u ON u.id = m.user_id
         WHERE m.team_id = ? AND m.status = 'active' AND m.role IN ('approver', 'admin')`,
     )
       .bind(invite.team_id)
-      .all<{ email: string }>();
+      .all<{ id: string; email: string }>();
     const message = joinRequestEmail(`${user.firstName} ${user.lastName}`, invite.team_name, `${c.env.APP_ORIGIN}/admin/people`);
     for (const m of managers) inBackground(c, sendEmail(c.env, { to: m.email, ...message }));
+    inBackground(
+      c,
+      notifyWaiting(
+        c.env,
+        managers.map((m) => m.id),
+        { key: `join:${membershipId}`, title: `${user.firstName} ${user.lastName} wants to join ${invite.team_name}`, body: "Let them in, or decline, from your Inbox." },
+      ),
+    );
 
     return c.json({ team: { ...team, role: "member", status: "pending_vetting" } });
-  });
+}

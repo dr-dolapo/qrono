@@ -18,6 +18,7 @@ import {
   reviewRequestedEmail,
   sendEmail,
 } from "../mail";
+import { notifyNote, notifyWaiting } from "../inbox";
 import { emailBrand, loadTeam } from "../teams/settings";
 import { json } from "../validation";
 import { liveCommand } from "./live";
@@ -93,6 +94,15 @@ export const review = new Hono<AppEnv>()
       for (const a of approvers) {
         inBackground(c, sendEmail(c.env, { to: a.email, ...reviewRequestedEmail(`${me.firstName} ${me.lastName}`, event.name, when, link) }));
       }
+      // And a push to their phones, opening the approval in their Inbox.
+      inBackground(
+        c,
+        notifyWaiting(
+          c.env,
+          approvers.filter((a) => a.id !== me.id).map((a) => a.id),
+          { key: `approve:${event.id}`, title: `${event.name} needs your approval`, body: `Sent by ${me.firstName} ${me.lastName}.` },
+        ),
+      );
       return c.json(await eventDetail(c, await loadEvent(c, event.id)));
     },
   )
@@ -102,6 +112,21 @@ export const review = new Hono<AppEnv>()
     const access = await loadEvent(c, c.req.param("eventId"));
     if (!access.canManage) fail(403, "Only Admins and Planners can do that.");
     if (access.event.status !== "review") fail(409, "Only events in review can be moved back to draft.");
+    // If someone else sends it back, the person who sent it for review hears about it.
+    const sender = await lastSubmitter(c.env.DB, access.event.id);
+    const actor = currentUser(c);
+    if (sender && sender !== actor.id) {
+      inBackground(
+        c,
+        notifyNote(c.env, [sender], {
+          kind: "program_returned",
+          teamId: access.event.team_id,
+          eventId: access.event.id,
+          title: `${access.event.name} was sent back to draft`,
+          body: `${actor.firstName} ${actor.lastName} moved it back so the plan can be changed.`,
+        }),
+      );
+    }
     await c.env.DB.batch([
       c.env.DB.prepare("DELETE FROM event_approvers WHERE event_id = ?").bind(access.event.id),
       c.env.DB.prepare("UPDATE events SET status = 'draft', updated_at = ? WHERE id = ?").bind(nowIso(), access.event.id),
@@ -176,9 +201,32 @@ export const review = new Hono<AppEnv>()
     const { event } = await loadEvent(c, c.req.param("eventId"));
     const task = await c.env.DB.prepare("SELECT 1 FROM tasks WHERE id = ? AND event_id = ?").bind(c.req.param("taskId"), event.id).first();
     if (!task) fail(404, "Task not found.");
+    const author = currentUser(c);
+    const body = c.req.valid("json").body;
     await c.env.DB.prepare("INSERT INTO comments (id, task_id, author_id, body, event_status_at_post) VALUES (?, ?, ?, ?, ?)")
-      .bind(newId(), c.req.param("taskId"), currentUser(c).id, c.req.valid("json").body, event.status)
+      .bind(newId(), c.req.param("taskId"), author.id, body, event.status)
       .run();
+    // The people on that item hear about it, and so does whoever sent the program for review.
+    const { results: onItem } = await c.env.DB.prepare(
+      `SELECT p.user_id, t.title FROM task_assignments a JOIN event_participants p ON p.id = a.participant_id JOIN tasks t ON t.id = a.task_id
+        WHERE a.task_id = ? AND p.user_id IS NOT NULL`,
+    )
+      .bind(c.req.param("taskId"))
+      .all<{ user_id: string; title: string }>();
+    const taskTitle = (await c.env.DB.prepare("SELECT title FROM tasks WHERE id = ?").bind(c.req.param("taskId")).first<{ title: string }>())?.title ?? "an item";
+    const sender = event.status === "review" ? await lastSubmitter(c.env.DB, event.id) : null;
+    const recipients = [...onItem.map((r) => r.user_id), ...(sender ? [sender] : [])].filter((id) => id !== author.id);
+    inBackground(
+      c,
+      notifyNote(c.env, recipients, {
+        kind: "comment",
+        teamId: event.team_id,
+        eventId: event.id,
+        taskId: c.req.param("taskId"),
+        title: `${author.firstName} commented on “${taskTitle}”`,
+        body: body.length > 140 ? `${body.slice(0, 137)}…` : body,
+      }),
+    );
     return c.json(await eventDetail(c, await loadEvent(c, event.id)), 201);
   })
 
@@ -263,6 +311,11 @@ async function notifyOnApproval(c: Ctx, event: EventRow, approverName: string, a
   for (const p of participants) {
     if (p.user_id) {
       inBackground(c, sendEmail(c.env, { to: p.email!, ...assignedEmail(p.first_name!, team.name, event.name, when, tasksFor(p.id), eventLink, brand) }));
+      // Their part waits in the Inbox to be confirmed.
+      inBackground(
+        c,
+        notifyWaiting(c.env, [p.user_id], { key: `confirm:${p.id}`, title: `You're on the program for ${event.name}`, body: tasksFor(p.id)[0] ?? when }),
+      );
     } else {
       const token = await createGuestLink(db, p.id, event.end_at);
       const link = `${c.env.APP_ORIGIN}/g/${token}`;
@@ -280,5 +333,29 @@ async function notifyOnApproval(c: Ctx, event: EventRow, approverName: string, a
   await db.batch(writes);
   // Remember what everyone was told, so later changes only notify those affected.
   await writeBaseline(db, event.id);
+
+  // Whoever sent it for review hears it was approved (unless they approved it themselves).
+  const sender = await lastSubmitter(db, event.id);
+  if (sender && sender !== approverId) {
+    inBackground(
+      c,
+      notifyNote(c.env, [sender], {
+        kind: "program_approved",
+        teamId: event.team_id,
+        eventId: event.id,
+        title: `${event.name} was approved`,
+        body: `${approverName} approved it. Everyone on the program is being emailed their part.`,
+      }),
+    );
+  }
+}
+
+/** Who last sent this program for review, if anyone. */
+async function lastSubmitter(db: D1Database, eventId: string): Promise<string | null> {
+  const row = await db
+    .prepare("SELECT changed_by FROM event_status_changes WHERE event_id = ? AND to_status = 'review' ORDER BY changed_at DESC, rowid DESC LIMIT 1")
+    .bind(eventId)
+    .first<{ changed_by: string | null }>();
+  return row?.changed_by ?? null;
 }
 
