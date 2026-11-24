@@ -25,6 +25,12 @@ export interface Env {
   EMAIL?: EmailBinding;
   /** Optional Expo access token, needed only if push "enhanced security" is on. Set as a Worker secret. */
   EXPO_ACCESS_TOKEN?: string;
+  /** Apple push key (.p8 file contents), its Key ID and the Apple Team ID: for iOS Live Activities. Worker secrets. */
+  APNS_KEY?: string;
+  APNS_KEY_ID?: string;
+  APNS_TEAM_ID?: string;
+  /** Defaults to production (api.push.apple.com); "api.sandbox.push.apple.com" for development builds. */
+  APNS_HOST?: string;
 }
 
 /** Variables set on the request context by middleware. */

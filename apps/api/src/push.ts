@@ -14,13 +14,14 @@ export const EXPO_TOKEN_PATTERN = /^(Exponent|Expo)PushToken\[[A-Za-z0-9_-]{10,2
 
 interface PushMessage {
   to: string;
-  title: string;
-  body: string;
+  /** No title or body: a silent data message the app handles itself (Android Live Updates). */
+  title?: string;
+  body?: string;
   data: Record<string, string>;
-  sound: "default";
+  sound?: "default";
   priority: "high";
   /** Android: the high-importance channel the app creates for broadcasts. */
-  channelId: string;
+  channelId?: string;
   /** iOS/Android: shows Acknowledge, Snooze and Done buttons (registered by the app). */
   categoryId?: string;
 }
@@ -131,6 +132,29 @@ export async function pushInbox(
       // Android: the app creates this channel. Older versions fall back to their default channel.
       channelId: "inbox",
     })),
+    fetcher,
+  );
+}
+
+/**
+ * Android Live Updates: a silent data message to each person's Android phones. The app
+ * draws (or removes) the card itself, even when closed.
+ */
+export async function pushLiveData(
+  env: Pick<Env, "DB" | "EXPO_ACCESS_TOKEN">,
+  messages: { userId: string; data: Record<string, string> }[],
+  fetcher: typeof fetch = fetch,
+): Promise<number> {
+  const ids = [...new Set(messages.map((m) => m.userId))];
+  if (ids.length === 0) return 0;
+  const { results: tokens } = await env.DB.prepare(
+    `SELECT user_id, token FROM device_tokens WHERE platform = 'android' AND user_id IN (${ids.map(() => "?").join(",")})`,
+  )
+    .bind(...ids)
+    .all<{ user_id: string; token: string }>();
+  return sendMessages(
+    env,
+    messages.flatMap((m) => tokens.filter((t) => t.user_id === m.userId).map((t) => ({ to: t.token, data: m.data, priority: "high" as const }))),
     fetcher,
   );
 }
