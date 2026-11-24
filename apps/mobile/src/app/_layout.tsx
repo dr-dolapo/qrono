@@ -4,7 +4,7 @@ import { Inter_500Medium } from "@expo-google-fonts/inter/500Medium";
 import { Inter_600SemiBold } from "@expo-google-fonts/inter/600SemiBold";
 import { Inter_700Bold } from "@expo-google-fonts/inter/700Bold";
 import { Inter_800ExtraBold } from "@expo-google-fonts/inter/800ExtraBold";
-import { Stack } from "expo-router";
+import { DarkTheme, Stack, ThemeProvider } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -12,6 +12,15 @@ import { AuthProvider, useAuth } from "../auth/AuthProvider";
 import { UpdateBanner } from "../components/UpdateBanner";
 import { NotificationRouter } from "../notifications/NotificationRouter";
 import { backdrop, colors, font } from "../theme";
+
+/**
+ * Navigation's own theme defaults to light grey, which iOS paints over the gradient.
+ * Dark, with a see-through background, lets the backdrop show on every screen.
+ */
+const navTheme = {
+  ...DarkTheme,
+  colors: { ...DarkTheme.colors, background: "transparent", card: colors.background, text: colors.text, primary: "#b98af5" },
+};
 
 export default function RootLayout() {
   // Inter ships inside the app bundle, so this resolves almost instantly and works offline.
@@ -28,9 +37,11 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <AuthProvider>
         <StatusBar style="light" />
-        <View style={backdrop}>
-          <RootStack />
-        </View>
+        <ThemeProvider value={navTheme}>
+          <View style={backdrop}>
+            <RootStack />
+          </View>
+        </ThemeProvider>
         <UpdateBanner />
       </AuthProvider>
     </SafeAreaProvider>
