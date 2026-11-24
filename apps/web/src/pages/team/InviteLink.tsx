@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ApiError, api, type PendingInvite } from "../../api";
 import { Alert } from "../../components/Form";
 import { toast } from "sonner";
+import { Link } from "react-router";
 import { Icon } from "../../components/Icon";
 
 /**
@@ -11,11 +12,16 @@ import { Icon } from "../../components/Icon";
  */
 export function InviteLink({
   teamId,
+  enabled,
+  needsLettingIn,
   activeLink,
   onTurnOff,
   onChanged,
 }: {
   teamId: string;
+  /** Teams can turn the invite link off in Settings. */
+  enabled: boolean;
+  needsLettingIn: boolean;
   activeLink: PendingInvite | null;
   onTurnOff: (inviteId: string) => void;
   onChanged: () => Promise<void>;
@@ -51,10 +57,27 @@ export function InviteLink({
     }
   }
 
+  if (!enabled) {
+    return (
+      <section className="panel" aria-labelledby="link-heading">
+        <h2 id="link-heading">Invite link</h2>
+        <p className="panel-sub">
+          Turned off for this team. Invite people by email, or{" "}
+          <Link className="text-link" to="/admin/settings#invites">
+            turn it on in Settings
+          </Link>
+          .
+        </p>
+      </section>
+    );
+  }
+
   return (
     <section className="panel" aria-labelledby="link-heading">
       <h2 id="link-heading">Invite link</h2>
-      <p className="panel-sub">Share one link with a group, e.g. in WhatsApp. People who use it join as Members once you let them in.</p>
+      <p className="panel-sub">
+        Share one link with a group, e.g. in WhatsApp. People who use it join as Members{needsLettingIn ? " once you let them in" : " straight away"}.
+      </p>
       <Alert>{error}</Alert>
 
       {url ? (

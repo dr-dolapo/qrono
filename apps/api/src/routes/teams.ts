@@ -7,7 +7,7 @@ import { fail } from "../errors";
 import { newId, nowIso } from "../ids";
 import { sendEmail, teamInviteEmail } from "../mail";
 import { MANAGERS, assertCanManage, requireMembership, type Membership, type Role } from "../teams/permissions";
-import { emailField, json } from "../validation";
+import { emailField, json, timezoneField } from "../validation";
 
 const EMAIL_INVITE_DAYS = 7;
 const LINK_INVITE_DAYS = 30;
@@ -31,14 +31,16 @@ export const teams = new Hono<AppEnv>()
           .trim()
           .min(2, { error: "Use at least 2 characters." })
           .max(80, { error: "Use at most 80 characters." }),
+        /** The creator's own time zone; events use it until it's changed in Settings. */
+        timezone: timezoneField.optional(),
       }),
     ),
     async (c) => {
       const user = currentUser(c);
-      const { name } = c.req.valid("json");
+      const { name, timezone } = c.req.valid("json");
       const teamId = newId();
       await c.env.DB.batch([
-        c.env.DB.prepare("INSERT INTO teams (id, name, created_by) VALUES (?, ?, ?)").bind(teamId, name, user.id),
+        c.env.DB.prepare("INSERT INTO teams (id, name, created_by, timezone) VALUES (?, ?, ?, ?)").bind(teamId, name, user.id, timezone ?? "UTC"),
         c.env.DB.prepare(
           "INSERT INTO team_memberships (id, team_id, user_id, role, status) VALUES (?, ?, ?, 'approver', 'active')",
         ).bind(newId(), teamId, user.id),
@@ -50,7 +52,7 @@ export const teams = new Hono<AppEnv>()
   /** QR010: every team the user belongs to (including requests still waiting for approval). */
   .get("/", async (c) => {
     const { results } = await c.env.DB.prepare(
-      `SELECT t.id, t.name, m.role, m.status
+      `SELECT t.id, t.name, t.timezone, t.clock_format AS clockFormat, t.week_start AS weekStart, m.role, m.status
          FROM team_memberships m JOIN teams t ON t.id = m.team_id
         WHERE m.user_id = ? AND m.status <> 'removed'
         ORDER BY t.created_at`,
@@ -186,7 +188,8 @@ export const teams = new Hono<AppEnv>()
 
     const token = newSecretToken();
     const inviteId = newId();
-    const expiresAt = days(EMAIL_INVITE_DAYS);
+    const rules = await c.env.DB.prepare("SELECT invite_expiry_days FROM teams WHERE id = ?").bind(teamId).first<{ invite_expiry_days: number }>();
+    const expiresAt = days(rules?.invite_expiry_days ?? EMAIL_INVITE_DAYS);
     await c.env.DB.batch([
       c.env.DB.prepare(
         "UPDATE team_invites SET status = 'revoked', updated_at = ? WHERE team_id = ? AND channel = 'email' AND recipient = ? AND status = 'pending'",
@@ -215,6 +218,8 @@ export const teams = new Hono<AppEnv>()
   .post("/:teamId/invite-link", async (c) => {
     const teamId = c.req.param("teamId");
     const me = await requireMembership(c, teamId, MANAGERS);
+    const rules = await c.env.DB.prepare("SELECT invite_link_enabled FROM teams WHERE id = ?").bind(teamId).first<{ invite_link_enabled: number }>();
+    if (rules?.invite_link_enabled === 0) fail(409, "The invite link is turned off for this team. Turn it on in Settings.", { code: "invite_link_disabled" });
     const token = newSecretToken();
     const expiresAt = days(LINK_INVITE_DAYS);
     await c.env.DB.batch([

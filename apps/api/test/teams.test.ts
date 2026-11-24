@@ -31,12 +31,12 @@ describe("teams (QR006, QR010)", () => {
 
   it("creates a team with the creator as its Approver", async () => {
     await verify();
-    const res = await browser.post("/api/teams", { name: "  Events Team  " });
+    const res = await browser.post("/api/teams", { name: "  Events Team  ", timezone: "Africa/Lagos" });
     expect(res.status).toBe(201);
     expect(res.json.team).toMatchObject({ name: "Events Team", role: "approver", status: "active" });
 
     const me = await browser.get("/api/auth/me");
-    expect(me.json.teams).toEqual([{ id: res.json.team.id, name: "Events Team", role: "approver", status: "active" }]);
+    expect(me.json.teams).toEqual([{ id: res.json.team.id, name: "Events Team", timezone: "Africa/Lagos", clockFormat: "12h", weekStart: "monday", role: "approver", status: "active" }]);
   });
 
   it("lets a user belong to several teams", async () => {

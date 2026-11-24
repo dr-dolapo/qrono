@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
-import { ApiError, ROLE_LABEL, api, type Member, type PendingInvite, type Person, type Role } from "../../api";
+import { ApiError, ROLE_LABEL, api, type Member, type PendingInvite, type Person, type Role, type TeamSettings } from "../../api";
 import { useAuth } from "../../auth/AuthContext";
 import { AppShell } from "../../components/AppShell";
 import { Avatar } from "../../components/Avatar";
@@ -25,7 +25,7 @@ const ROLE_HELP: Record<Role, string> = {
 
 const viewerZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-/** QR001, QR007, QR009: the team's people, join requests and invitations. */
+/** QR001, QR007, QR009: People — everyone on the team, join requests and invitations. */
 export function TeamPage() {
   const { currentTeam, refresh: refreshAuth } = useAuth();
   const navigate = useNavigate();
@@ -33,6 +33,7 @@ export function TeamPage() {
   const [data, setData] = useState<MembersResponse | null>(null);
   const [invites, setInvites] = useState<PendingInvite[]>([]);
   const [contacts, setContacts] = useState<Extract<Person, { kind: "contact" }>[]>([]);
+  const [settings, setSettings] = useState<TeamSettings | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [confirmingRemove, setConfirmingRemove] = useState<string | null>(null);
@@ -44,10 +45,12 @@ export function TeamPage() {
       const members = await api<MembersResponse>(`/teams/${teamId}/members`);
       setData(members);
       if (members.me.role !== "member") {
-        const [inv, ppl] = await Promise.all([
+        const [inv, ppl, st] = await Promise.all([
           api<{ invites: PendingInvite[] }>(`/teams/${teamId}/invites`),
           api<{ people: Person[] }>(`/teams/${teamId}/people`),
+          api<{ settings: TeamSettings | null }>(`/teams/${teamId}/settings`),
         ]);
+        setSettings(st.settings);
         setInvites(inv.invites);
         setContacts(ppl.people.filter((p): p is Extract<Person, { kind: "contact" }> => p.kind === "contact"));
       } else {
@@ -83,9 +86,7 @@ export function TeamPage() {
   if (!data) {
     return (
       <AppShell>
-        <h1>
-          <span className="title-pre">Team:</span> {currentTeam!.name}
-        </h1>
+        <h1>People</h1>
         {error ? <Alert>{error}</Alert> : <p className="muted">Loading…</p>}
       </AppShell>
     );
@@ -112,6 +113,8 @@ export function TeamPage() {
     <>
       <InviteLink
         teamId={teamId}
+        enabled={settings?.inviteLinkEnabled ?? true}
+        needsLettingIn={settings?.linkRequiresApproval ?? true}
         activeLink={invites.find((i) => i.channel === "link") ?? null}
         onTurnOff={(id) => act(id, () => api(`/teams/${teamId}/invites/${id}`, { method: "DELETE" }), "The invite link has been turned off.")}
         onChanged={load}
@@ -163,9 +166,7 @@ export function TeamPage() {
 
   return (
     <AppShell rail={rail || undefined}>
-      <h1>
-        <span className="title-pre">Team:</span> {currentTeam!.name}
-      </h1>
+      <h1>People</h1>
       <Alert>{error}</Alert>
 
       <section className="settings-section" aria-labelledby="roles-heading">
@@ -185,6 +186,8 @@ export function TeamPage() {
         <InviteByEmail
           teamId={teamId}
           myRole={me.role}
+          defaultRole={settings?.inviteDefaultRole ?? "member"}
+          expiryDays={settings?.inviteExpiryDays ?? 7}
           onInvited={async (email) => {
             toast.success(`Invitation sent to ${email}`);
             await load();
@@ -194,7 +197,7 @@ export function TeamPage() {
 
       <section className="settings-section" aria-labelledby="members-heading">
         <div className="section-head">
-          <h2 id="members-heading">People</h2>
+          <h2 id="members-heading">Everyone</h2>
           <span className="count">{active.length + emailInvites.length + listedContacts.length}</span>
           <span className="section-head-grow" />
           <span className="section-head-meta">

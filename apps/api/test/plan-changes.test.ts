@@ -103,8 +103,8 @@ describe("editing an approved event", () => {
     expect(sent.map((e) => e.to).sort()).toEqual(["dayo@example.com", "funmi@example.com"]);
     const dayoMail = emailsTo("dayo@example.com").at(-1)!;
     expect(dayoMail.subject).toBe("Changes to the program: AGM");
-    expect(dayoMail.text).toContain("10:50  Close"); // now
-    expect(dayoMail.text).toContain("Before the change: 10:40  Close");
+    expect(dayoMail.text).toContain("10:50 AM  Close"); // now
+    expect(dayoMail.text).toContain("Before the change: 10:40 AM  Close");
 
     // A guest's change email carries a fresh personal link that works; the old one is replaced.
     const link = emailsTo("funmi@example.com").at(-1)!.text.match(/\/g\/([A-Za-z0-9_-]+)/)![1];
@@ -134,13 +134,15 @@ describe("editing an approved event", () => {
   });
 
   it("tells everyone when the event moves", async () => {
-    await ada.request("PATCH", `/api/events/${eventId}`, { startAt: "2030-06-01T10:00:00.000Z", endAt: "2030-06-01T13:00:00.000Z" });
+    const endBefore = (await ada.get(`/api/events/${eventId}`)).json.event.endAt as string;
+    await ada.request("PATCH", `/api/events/${eventId}`, { startAt: "2030-06-01T10:00:00.000Z" });
+    const endAfter = new Date(Date.parse(endBefore) + 3_600_000).toISOString();
     const before = t.emails.length;
     await quietPeriodPasses();
     expect(t.emails.slice(before).map((e) => e.to).sort()).toEqual(["chi@example.com", "dayo@example.com", "funmi@example.com"]);
     // Guest links now expire at the new end time.
     const links = t.sqlite.prepare("SELECT expires_at FROM guest_access_links WHERE revoked_at IS NULL").all() as { expires_at: string }[];
-    expect(links.every((l) => l.expires_at === "2030-06-01T13:00:00.000Z")).toBe(true);
+    expect(links.every((l) => l.expires_at === endAfter)).toBe(true);
   });
 
   it("replaced guest links explain where to find the new one", async () => {

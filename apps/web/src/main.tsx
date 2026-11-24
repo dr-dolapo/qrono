@@ -1,7 +1,7 @@
 import "@fontsource-variable/inter";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { Outlet, RouterProvider, createBrowserRouter } from "react-router";
+import { Navigate, Outlet, RouterProvider, createBrowserRouter } from "react-router";
 import { AuthProvider } from "./auth/AuthContext";
 import { GuestOnly, RequireAuth } from "./auth/guards";
 import { CheckEmail } from "./pages/auth/CheckEmail";
@@ -19,6 +19,7 @@ import { Home } from "./pages/Home";
 import { NotFound } from "./pages/NotFound";
 import { CreateTeam } from "./pages/onboarding/CreateTeam";
 import { InvitePage } from "./pages/team/InvitePage";
+import { SettingsPage } from "./pages/settings/SettingsPage";
 import { TeamPage } from "./pages/team/TeamPage";
 import { WaitingPage } from "./pages/team/WaitingPage";
 import "./styles.css";
@@ -51,7 +52,10 @@ const router = createBrowserRouter([
       { path: "/admin", element: <RequireAuth><EventsList /></RequireAuth> },
       { path: "/admin/events/new", element: <RequireAuth><NewEvent /></RequireAuth> },
       { path: "/admin/events/:eventId", element: <RequireAuth><EventEditor /></RequireAuth> },
-      { path: "/admin/team", element: <RequireAuth><TeamPage /></RequireAuth> },
+      { path: "/admin/people", element: <RequireAuth><TeamPage /></RequireAuth> },
+      // The page was called Team before; keep old links working.
+      { path: "/admin/team", element: <Navigate to="/admin/people" replace /> },
+      { path: "/admin/settings", element: <RequireAuth><SettingsPage /></RequireAuth> },
 
       // Team invitations (QR001, QR007)
       { path: "/invite/:token", element: <InvitePage /> },

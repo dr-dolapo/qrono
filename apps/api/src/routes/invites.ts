@@ -108,6 +108,23 @@ export const invites = new Hono<AppEnv>()
 
     // Invite link: the link stays usable for others until it expires or is replaced.
     if (existing?.status === "active") return c.json({ team: { ...team, role: existing.role, status: "active" } });
+    const rules = await c.env.DB.prepare("SELECT invite_link_enabled, link_requires_approval FROM teams WHERE id = ?")
+      .bind(invite.team_id)
+      .first<{ invite_link_enabled: number; link_requires_approval: number }>();
+    if (rules?.invite_link_enabled === 0) fail(410, "This team has turned off its invite link. Ask the team for an invitation.", { code: "invite_expired" });
+
+    // Teams can choose to let people who use the link straight in (a Settings choice).
+    if (rules?.link_requires_approval === 0) {
+      await c.env.DB.prepare(
+        existing
+          ? "UPDATE team_memberships SET role = 'member', status = 'active', updated_at = ? WHERE id = ?"
+          : "INSERT INTO team_memberships (id, team_id, user_id, role, status) VALUES (?, ?, ?, 'member', 'active')",
+      )
+        .bind(...(existing ? [now, existing.id] : [newId(), invite.team_id, user.id]))
+        .run();
+      await linkGuestPlacesToMember(c.env.DB, invite.team_id, user.id, user.email);
+      return c.json({ team: { ...team, role: "member", status: "active" } });
+    }
     if (existing?.status === "pending_vetting") return c.json({ team: { ...team, role: "member", status: "pending_vetting" } });
 
     if (existing) {
@@ -131,7 +148,7 @@ export const invites = new Hono<AppEnv>()
     )
       .bind(invite.team_id)
       .all<{ email: string }>();
-    const message = joinRequestEmail(`${user.firstName} ${user.lastName}`, invite.team_name, `${c.env.APP_ORIGIN}/admin/team`);
+    const message = joinRequestEmail(`${user.firstName} ${user.lastName}`, invite.team_name, `${c.env.APP_ORIGIN}/admin/people`);
     for (const m of managers) inBackground(c, sendEmail(c.env, { to: m.email, ...message }));
 
     return c.json({ team: { ...team, role: "member", status: "pending_vetting" } });

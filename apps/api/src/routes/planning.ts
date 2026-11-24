@@ -160,6 +160,7 @@ export const planning = new Hono<AppEnv>()
          FROM tasks t JOIN events e ON e.id = t.event_id
         WHERE e.team_id = ? AND e.status IN ${APPROVED}
           AND t.title LIKE ? ESCAPE '\\'
+          AND NOT EXISTS (SELECT 1 FROM hidden_suggestions h WHERE h.team_id = e.team_id AND h.title = t.title)
         GROUP BY lower(t.title)
         ORDER BY lower(MIN(t.title)) LIKE lower(?) ESCAPE '\\' DESC, uses DESC, last_used DESC
         LIMIT 8`,
@@ -174,16 +175,25 @@ export const planning = new Hono<AppEnv>()
     const teamId = c.req.param("teamId");
     await requireMembership(c, teamId, MANAGERS);
     const { results } = await c.env.DB.prepare(
-      `SELECT e.id, e.name, e.start_at, e.timezone, COUNT(t.id) AS items, SUM(t.duration_minutes) AS minutes
+      `SELECT e.id, e.name, e.start_at, e.timezone, COUNT(t.id) AS items, SUM(t.duration_minutes) AS minutes,
+              (SELECT 1 FROM pinned_templates p WHERE p.team_id = e.team_id AND p.event_id = e.id) AS pinned
          FROM events e JOIN tasks t ON t.event_id = e.id
         WHERE e.team_id = ? AND e.status IN ${APPROVED} AND e.id <> ?
         GROUP BY e.id
-        ORDER BY e.start_at DESC
+        ORDER BY pinned DESC, e.start_at DESC
         LIMIT 30`,
     )
       .bind(teamId, c.req.query("exclude") ?? "")
-      .all<{ id: string; name: string; start_at: string; timezone: string; items: number; minutes: number }>();
+      .all<{ id: string; name: string; start_at: string; timezone: string; items: number; minutes: number; pinned: number | null }>();
     return c.json({
-      templates: results.map((r) => ({ eventId: r.id, name: r.name, startAt: r.start_at, timezone: r.timezone, items: r.items, minutes: r.minutes })),
+      templates: results.map((r) => ({
+        eventId: r.id,
+        name: r.name,
+        startAt: r.start_at,
+        timezone: r.timezone,
+        items: r.items,
+        minutes: r.minutes,
+        pinned: r.pinned === 1,
+      })),
     });
   });

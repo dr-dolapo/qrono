@@ -18,6 +18,7 @@ import {
   reviewRequestedEmail,
   sendEmail,
 } from "../mail";
+import { emailBrand, loadTeam } from "../teams/settings";
 import { json } from "../validation";
 import { liveCommand } from "./live";
 
@@ -63,6 +64,12 @@ export const review = new Hono<AppEnv>()
       await requireEmails(c, event.id);
 
       const ids = [...new Set(c.req.valid("json").approverIds)];
+      const team = (await loadTeam(c.env.DB, event.team_id))!;
+      if (team.allow_self_approval !== 1 && ids.includes(currentUser(c).id)) {
+        fail(400, "Please check the highlighted fields.", {
+          fields: { approverIds: "Your team doesn't let people approve programs they sent. Choose another Approver." },
+        });
+      }
       const { results: approvers } = await c.env.DB.prepare(
         `SELECT u.id, u.first_name, u.email FROM team_memberships m JOIN users u ON u.id = m.user_id
           WHERE m.team_id = ? AND m.role = 'approver' AND m.status = 'active' AND u.id IN (${ids.map(() => "?").join(",")})`,
@@ -81,7 +88,7 @@ export const review = new Hono<AppEnv>()
         await logStatus(c, event.id, "draft", "review", me.id),
       ]);
 
-      const when = formatEventTime(event.start_at, event.timezone);
+      const when = formatEventTime(event.start_at, event.timezone, team.clock_format);
       const link = `${c.env.APP_ORIGIN}/admin/events/${event.id}`;
       for (const a of approvers) {
         inBackground(c, sendEmail(c.env, { to: a.email, ...reviewRequestedEmail(`${me.firstName} ${me.lastName}`, event.name, when, link) }));
@@ -115,6 +122,13 @@ export const review = new Hono<AppEnv>()
     const me = currentUser(c);
     const chosen = await c.env.DB.prepare("SELECT 1 FROM event_approvers WHERE event_id = ? AND user_id = ?").bind(event.id, me.id).first();
     if (!chosen || access.role !== "approver") fail(403, "Only the Approvers chosen for this event can approve it.");
+    const team = (await loadTeam(c.env.DB, event.team_id))!;
+    if (team.allow_self_approval !== 1) {
+      const sent = await c.env.DB.prepare("SELECT changed_by FROM event_status_changes WHERE event_id = ? AND to_status = 'review' ORDER BY changed_at DESC, rowid DESC LIMIT 1")
+        .bind(event.id)
+        .first<{ changed_by: string | null }>();
+      if (sent?.changed_by === me.id) fail(403, "Your team doesn't let people approve programs they sent. Another Approver needs to approve it.", { code: "self_approval" });
+    }
     // Approval sends everyone their invitation, so everyone needs an email by now.
     await requireEmails(c, event.id);
 
@@ -126,6 +140,31 @@ export const review = new Hono<AppEnv>()
     ]);
     await notifyOnApproval(c, event, `${me.firstName} ${me.lastName}`, me.id);
     // Wake the live room at the start time.
+    await liveCommand(c, event.id, "arm", me.id);
+    return c.json(await eventDetail(c, await loadEvent(c, event.id)));
+  })
+
+  /**
+   * When the team doesn't require approval (a Settings choice), Approvers and Admins
+   * publish a draft directly. Everything else is as for an approval.
+   */
+  .post("/:eventId/publish", async (c) => {
+    const access = await loadEvent(c, c.req.param("eventId"));
+    const { event } = access;
+    if (!access.canManage) fail(403, "Only Approvers and Admins can publish programs.");
+    if (event.status !== "draft") fail(409, "Only draft events can be published.", { code: "event_not_draft" });
+    const team = (await loadTeam(c.env.DB, event.team_id))!;
+    if (team.require_approval === 1) fail(409, "Your team requires programs to be approved. Send it for review instead.", { code: "approval_required" });
+    const tasks = await c.env.DB.prepare("SELECT COUNT(*) AS n FROM tasks WHERE event_id = ?").bind(event.id).first<{ n: number }>();
+    if (!tasks?.n) fail(409, "Add at least one item to the agenda before publishing it.", { code: "agenda_empty" });
+    await requireEmails(c, event.id);
+
+    const me = currentUser(c);
+    await c.env.DB.batch([
+      c.env.DB.prepare("UPDATE events SET status = 'approved', updated_at = ? WHERE id = ?").bind(nowIso(), event.id),
+      await logStatus(c, event.id, "draft", "approved", me.id),
+    ]);
+    await notifyOnApproval(c, event, `${me.firstName} ${me.lastName}`, me.id);
     await liveCommand(c, event.id, "arm", me.id);
     return c.json(await eventDetail(c, await loadEvent(c, event.id)));
   })
@@ -185,9 +224,10 @@ async function requireEmails(c: Ctx, eventId: string): Promise<void> {
 /** Emails everyone affected by an approval and creates guests' personal links. */
 async function notifyOnApproval(c: Ctx, event: EventRow, approverName: string, approverId: string): Promise<void> {
   const db = c.env.DB;
-  const when = formatEventTime(event.start_at, event.timezone);
+  const team = (await loadTeam(db, event.team_id))!;
+  const when = formatEventTime(event.start_at, event.timezone, team.clock_format);
   const eventLink = `${c.env.APP_ORIGIN}/admin/events/${event.id}`;
-  const team = await db.prepare("SELECT name FROM teams WHERE id = ?").bind(event.team_id).first<{ name: string }>();
+  const brand = emailBrand(c.env.APP_ORIGIN, team);
 
   // QR017: the team's Approvers and Admins.
   const { results: managers } = await db
@@ -216,17 +256,17 @@ async function notifyOnApproval(c: Ctx, event: EventRow, approverName: string, a
     .bind(event.id)
     .all<{ participant_id: string; title: string; planned_start_at: string }>();
   const tasksFor = (pid: string) =>
-    assignments.filter((a) => a.participant_id === pid).map((a) => `${formatClockTime(a.planned_start_at, event.timezone)}  ${a.title}`);
+    assignments.filter((a) => a.participant_id === pid).map((a) => `${formatClockTime(a.planned_start_at, event.timezone, team.clock_format)}  ${a.title}`);
 
   const now = nowIso();
   const writes = [];
   for (const p of participants) {
     if (p.user_id) {
-      inBackground(c, sendEmail(c.env, { to: p.email!, ...assignedEmail(p.first_name!, team!.name, event.name, when, tasksFor(p.id), eventLink) }));
+      inBackground(c, sendEmail(c.env, { to: p.email!, ...assignedEmail(p.first_name!, team.name, event.name, when, tasksFor(p.id), eventLink, brand) }));
     } else {
       const token = await createGuestLink(db, p.id, event.end_at);
       const link = `${c.env.APP_ORIGIN}/g/${token}`;
-      inBackground(c, sendEmail(c.env, { to: p.guest_email!, ...guestInviteEmail(p.guest_name!, team!.name, event.name, when, tasksFor(p.id), link) }));
+      inBackground(c, sendEmail(c.env, { to: p.guest_email!, ...guestInviteEmail(p.guest_name!, team.name, event.name, when, tasksFor(p.id), link, brand) }));
     }
   }
   // People new to the team are also invited to join it.

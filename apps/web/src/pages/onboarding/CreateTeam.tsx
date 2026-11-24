@@ -4,6 +4,7 @@ import { api } from "../../api";
 import { useAuth } from "../../auth/AuthContext";
 import { Alert, AuthLayout, SubmitButton, TextField } from "../../components/Form";
 import { useForm } from "../../useForm";
+import { browserTimeZone } from "../../time";
 
 /** QR006: every new user creates (or later, joins) a team before planning events. */
 export function CreateTeam() {
@@ -13,7 +14,7 @@ export function CreateTeam() {
   const navigate = useNavigate();
 
   const submit = form.handle(async () => {
-    const { team } = await api<{ team: { id: string } }>("/teams", { body: { name } });
+    const { team } = await api<{ team: { id: string } }>("/teams", { body: { name, timezone: browserTimeZone() } });
     await refresh();
     setCurrentTeam(team.id);
     navigate("/admin", { replace: true });

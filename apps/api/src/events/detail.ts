@@ -1,6 +1,7 @@
 import type { Context } from "hono";
 import type { AppEnv } from "../env";
 import type { EventAccess } from "./access";
+import { loadTeam } from "../teams/settings";
 import { buildSchedule } from "./schedule";
 
 interface StageRow {
@@ -71,20 +72,33 @@ async function loadAgenda(c: Context<AppEnv>, eventId: string) {
  * times change, and stores it (the live room and reports read it later).
  */
 export async function resyncSchedule(c: Context<AppEnv>, eventId: string): Promise<void> {
-  const event = await c.env.DB.prepare("SELECT start_at, end_at FROM events WHERE id = ?")
+  const db = c.env.DB;
+  const event = await db.prepare("SELECT start_at, end_at, status FROM events WHERE id = ?")
     .bind(eventId)
-    .first<{ start_at: string; end_at: string }>();
+    .first<{ start_at: string; end_at: string; status: string }>();
   if (!event) return;
   const { tasks } = await loadAgenda(c, eventId);
-  if (tasks.length === 0) return;
   const schedule = buildSchedule(
     event.start_at,
     event.end_at,
     tasks.map((t) => ({ id: t.id, stageId: t.stage_id, durationMinutes: t.duration_minutes })),
   );
-  await c.env.DB.batch(
-    schedule.tasks.map((t) => c.env.DB.prepare("UPDATE tasks SET planned_start_at = ? WHERE id = ?").bind(t.startAt, t.id)),
-  );
+  // An event ends when its agenda does. With nothing on it yet, a minute after it starts.
+  const endsAt = tasks.length ? schedule.endsAt : new Date(Date.parse(event.start_at) + 60_000).toISOString();
+  const statements = schedule.tasks.map((t) => db.prepare("UPDATE tasks SET planned_start_at = ? WHERE id = ?").bind(t.startAt, t.id));
+  if (endsAt !== event.end_at) {
+    statements.push(db.prepare("UPDATE events SET end_at = ? WHERE id = ?").bind(endsAt, eventId));
+    if (event.status === "approved" || event.status === "live") {
+      // Guests' links expire when the event ends.
+      statements.push(
+        db.prepare(
+          `UPDATE guest_access_links SET expires_at = ?
+            WHERE revoked_at IS NULL AND participant_id IN (SELECT id FROM event_participants WHERE event_id = ?)`,
+        ).bind(endsAt, eventId),
+      );
+    }
+  }
+  if (statements.length) await db.batch(statements);
 }
 
 /** Everything the event editor and viewers need, with computed times. */
@@ -129,6 +143,19 @@ export async function eventDetail(c: Context<AppEnv>, access: EventAccess) {
   ]);
   const myParticipant = participants.results.find((p) => p.user_id === me.id) ?? null;
   const iAmChosenApprover = approvers.results.some((a) => a.user_id === me.id);
+  const team = (await loadTeam(db, event.team_id))!;
+  const requireApproval = team.require_approval === 1;
+  // Who sent it for review, for the "can't approve your own" rule.
+  const submittedBy =
+    event.status === "review"
+      ? ((
+          await db
+            .prepare("SELECT changed_by FROM event_status_changes WHERE event_id = ? AND to_status = 'review' ORDER BY changed_at DESC, rowid DESC LIMIT 1")
+            .bind(event.id)
+            .first<{ changed_by: string | null }>()
+        )?.changed_by ?? null)
+      : null;
+  const selfBlocked = team.allow_self_approval !== 1 && submittedBy === me.id;
 
   const schedule = buildSchedule(
     event.start_at,
@@ -155,12 +182,25 @@ export async function eventDetail(c: Context<AppEnv>, access: EventAccess) {
       createdAt: event.created_at,
       updatedAt: event.updated_at,
     },
+    /** Team settings that shape how this event is shown and run. */
+    team: {
+      name: team.name,
+      clockFormat: team.clock_format,
+      venue: team.default_venue,
+      requireApproval,
+      allowSelfApproval: team.allow_self_approval === 1,
+      liveWarningMinutes: team.live_warning_minutes,
+      liveShowNames: team.live_show_names === 1,
+      submittedBy,
+    },
     permissions: {
       canEdit: access.canManage && (event.status === "draft" || event.status === "approved" || event.status === "live"),
       canManage: access.canManage,
-      canSubmit: access.canManage && event.status === "draft" && tasks.length > 0,
+      canSubmit: requireApproval && access.canManage && event.status === "draft" && tasks.length > 0,
+      /** When the team doesn't require approval, Approvers and Admins publish drafts directly. */
+      canPublish: !requireApproval && access.canManage && event.status === "draft" && tasks.length > 0,
       canWithdraw: access.canManage && event.status === "review",
-      canApprove: event.status === "review" && iAmChosenApprover && access.role === "approver",
+      canApprove: event.status === "review" && iAmChosenApprover && access.role === "approver" && !selfBlocked,
       canComment: true,
       canRespond: myParticipant !== null && (event.status === "approved" || event.status === "live"),
       canRunLive: access.canManage && (event.status === "approved" || event.status === "live"),

@@ -8,6 +8,7 @@
  * newly added (guests get their personal link) or removed.
  */
 import { inviteContactsOnProgram } from "../teams/contacts";
+import { emailBrand } from "../teams/settings";
 import { newSecretToken, sha256Hex } from "../auth/crypto";
 import {
   assignedEmail,
@@ -41,6 +42,10 @@ interface EventInfo {
   id: string;
   name: string;
   team_name: string;
+  team_id: string;
+  clock_format: "12h" | "24h";
+  logo_data: string | null;
+  default_venue: string | null;
   start_at: string;
   end_at: string;
   timezone: string;
@@ -51,7 +56,8 @@ interface EventInfo {
 async function loadEvent(db: D1Database, eventId: string): Promise<EventInfo | null> {
   return db
     .prepare(
-      `SELECT e.id, e.name, t.name AS team_name, e.start_at, e.end_at, e.timezone, e.status, e.notify_after
+      `SELECT e.id, e.name, t.name AS team_name, t.id AS team_id, t.clock_format, t.logo_data, t.default_venue,
+              e.start_at, e.end_at, e.timezone, e.status, e.notify_after
          FROM events e JOIN teams t ON t.id = e.team_id WHERE e.id = ?`,
     )
     .bind(eventId)
@@ -77,9 +83,11 @@ async function currentParts(db: D1Database, event: EventInfo): Promise<Part[]> {
     .all<{ participant_id: string; title: string; planned_start_at: string }>();
 
   return people.map((p) => {
-    const lines = assignments
-      .filter((a) => a.participant_id === p.id)
-      .map((a) => `${formatClockTime(a.planned_start_at, event.timezone)}  ${a.title}`);
+    const mine = assignments.filter((a) => a.participant_id === p.id);
+    // What people read follows the team's clock setting...
+    const lines = mine.map((a) => `${formatClockTime(a.planned_start_at, event.timezone, event.clock_format)}  ${a.title}`);
+    // ...but changes are detected on a fixed format, so switching the setting isn't a "change".
+    const fixedLines = mine.map((a) => `${formatClockTime(a.planned_start_at, event.timezone)}  ${a.title}`);
     const member = p.user_id !== null;
     return {
       participantId: p.id,
@@ -88,10 +96,24 @@ async function currentParts(db: D1Database, event: EventInfo): Promise<Part[]> {
       firstName: member ? p.first_name! : p.guest_name!,
       email: member ? p.email! : (p.guest_email ?? ""),
       lines,
-      // Anything that should trigger a notice when it changes.
-      summary: JSON.stringify({ event: event.name, start: event.start_at, end: event.end_at, tz: event.timezone, lines }),
+      // Anything that should trigger a notice when it changes. Not the end time: it follows
+      // the agenda, so a change there already shows in the person's own lines.
+      summary: JSON.stringify({ event: event.name, start: event.start_at, tz: event.timezone, lines: fixedLines }),
     };
   });
+}
+
+/** Compares two summaries, ignoring the end time that older summaries recorded. */
+function sameSummary(a: string, b: string): boolean {
+  const strip = (s: string) => {
+    try {
+      const { end: _end, ...rest } = JSON.parse(s) as Record<string, unknown>;
+      return JSON.stringify(rest);
+    } catch {
+      return s;
+    }
+  };
+  return strip(a) === strip(b);
 }
 
 /** Record what everyone has now been told. */
@@ -157,7 +179,8 @@ export async function flushChanges(db: D1Database, eventId: string, now: number,
     .all<{ participant_id: string; kind: string; name: string; email: string; summary: string; lines: string }>();
   const before = new Map(told.map((t) => [t.participant_id, t]));
   const parts = await currentParts(db, event);
-  const when = formatEventTime(event.start_at, event.timezone);
+  const when = formatEventTime(event.start_at, event.timezone, event.clock_format);
+  const brand = emailBrand(hooks.appOrigin, { id: event.team_id, name: event.team_name, logo_data: event.logo_data, default_venue: event.default_venue });
   const eventLink = `${hooks.appOrigin}/admin/events/${event.id}`;
 
   const emails: OutgoingEmail[] = [];
@@ -166,12 +189,12 @@ export async function flushChanges(db: D1Database, eventId: string, now: number,
     if (!previous) {
       // Newly added since approval: same welcome as at approval.
       if (p.kind === "member") {
-        emails.push({ to: p.email, ...assignedEmail(p.firstName, event.team_name, event.name, when, p.lines, eventLink) });
+        emails.push({ to: p.email, ...assignedEmail(p.firstName, event.team_name, event.name, when, p.lines, eventLink, brand) });
       } else {
         const token = await createGuestLink(db, p.participantId, event.end_at, now);
-        emails.push({ to: p.email, ...guestInviteEmail(p.firstName, event.team_name, event.name, when, p.lines, `${hooks.appOrigin}/g/${token}`) });
+        emails.push({ to: p.email, ...guestInviteEmail(p.firstName, event.team_name, event.name, when, p.lines, `${hooks.appOrigin}/g/${token}`, brand) });
       }
-    } else if (previous.summary !== p.summary) {
+    } else if (!sameSummary(previous.summary, p.summary)) {
       // Guests' links are stored only as hashes, so each change email carries a fresh one (replacing the old).
       const link = p.kind === "member" ? eventLink : `${hooks.appOrigin}/g/${await createGuestLink(db, p.participantId, event.end_at, now)}`;
       emails.push({ to: p.email, ...planChangedEmail(p.firstName, event.name, when, p.lines, JSON.parse(previous.lines) as string[], link) });

@@ -38,9 +38,18 @@ export function toZonedInput(iso: string, timeZone: string): string {
   return local.toISOString().slice(0, 16);
 }
 
-/** "6:00 PM", in the event's time zone. One format everywhere in the app. */
+/** The team's clock setting. Set from the signed-in team; guests' pages set it from the event. */
+let clockFormat: "12h" | "24h" = "12h";
+export function setClockFormat(format: "12h" | "24h" | undefined) {
+  clockFormat = format ?? "12h";
+}
+export const usesTwelveHourClock = () => clockFormat === "12h";
+
+/** "6:00 PM" (or "18:00" on a 24-hour team), in the event's time zone. One format everywhere in the app. */
 export function formatTime(iso: string, timeZone: string): string {
-  return new Intl.DateTimeFormat("en-US", { timeZone, hour: "numeric", minute: "2-digit", hour12: true }).format(new Date(iso));
+  return clockFormat === "24h"
+    ? new Intl.DateTimeFormat("en-GB", { timeZone, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(iso))
+    : new Intl.DateTimeFormat("en-US", { timeZone, hour: "numeric", minute: "2-digit", hour12: true }).format(new Date(iso));
 }
 
 export function formatDate(iso: string, timeZone: string): string {
@@ -139,7 +148,7 @@ export function dateTile(iso: string, timeZone: string): { day: string; month: s
 export function formatTimeRange(startIso: string, endIso: string, timeZone: string): string {
   const a = formatTime(startIso, timeZone);
   const b = formatTime(endIso, timeZone);
-  const sameHalf = a.slice(-2) === b.slice(-2);
+  const sameHalf = clockFormat === "12h" && a.slice(-2) === b.slice(-2);
   return `${sameHalf ? a.slice(0, -3) : a} – ${b}`;
 }
 
@@ -171,4 +180,18 @@ export function formatClockLength(minutes: number): string {
 /** "6:00 – 8:00 PM WAT", in the event's time zone. */
 export function formatTimeRangeWithZone(startIso: string, endIso: string, timeZone: string): string {
   return `${formatTimeRange(startIso, endIso, timeZone)} ${zoneAbbreviation(startIso, timeZone)}`.trim();
+}
+
+/** "West Africa Standard Time" for "Africa/Lagos"; falls back to the zone's id. */
+export function zoneLongName(timeZone: string, at = new Date()): string {
+  try {
+    return new Intl.DateTimeFormat("en-GB", { timeZone, timeZoneName: "long" }).formatToParts(at).find((p) => p.type === "timeZoneName")?.value ?? timeZone;
+  } catch {
+    return timeZone;
+  }
+}
+
+/** "6:00 PM WAT", or "6:00 – 8:05 PM WAT" once the agenda gives it an end. */
+export function formatWhenWithZone(startIso: string, endIso: string, timeZone: string, hasAgenda: boolean): string {
+  return hasAgenda ? formatTimeRangeWithZone(startIso, endIso, timeZone) : formatClockWithZone(startIso, timeZone);
 }

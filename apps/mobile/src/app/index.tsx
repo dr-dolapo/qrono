@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { ActivityIndicator, Alert, RefreshControl, SectionList, StyleSheet, Text, View } from "react-native";
+import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../auth/AuthProvider";
 import { Button } from "../components/Button";
@@ -93,6 +94,7 @@ function AccountFooter() {
       <Text style={styles.muted}>
         Signed in as {user?.firstName} {user?.lastName} ({user?.email})
       </Text>
+      <Button label="Settings" variant="secondary" onPress={() => router.push("/settings")} />
       <Button label="Log out" variant="secondary" onPress={confirmLogOut} />
     </View>
   );

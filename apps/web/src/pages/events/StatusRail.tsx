@@ -2,7 +2,7 @@ import clsx from "clsx";
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { toast } from "sonner";
-import { ApiError, STATUS_LABEL, api, type EventDetail, type Member } from "../../api";
+import { ApiError, STATUS_LABEL, api, type EventDetail, type Member, type SettingsResponse } from "../../api";
 import { refreshComingUp } from "../../components/AppShell";
 import { Alert } from "../../components/Form";
 import { HelpTip } from "../../components/HelpTip";
@@ -15,6 +15,12 @@ const STEPS = [
   { status: "approved", label: "Approved, everyone emailed" },
   { status: "live", label: "Live" },
 ] as const;
+/** When the team doesn't require approval there's no review step. */
+const STEPS_NO_REVIEW = [
+  { status: "draft", label: "Draft" },
+  { status: "approved", label: "Published, everyone emailed" },
+  { status: "live", label: "Live" },
+] as const;
 
 const names = (list: { name: string }[]) => list.map((a) => a.name).join(", ");
 
@@ -23,7 +29,7 @@ const names = (list: { name: string }[]) => list.map((a) => a.name).join(", ");
  * the one next step, and the event's settings in collapsible rows.
  */
 export function StatusRail({ detail, mutate, onEditDetails }: { detail: EventDetail; mutate: Mutate; onEditDetails: () => void }) {
-  const { event, permissions, approvers, tasks, participants, me } = detail;
+  const { event, permissions, approvers, tasks, participants, me, team } = detail;
   const navigate = useNavigate();
   const [choosing, setChoosing] = useState(false);
   const [teamApprovers, setTeamApprovers] = useState<Member[]>([]);
@@ -34,14 +40,16 @@ export function StatusRail({ detail, mutate, onEditDetails }: { detail: EventDet
 
   useEffect(() => {
     if (!choosing) return;
-    api<{ members: Member[] }>(`/teams/${event.teamId}/members`)
-      .then((r) => {
-        const list = r.members.filter((m) => m.status === "active" && m.role === "approver");
+    Promise.all([api<{ members: Member[] }>(`/teams/${event.teamId}/members`), api<SettingsResponse>(`/teams/${event.teamId}/settings`)])
+      .then(([r, settings]) => {
+        // Teams can stop people approving what they sent; then they aren't offered.
+        const list = r.members.filter((m) => m.status === "active" && m.role === "approver" && (team.allowSelfApproval || m.user.id !== me.userId));
         setTeamApprovers(list);
-        if (list.length === 1) setSelected([list[0]!.user.id]);
+        const defaults = (settings.settings?.defaultApproverIds ?? []).filter((id) => list.some((m) => m.user.id === id));
+        setSelected(defaults.length ? defaults : list.length === 1 ? [list[0]!.user.id] : []);
       })
       .catch(() => setError("Couldn't load the team's Approvers."));
-  }, [choosing, event.teamId]);
+  }, [choosing, event.teamId, team.allowSelfApproval, me.userId]);
 
   async function run(path: string, body?: unknown) {
     setBusy(true);
@@ -54,6 +62,7 @@ export function StatusRail({ detail, mutate, onEditDetails }: { detail: EventDet
         "/submit": "Sent for review",
         "/approve": "Approved. Everyone is being emailed their part.",
         "/withdraw": "Taken back to draft",
+        "/publish": "Published. Everyone is being emailed their part.",
       };
       if (done[path]) toast.success(done[path]);
     } catch (err) {
@@ -65,10 +74,13 @@ export function StatusRail({ detail, mutate, onEditDetails }: { detail: EventDet
 
   const missingEmail = participants.filter((p) => !p.email);
   const approvedBy = approvers.filter((a) => a.approvedAt);
-  const stepIndex = STEPS.findIndex((s) => s.status === event.status);
+  const steps = team.requireApproval || event.status === "review" ? STEPS : STEPS_NO_REVIEW;
+  const stepIndex = steps.findIndex((s) => s.status === event.status);
 
   const explanation: Record<string, string> = {
-    draft: "Only Admins and Approvers can see it. Send it to an Approver when it's ready.",
+    draft: team.requireApproval
+      ? "Only Admins and Approvers can see it. Send it to an Approver when it's ready."
+      : "Only Admins and Approvers can see it. Publish it when it's ready; your team doesn't need approval.",
     review: `Waiting for ${names(approvers) || "an Approver"}. The plan is locked while it's in review; comment on any item.`,
     approved: `${approvedBy.length ? `Approved by ${names(approvedBy)}. ` : ""}Everyone on the program has been emailed their part.`,
     live: "The event is running. Changes to what hasn't happened yet are emailed 2 minutes after your last edit.",
@@ -84,9 +96,15 @@ export function StatusRail({ detail, mutate, onEditDetails }: { detail: EventDet
         : missingEmail.length > 0
           ? `${missingEmail.length === 1 ? "1 person needs" : `${missingEmail.length} people need`} an email first.`
           : null;
-    primary = !choosing && (
-      <button type="button" className="button button-primary button-pill" disabled={!permissions.canSubmit} onClick={() => setChoosing(true)}>
-        Send for review
+    primary = team.requireApproval ? (
+      !choosing && (
+        <button type="button" className="button button-primary button-pill" disabled={!permissions.canSubmit} onClick={() => setChoosing(true)}>
+          Send for review
+        </button>
+      )
+    ) : (
+      <button type="button" className="button button-primary button-pill" disabled={!permissions.canPublish || busy} onClick={() => run("/publish")}>
+        {busy ? "Publishing…" : "Publish program"}
       </button>
     );
   } else if (event.status === "review") {
@@ -96,6 +114,9 @@ export function StatusRail({ detail, mutate, onEditDetails }: { detail: EventDet
           <button type="button" className="button button-primary button-pill" disabled={busy} onClick={() => run("/approve")}>
             {busy ? "Approving…" : "Approve program"}
           </button>
+        )}
+        {!team.allowSelfApproval && team.submittedBy === me.userId && approvers.some((a) => a.userId === me.userId) && (
+          <p className="rail-helper">You sent this for review, so another Approver needs to approve it.</p>
         )}
         {permissions.canWithdraw && (
           <button type="button" className="button button-secondary button-pill" disabled={busy} onClick={() => run("/withdraw")}>
@@ -126,7 +147,7 @@ export function StatusRail({ detail, mutate, onEditDetails }: { detail: EventDet
         <p className="rail-text">{explanation[event.status]}</p>
         {event.status !== "past" && (
           <ol className="steps">
-            {STEPS.map((s, i) => (
+            {steps.map((s, i) => (
               <li key={s.status} className={clsx(i === stepIndex && "on", i < stepIndex && "done")} aria-current={i === stepIndex ? "step" : undefined}>
                 <span className="step-dot">{i < stepIndex ? <Icon name="check" size={11} /> : i + 1}</span>
                 {s.label}

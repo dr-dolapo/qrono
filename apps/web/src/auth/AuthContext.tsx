@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { ApiError, api, type TeamSummary, type User } from "../api";
 import { storage } from "../storage";
+import { setClockFormat } from "../time";
 
 interface AuthState {
   /** undefined while the first check is in flight. */
@@ -63,6 +64,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({ user, teams, currentTeam, setCurrentTeam, refresh, setUser: setUserState, logout }),
     [user, teams, currentTeam, setCurrentTeam, refresh, logout],
   );
+  // Times everywhere follow the current team's 12/24-hour setting.
+  setClockFormat(currentTeam?.clockFormat);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

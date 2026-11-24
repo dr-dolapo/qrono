@@ -38,3 +38,16 @@ export const nameField = (label: string) =>
     .max(80, { error: `Your ${label} must be at most 80 characters.` });
 
 export const tokenField = z.string().min(20).max(200);
+
+/** An IANA time zone the runtime knows, e.g. "Africa/Lagos". */
+export const timezoneField = z.string({ error: "Choose a time zone." }).refine(
+  (tz) => {
+    try {
+      new Intl.DateTimeFormat("en-US", { timeZone: tz });
+      return true;
+    } catch {
+      return false;
+    }
+  },
+  { error: "Choose a valid time zone." },
+);

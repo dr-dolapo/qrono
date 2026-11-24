@@ -24,6 +24,9 @@
   },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["LiveEvent"] }],
 
+  // Reminder emails before events go out from a cron job every 5 minutes.
+  "triggers": { "crons": ["*/5 * * * *"] },
+
   // Cloudflare Email Service. Only used when EMAIL_MODE is "send".
   "send_email": [{ "name": "EMAIL" }],
 

@@ -10,7 +10,7 @@ import { newId, nowIso } from "../ids";
 import { markChanged } from "../live/changes";
 import { liveCommand } from "./live";
 import { MANAGERS, requireMembership } from "../teams/permissions";
-import { emailField, json } from "../validation";
+import { emailField, json, timezoneField } from "../validation";
 
 // ───────────── Field rules ─────────────
 
@@ -19,30 +19,22 @@ const isoDate = z
   .refine((v) => !Number.isNaN(Date.parse(v)) && /T/.test(v), { error: "Choose a valid date and time." })
   .transform((v) => new Date(v).toISOString());
 
-const timezone = z.string().refine(
-  (tz) => {
-    try {
-      new Intl.DateTimeFormat("en-US", { timeZone: tz });
-      return true;
-    } catch {
-      return false;
-    }
-  },
-  { error: "Choose a valid time zone." },
-);
-
 const eventName = z.string({ error: "Enter a name for the event." }).trim().min(2, { error: "Use at least 2 characters." }).max(120, { error: "Use at most 120 characters." });
 const description = z.string().trim().max(2000, { error: "Use at most 2,000 characters." }).nullable().optional();
 const progressionMode = z.enum(["auto", "manual"]);
 
+/**
+ * An event has a name and a start. It ends when its agenda does, so there's no end
+ * time to enter, and it uses the team's time zone (a team setting).
+ */
 const eventFields = z.object({
   name: eventName,
   description,
   startAt: isoDate,
-  endAt: isoDate,
-  timezone,
   progressionMode: progressionMode.optional(),
 });
+/** Creating can name a time zone (other clients, imports); the web app always uses the team's. */
+const newEventFields = eventFields.extend({ timezone: timezoneField.optional() });
 
 const stageFields = z.object({
   name: z.string({ error: "Enter a stage name." }).trim().min(1, { error: "Enter a stage name." }).max(80, { error: "Use at most 80 characters." }),
@@ -66,8 +58,16 @@ const taskFields = z.object({
     .optional(),
 });
 
-const endAfterStart = (start: string, end: string) => {
-  if (Date.parse(end) <= Date.parse(start)) fail(400, "Please check the highlighted fields.", { fields: { endAt: "The end must be after the start." } });
+/** Start times are on the quarter hour (in the event's time zone) and not in the past. */
+const checkStart = (startAt: string, timeZone: string) => {
+  const minute = Number(new Intl.DateTimeFormat("en-US", { timeZone, minute: "numeric" }).format(new Date(startAt)));
+  if (minute % 15 !== 0 || new Date(startAt).getUTCSeconds() !== 0) {
+    fail(400, "Please check the highlighted fields.", { fields: { startAt: "Choose a start time on the hour or at :15, :30 or :45." } });
+  }
+  // A minute's grace for the time it takes to submit the form.
+  if (Date.parse(startAt) < Date.now() - 60_000) {
+    fail(400, "Please check the highlighted fields.", { fields: { startAt: "Choose a time from now on." } });
+  }
 };
 
 // ───────────── Team-level routes: list and create ─────────────
@@ -125,17 +125,23 @@ export const teamEvents = new Hono<AppEnv>()
   })
 
   /** QR019 / QR022: create a draft event with its start and end time. */
-  .post("/:teamId/events", json(eventFields), async (c) => {
+  .post("/:teamId/events", json(newEventFields), async (c) => {
     const teamId = c.req.param("teamId");
     const me = await requireMembership(c, teamId, MANAGERS);
     const body = c.req.valid("json");
-    endAfterStart(body.startAt, body.endAt);
+    const team = await c.env.DB.prepare("SELECT timezone, default_progression FROM teams WHERE id = ?")
+      .bind(teamId)
+      .first<{ timezone: string; default_progression: "auto" | "manual" }>();
+    const timeZone = body.timezone ?? team?.timezone ?? "UTC";
+    checkStart(body.startAt, timeZone);
+    // Until the agenda has items, the event "ends" a minute after it starts.
+    const endAt = new Date(Date.parse(body.startAt) + 60_000).toISOString();
     const id = newId();
     await c.env.DB.batch([
       c.env.DB.prepare(
         `INSERT INTO events (id, team_id, name, description, start_at, end_at, timezone, progression_mode, created_by)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      ).bind(id, teamId, body.name, body.description || null, body.startAt, body.endAt, body.timezone, body.progressionMode ?? "manual", me.user_id),
+      ).bind(id, teamId, body.name, body.description || null, body.startAt, endAt, timeZone, body.progressionMode ?? team?.default_progression ?? "manual", me.user_id),
       c.env.DB.prepare("INSERT INTO event_status_changes (id, event_id, from_status, to_status, changed_by) VALUES (?, ?, NULL, 'draft', ?)").bind(
         newId(),
         id,
@@ -163,38 +169,22 @@ export const events = new Hono<AppEnv>()
       if (body.startAt && body.startAt !== event.start_at) {
         fail(409, "The event has already started, so its start time can't change.", { fields: { startAt: "The event has already started." } });
       }
-      if (body.endAt && Date.parse(body.endAt) <= Date.now()) {
-        fail(400, "Please check the highlighted fields.", { fields: { endAt: "That time has already passed." } });
-      }
-      if (body.timezone && body.timezone !== event.timezone) {
-        fail(409, "The event has already started, so its time zone can't change.", { fields: { timezone: "The event has already started." } });
-      }
     }
+    if (body.startAt && body.startAt !== event.start_at) checkStart(body.startAt, event.timezone);
     const next = {
       name: body.name ?? event.name,
       description: body.description === undefined ? event.description : body.description || null,
       startAt: body.startAt ?? event.start_at,
-      endAt: body.endAt ?? event.end_at,
-      timezone: body.timezone ?? event.timezone,
       progressionMode: body.progressionMode ?? event.progression_mode,
     };
-    endAfterStart(next.startAt, next.endAt);
     await c.env.DB.prepare(
-      `UPDATE events SET name = ?, description = ?, start_at = ?, end_at = ?, timezone = ?, progression_mode = ?, updated_at = ?
+      `UPDATE events SET name = ?, description = ?, start_at = ?, end_at = MAX(end_at, ?), progression_mode = ?, updated_at = ?
         WHERE id = ?`,
     )
-      .bind(next.name, next.description, next.startAt, next.endAt, next.timezone, next.progressionMode, nowIso(), event.id)
+      .bind(next.name, next.description, next.startAt, new Date(Date.parse(next.startAt) + 60_000).toISOString(), next.progressionMode, nowIso(), event.id)
       .run();
+    // Moves every item, and the end time, to follow the new start.
     await resyncSchedule(c, event.id);
-    if (isPublished(event.status) && next.endAt !== event.end_at) {
-      // Guests' links expire when the event ends.
-      await c.env.DB.prepare(
-        `UPDATE guest_access_links SET expires_at = ?
-          WHERE revoked_at IS NULL AND participant_id IN (SELECT id FROM event_participants WHERE event_id = ?)`,
-      )
-        .bind(next.endAt, event.id)
-        .run();
-    }
     await afterPlanEdit(c, event);
     return c.json(await eventDetail(c, await loadEvent(c, event.id)));
   })
