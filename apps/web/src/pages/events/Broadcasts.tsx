@@ -110,7 +110,7 @@ export function BroadcastAlerts({ eventId, version }: { eventId: string; version
 
 const REPLY_LABEL: Record<Reply, string> = { none: "No reply yet", acknowledged: "Acknowledged", snoozed: "Snoozed", done: "Done" };
 
-/** QR038 / QR039 / QR042: Approvers and Admins send broadcasts and watch the replies. */
+/** QR038 / QR039 / QR042: Admins and Planners send broadcasts and watch the replies. */
 export function BroadcastPanel({ detail, version }: { detail: EventDetail; version: number }) {
   const eventId = detail.event.id;
   const [sent, setSent] = useState<SentBroadcast[]>([]);

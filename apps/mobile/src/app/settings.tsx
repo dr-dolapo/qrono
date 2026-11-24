@@ -13,7 +13,7 @@ interface MySettings {
   remindersEnabled: boolean;
 }
 
-/** Your own settings, per team: reminder emails on or off. Team-wide settings are on the web, for Admins. */
+/** Your own settings, per team: reminder emails on or off. Team-wide settings are on the web, for Planners. */
 export default function Settings() {
   const [teams, setTeams] = useState<(TeamRow & MySettings)[] | null>(null);
   const [error, setError] = useState<string | null>(null);

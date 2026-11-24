@@ -3,11 +3,11 @@ import { flushChanges, notifyDueAt, type NotifyHooks } from "./changes";
 import { endEvent, goLive, LiveError, nextTask, snapshot, tick, type LiveSnapshot } from "./engine";
 
 /**
- * - start / next / end: Admin controls.
+ * - start / next / end: Planner controls.
  * - tick: apply whatever is due (alarm, or after approval).
  * - broadcast: deliver a new broadcast to its recipients.
- * - replied: someone answered a broadcast; refresh Admins' views and re-plan snoozes.
- * - edited: an Admin changed an approved/live event; refresh screens, plan the notices.
+ * - replied: someone answered a broadcast; refresh Planners' views and re-plan snoozes.
+ * - edited: a Planner changed an approved/live event; refresh screens, plan the notices.
  */
 export type LiveAction = "tick" | "start" | "next" | "end" | "broadcast" | "replied" | "edited";
 
@@ -31,7 +31,7 @@ export interface CommandResult {
   wakeAt: number | null;
   /** Broadcast alerts to send to specific people's screens. */
   deliveries: Delivery[];
-  /** Tell Approvers'/Admins' screens to refresh their broadcast replies. */
+  /** Tell Admins'/Planners' screens to refresh their broadcast replies. */
   broadcastsChanged: boolean;
   /** Tell every screen the plan changed, so event pages reload it. */
   planChanged: boolean;

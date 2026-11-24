@@ -12,13 +12,13 @@ import { json } from "../validation";
 const APPROVED = "('approved', 'live', 'past')";
 
 /**
- * Settings: the team's (changed by Approvers and Admins) and each person's own
+ * Settings: the team's (changed by Admins and Planners) and each person's own
  * (reminder emails, which everyone controls for themselves).
  */
 export const settings = new Hono<AppEnv>()
   .use(requireVerifiedUser)
 
-  /** Members only get their own settings; Approvers and Admins also get the team's. */
+  /** Members only get their own settings; Admins and Planners also get the team's. */
   .get("/:teamId/settings", async (c) => {
     const teamId = c.req.param("teamId");
     const me = await requireMembership(c, teamId);
@@ -59,7 +59,7 @@ export const settings = new Hono<AppEnv>()
           )
           .bind(teamId, ...ids)
           .all<{ user_id: string }>();
-        if (results.length !== ids.length) fail(400, "Please check the highlighted fields.", { fields: { defaultApproverIds: "Choose Approvers from this team." } });
+        if (results.length !== ids.length) fail(400, "Please check the highlighted fields.", { fields: { defaultApproverIds: "Choose Admins from this team." } });
       }
       statements.push(
         db.prepare("DELETE FROM team_default_approvers WHERE team_id = ?").bind(teamId),
@@ -146,9 +146,9 @@ export const settings = new Hono<AppEnv>()
     return c.json({ eventId, pinned });
   })
 
-  // ── Danger zone (Approvers only) ──
+  // ── Danger zone (Admins only) ──
 
-  /** Hand the team to another member: they become an Approver, and you leave. */
+  /** Hand the team to another member: they become an Admin, and you leave. */
   .post("/:teamId/handover", json(z.object({ membershipId: z.string().min(1) })), async (c) => {
     const teamId = c.req.param("teamId");
     const me = await requireMembership(c, teamId, ["approver"]);

@@ -29,7 +29,7 @@ describe("teams (QR006, QR010)", () => {
     expect(res.status).toBe(401);
   });
 
-  it("creates a team with the creator as its Approver", async () => {
+  it("creates a team with the creator as its Admin", async () => {
     await verify();
     const res = await browser.post("/api/teams", { name: "  Events Team  ", timezone: "Africa/Lagos" });
     expect(res.status).toBe(201);

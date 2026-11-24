@@ -48,7 +48,7 @@ export function StatusRail({ detail, mutate, onEditDetails }: { detail: EventDet
         const defaults = (settings.settings?.defaultApproverIds ?? []).filter((id) => list.some((m) => m.user.id === id));
         setSelected(defaults.length ? defaults : list.length === 1 ? [list[0]!.user.id] : []);
       })
-      .catch(() => setError("Couldn't load the team's Approvers."));
+      .catch(() => setError("Couldn't load the team's Admins."));
   }, [choosing, event.teamId, team.allowSelfApproval, me.userId]);
 
   async function run(path: string, body?: unknown) {
@@ -79,9 +79,9 @@ export function StatusRail({ detail, mutate, onEditDetails }: { detail: EventDet
 
   const explanation: Record<string, string> = {
     draft: team.requireApproval
-      ? "Only Admins and Approvers can see it. Send it to an Approver when it's ready."
-      : "Only Admins and Approvers can see it. Publish it when it's ready; your team doesn't need approval.",
-    review: `Waiting for ${names(approvers) || "an Approver"}. The plan is locked while it's in review; comment on any item.`,
+      ? "Only Planners and Admins can see it. Send it to an Admin when it's ready."
+      : "Only Planners and Admins can see it. Publish it when it's ready; your team doesn't need approval.",
+    review: `Waiting for ${names(approvers) || "an Admin"}. The plan is locked while it's in review; comment on any item.`,
     approved: `${approvedBy.length ? `Approved by ${names(approvedBy)}. ` : ""}Everyone on the program has been emailed their part.`,
     live: "The event is running. Changes to what hasn't happened yet are emailed 2 minutes after your last edit.",
     past: "This event is over.",
@@ -116,7 +116,7 @@ export function StatusRail({ detail, mutate, onEditDetails }: { detail: EventDet
           </button>
         )}
         {!team.allowSelfApproval && team.submittedBy === me.userId && approvers.some((a) => a.userId === me.userId) && (
-          <p className="rail-helper">You sent this for review, so another Approver needs to approve it.</p>
+          <p className="rail-helper">You sent this for review, so another Admin needs to approve it.</p>
         )}
         {permissions.canWithdraw && (
           <button type="button" className="button button-secondary button-pill" disabled={busy} onClick={() => run("/withdraw")}>
@@ -139,7 +139,7 @@ export function StatusRail({ detail, mutate, onEditDetails }: { detail: EventDet
         <div className="rail-label">
           <h2 id="status-heading">Program status</h2>
           <HelpTip label="Program status">
-            Draft → In review → Approved → Live. Nobody is emailed until an Approver approves the program; then everyone gets their part, and anyone new
+            Draft → In review → Approved → Live. Nobody is emailed until an Admin approves the program; then everyone gets their part, and anyone new
             is invited to the team.
           </HelpTip>
         </div>
@@ -189,7 +189,7 @@ export function StatusRail({ detail, mutate, onEditDetails }: { detail: EventDet
         <details>
           <summary>
             <span>
-              Moving to the next item<small>{event.progressionMode === "auto" ? "Automatically, on time" : "Manually, by an Admin"}</small>
+              Moving to the next item<small>{event.progressionMode === "auto" ? "Automatically, on time" : "Manually, by a Planner"}</small>
             </span>
             <Icon name="plus" className="accordion-icon" />
           </summary>
@@ -202,12 +202,12 @@ export function StatusRail({ detail, mutate, onEditDetails }: { detail: EventDet
                   value={event.progressionMode}
                   onChange={(e) => mutate("", "PATCH", { progressionMode: e.target.value }).catch(() => setError("Couldn't save that setting."))}
                 >
-                  <option value="manual">Manually, by an Admin</option>
+                  <option value="manual">Manually, by a Planner</option>
                   <option value="auto">Automatically, on time</option>
                 </select>
               </label>
             ) : (
-              <p className="rail-text">{event.progressionMode === "auto" ? "Each item ends on time and the next starts by itself." : "An Admin moves to the next item."}</p>
+              <p className="rail-text">{event.progressionMode === "auto" ? "Each item ends on time and the next starts by itself." : "A Planner moves to the next item."}</p>
             )}
           </div>
         </details>
@@ -215,7 +215,7 @@ export function StatusRail({ detail, mutate, onEditDetails }: { detail: EventDet
         <details>
           <summary>
             <span>
-              Approvers<small>{approvers.length ? names(approvers) : "Chosen when it's sent for review"}</small>
+              Admins<small>{approvers.length ? names(approvers) : "Chosen when it's sent for review"}</small>
             </span>
             <Icon name="plus" className="accordion-icon" />
           </summary>

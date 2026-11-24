@@ -3,7 +3,7 @@ import { ROLE_LABEL, api, type Role } from "../../api";
 import { Alert } from "../../components/Form";
 import { useForm } from "../../useForm";
 
-/** QR007: invite someone by email with a role. Only Approvers can invite Approvers. */
+/** QR007: invite someone by email with a role. Only Admins can invite Admins. */
 export function InviteByEmail({
   teamId,
   myRole,
@@ -18,16 +18,19 @@ export function InviteByEmail({
   onInvited: (email: string) => Promise<void>;
 }) {
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState<Role>(defaultRole);
-  useEffect(() => setRole(defaultRole), [defaultRole]);
+  // Planners add Members; Admins can also add Planners and Admins.
+  const roles: Role[] = myRole === "approver" ? ["member", "admin", "approver"] : ["member"];
+  // The team's default, if this person may invite that role; otherwise Member.
+  const startRole: Role = roles.includes(defaultRole) ? defaultRole : "member";
+  const [role, setRole] = useState<Role>(startRole);
+  useEffect(() => setRole(startRole), [startRole]);
   const form = useForm();
-  const roles: Role[] = myRole === "approver" ? ["member", "admin", "approver"] : ["member", "admin"];
 
   const submit = form.handle(async () => {
     await api(`/teams/${teamId}/invites`, { body: { email, role } });
     const sentTo = email.trim().toLowerCase();
     setEmail("");
-    setRole(defaultRole);
+    setRole(startRole);
     await onInvited(sentTo);
   });
 

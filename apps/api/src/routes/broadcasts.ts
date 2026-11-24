@@ -21,13 +21,13 @@ interface ReceiptRow {
 }
 
 /**
- * Broadcasts during a live event (PRD §9.6). Approvers and Admins send;
+ * Broadcasts during a live event (PRD §9.6). Admins and Planners send;
  * registered participants receive and reply. Guests don't get broadcasts.
  */
 export const broadcasts = new Hono<AppEnv>()
   .use(requireVerifiedUser)
 
-  /** Approvers/Admins: every broadcast with each person's reply (QR042). Participants: theirs. */
+  /** Admins/Planners: every broadcast with each person's reply (QR042). Participants: theirs. */
   .get("/:eventId/broadcasts", async (c) => {
     const access = await loadEvent(c, c.req.param("eventId"));
     const me = currentUser(c);
@@ -98,7 +98,7 @@ export const broadcasts = new Hono<AppEnv>()
     async (c) => {
       const access = await loadEvent(c, c.req.param("eventId"));
       const { event } = access;
-      if (!access.canManage) fail(403, "Only Approvers and Admins can send broadcasts.");
+      if (!access.canManage) fail(403, "Only Admins and Planners can send broadcasts.");
       if (event.status !== "live") fail(409, "Broadcasts can only be sent while the event is live.", { code: "event_not_live" });
       const me = currentUser(c);
       const body = c.req.valid("json");
@@ -170,7 +170,7 @@ export const broadcasts = new Hono<AppEnv>()
         .run();
       if (!res.meta.changes) fail(404, "Broadcast not found.");
 
-      // Re-plan the room's alarm (for the snooze) and refresh Admins' reply views.
+      // Re-plan the room's alarm (for the snooze) and refresh Planners' reply views.
       await liveCommand(c, event.id, "replied", me.id);
       return c.json({ response, snoozeUntil });
     },

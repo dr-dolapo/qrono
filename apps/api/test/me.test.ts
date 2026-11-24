@@ -3,7 +3,7 @@ import { Browser, createTestEnv, tokenFromEmail } from "./helpers/client";
 
 let t: ReturnType<typeof createTestEnv>;
 let teamId: string;
-let ada: Browser; // Approver who creates the team
+let ada: Browser; // Admin who creates the team
 let adaId: string;
 
 const base = { startAt: "2026-12-01T09:00:00.000Z", endAt: "2026-12-01T12:00:00.000Z", timezone: "Africa/Lagos" };

@@ -23,12 +23,12 @@ export async function liveCommand(
   return (await res.json()) as CommandResult;
 }
 
-/** Running an event live: the shared screen connection and Admin controls. */
+/** Running an event live: the shared screen connection and Planner controls. */
 export const live = new Hono<AppEnv>()
   .use(requireVerifiedUser)
 
   /**
-   * WebSocket for anyone who can see the event: Approvers/Admins (command
+   * WebSocket for anyone who can see the event: Admins/Planners (command
    * centre) and participants (their live view, on the web or in the app).
    * Cookie connections are checked against the app's origin so other sites
    * can't open one with the user's cookie. The mobile app signs in with a
@@ -49,10 +49,10 @@ export const live = new Hono<AppEnv>()
     return room.fetch(new Request("https://live/connect", { headers }));
   })
 
-  /** Start early, move to the next task, or end the event (QR028, QR029). Approvers and Admins only. */
+  /** Start early, move to the next task, or end the event (QR028, QR029). Admins and Planners only. */
   .post("/:eventId/live/:action{start|next|end}", async (c) => {
     const access = await loadEvent(c, c.req.param("eventId"));
-    if (!access.canManage) fail(403, "Only Approvers and Admins can run the event.");
+    if (!access.canManage) fail(403, "Only Admins and Planners can run the event.");
     const result = await liveCommand(c, access.event.id, c.req.param("action") as LiveAction, currentUser(c).id);
     if (!result.ok) fail(result.status as 404 | 409, result.error ?? "That didn't work.");
     return c.json(result.snapshot);

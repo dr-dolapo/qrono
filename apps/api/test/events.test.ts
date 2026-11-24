@@ -3,7 +3,7 @@ import { Browser, createTestEnv, tokenFromEmail } from "./helpers/client";
 
 let t: ReturnType<typeof createTestEnv>;
 let teamId: string;
-let ada: Browser; // Approver
+let ada: Browser; // Admin
 
 const START = "2026-12-01T09:00:00.000Z";
 const base = { name: "Annual General Meeting", startAt: START, timezone: "Africa/Lagos" };
@@ -53,7 +53,7 @@ describe("creating and editing events (QR019, QR020, QR022)", () => {
     expect((await ada.get(`/api/events/${id}`)).json.event.timezone).toBe("Europe/London");
   });
 
-  it("lets only Approvers and Admins change team settings", async () => {
+  it("lets only Admins and Planners change team settings", async () => {
     const member = await joinTeam("Chi", "chi@example.com", "member");
     expect((await member.browser.get(`/api/teams/${teamId}/settings`)).json).toMatchObject({ settings: null, canEdit: false });
     expect((await member.browser.request("PATCH", `/api/teams/${teamId}/settings`, { timezone: "Africa/Lagos" })).status).toBe(403);
@@ -110,7 +110,7 @@ describe("creating and editing events (QR019, QR020, QR022)", () => {
 });
 
 describe("who can see and change events", () => {
-  it("lets Admins create and edit, but not Members", async () => {
+  it("lets Planners create and edit, but not Members", async () => {
     const admin = await joinTeam("Bola", "bola@example.com", "admin");
     expect((await admin.browser.post(`/api/teams/${teamId}/events`, base)).status).toBe(201);
     const member = await joinTeam("Chi", "chi@example.com", "member");

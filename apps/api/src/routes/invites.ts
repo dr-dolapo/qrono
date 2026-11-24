@@ -63,7 +63,7 @@ export const invites = new Hono<AppEnv>()
   /**
    * Accept an invitation.
    *  - Email invite (QR007): must be accepted by that email's account; joins straight away with the invited role.
-   *  - Invite link (QR001): joins as a Member waiting for approval; Approvers and Admins are emailed.
+   *  - Invite link (QR001): joins as a Member waiting for approval; Admins and Planners are emailed.
    */
   .post("/:token/accept", requireVerifiedUser, async (c) => {
     const invite = await findInvite(c, c.req.param("token"));

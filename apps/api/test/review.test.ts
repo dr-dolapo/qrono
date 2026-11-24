@@ -3,9 +3,9 @@ import { Browser, createTestEnv, tokenFromEmail } from "./helpers/client";
 
 let t: ReturnType<typeof createTestEnv>;
 let teamId: string;
-let ada: Browser; // Approver
+let ada: Browser; // Admin
 let adaId: string;
-let bola: Browser; // Admin
+let bola: Browser; // Planner
 let chi: { browser: Browser; userId: string }; // Member
 let eventId: string;
 let chiParticipant: string;
@@ -57,7 +57,7 @@ const taskId = async (title: string) =>
   (await bola.get(`/api/events/${eventId}`)).json.tasks.find((x: { title: string }) => x.title === title).id as string;
 
 describe("sending for review (QR011)", () => {
-  it("moves the draft to review, locks it, and emails the chosen Approvers", async () => {
+  it("moves the draft to review, locks it, and emails the chosen Admins", async () => {
     const res = await submit();
     expect(res.status).toBe(200);
     expect(res.json.event.status).toBe("review");
@@ -67,9 +67,9 @@ describe("sending for review (QR011)", () => {
     expect((await bola.post(`/api/events/${eventId}/tasks`, { title: "X", durationMinutes: 5 })).status).toBe(409);
   });
 
-  it("requires at least one Approver from the team", async () => {
-    expect((await submit([])).json.fields.approverIds).toBe("Choose at least one Approver.");
-    expect((await submit([chi.userId])).json.fields.approverIds).toBe("Choose Approvers from this team.");
+  it("requires at least one Admin from the team", async () => {
+    expect((await submit([])).json.fields.approverIds).toBe("Choose at least one Admin.");
+    expect((await submit([chi.userId])).json.fields.approverIds).toBe("Choose Admins from this team.");
   });
 
   it("needs an agenda", async () => {
@@ -94,7 +94,7 @@ describe("sending for review (QR011)", () => {
 });
 
 describe("approving (QR016–QR018, QR032, QR044)", () => {
-  it("only a chosen Approver can approve", async () => {
+  it("only a chosen Admin can approve", async () => {
     const other = await join("Dayo", "dayo@example.com", "approver");
     await submit();
     expect((await bola.post(`/api/events/${eventId}/approve`)).status).toBe(403);
@@ -113,7 +113,7 @@ describe("approving (QR016–QR018, QR032, QR044)", () => {
     expect(res.json.event.status).toBe("approved");
     expect(res.json.approvers[0].approvedAt).toBeTruthy();
 
-    // QR017: Admins (not the approver themself)
+    // QR017: Planners (not the approver themself)
     expect(emailsTo("bola@example.com").at(-1)).toMatchObject({ subject: "Approved: AGM" });
     expect(emailsTo("ada@example.com").some((e) => e.subject === "Approved: AGM")).toBe(false);
 
@@ -134,7 +134,7 @@ describe("approving (QR016–QR018, QR032, QR044)", () => {
 });
 
 describe("comments (QR012–QR015, QR031)", () => {
-  it("lets Approvers, Admins and assigned Members comment during review", async () => {
+  it("lets Admins, Planners and assigned Members comment during review", async () => {
     await submit();
     const keynote = await taskId("Keynote");
     await ada.post(`/api/events/${eventId}/tasks/${keynote}/comments`, { body: "Can the keynote be 30 minutes?" });
@@ -171,7 +171,7 @@ describe("member responses (QR033–QR036)", () => {
     expect((await chi.browser.post(`/api/events/${eventId}/response`, { response: "acknowledged" })).status).toBe(409);
   });
 
-  it("acknowledges or declines with a reason, visible to Admins", async () => {
+  it("acknowledges or declines with a reason, visible to Planners", async () => {
     await submit();
     await ada.post(`/api/events/${eventId}/approve`);
 

@@ -25,7 +25,7 @@ beforeEach(() => {
   db = freshDb();
   db.exec(`
     INSERT INTO users (id, first_name, last_name, email, password_hash)
-      VALUES ('u1', 'Ada', 'Admin', 'ada@example.com', 'x');
+      VALUES ('u1', 'Ada', 'Planner', 'ada@example.com', 'x');
     INSERT INTO teams (id, name, created_by) VALUES ('t1', 'Events Team', 'u1');
     INSERT INTO team_memberships (id, team_id, user_id, role) VALUES ('m1', 't1', 'u1', 'approver');
     INSERT INTO events (id, team_id, name, start_at, end_at, timezone, created_by)

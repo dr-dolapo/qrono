@@ -28,12 +28,12 @@ export function CommandCentre() {
   // The team's live-screen settings: when the countdown turns amber, and whether names show.
   const [display, setDisplay] = useState({ warningMs: 60_000, showNames: true });
 
-  // Only Approvers and Admins run the event.
+  // Only Admins and Planners run the event.
   useEffect(() => {
     api<EventDetail>(`/events/${eventId}`)
       .then((d) => {
         setDisplay({ warningMs: d.team.liveWarningMinutes * 60_000, showNames: d.team.liveShowNames });
-        if (!d.permissions.canManage) setDenied("Only Approvers and Admins can open the command centre.");
+        if (!d.permissions.canManage) setDenied("Only Admins and Planners can open the command centre.");
         else if (d.event.status === "draft" || d.event.status === "review") setDenied("This event isn't approved yet.");
       })
       .catch((err) => setDenied(err instanceof ApiError ? err.message : "Couldn't open this event."))

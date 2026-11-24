@@ -13,7 +13,7 @@ export interface Membership {
   status: MembershipStatus;
 }
 
-/** Approvers and Admins can manage people (PRD §6.1: add users, vet invite-link joiners). */
+/** Admins and Planners (stored approver / admin) manage people and plan events. */
 export const MANAGERS: readonly Role[] = ["approver", "admin"];
 
 /**
@@ -47,9 +47,12 @@ export async function activeApproverCount(c: Context<AppEnv>, teamId: string): P
 }
 
 /**
- * Rules for changing someone's role or removing them:
- *  - Only Approvers can make someone an Approver, or change/remove an Approver.
- *  - A team always keeps at least one active Approver (someone must be able to approve events).
+ * Rules for changing someone's role or removing them. Roles are stored as
+ * approver / admin / member and shown as Admin / Planner / Member.
+ *  - Only Admins (stored "approver") change roles, up or down.
+ *  - Planners (stored "admin") can remove Members, but not Planners or Admins.
+ *  - A team always keeps at least one active Admin (someone must be able to approve programs).
+ * Leaving the team yourself is allowed for anyone (callers pass the actor as an Admin for that).
  */
 export async function assertCanManage(
   c: Context<AppEnv>,
@@ -57,13 +60,15 @@ export async function assertCanManage(
   target: Membership,
   change: { newRole?: Role; removing?: boolean },
 ): Promise<void> {
-  const touchesApprover = target.role === "approver" || change.newRole === "approver";
-  if (touchesApprover && actor.role !== "approver") {
-    fail(403, "Only an Approver can add, change or remove Approvers.");
+  if (change.newRole && actor.role !== "approver") {
+    fail(403, "Only an Admin can change people's roles.");
+  }
+  if (change.removing && actor.role !== "approver" && target.role !== "member") {
+    fail(403, "Only an Admin can remove Planners and Admins.");
   }
 
   const losesApprover = target.role === "approver" && target.status === "active" && (change.removing || (change.newRole && change.newRole !== "approver"));
   if (losesApprover && (await activeApproverCount(c, target.team_id)) <= 1) {
-    fail(409, "A team needs at least one Approver. Make someone else an Approver first.", { code: "last_approver" });
+    fail(409, "A team needs at least one Admin. Make someone else an Admin first.", { code: "last_approver" });
   }
 }

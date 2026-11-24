@@ -46,7 +46,7 @@ describe("going live", () => {
     expect(log).toEqual([{ from_status: "approved", to_status: "live", changed_by: null }]);
   });
 
-  it("can be started early by an Admin", async () => {
+  it("can be started early by a Planner", async () => {
     seed();
     await goLive(db, "e1", START - min(5), "u1");
     expect(event().status).toBe("live");
@@ -62,7 +62,7 @@ describe("going live", () => {
 });
 
 describe("moving through the agenda", () => {
-  it("manual mode: waits for an Admin, then hands over and records times", async () => {
+  it("manual mode: waits for a Planner, then hands over and records times", async () => {
     seed("manual");
     await tick(db, "e1", START);
     // Time is up for the opening, but manual mode doesn't move on by itself.
@@ -106,7 +106,7 @@ describe("moving through the agenda", () => {
 });
 
 describe("ending", () => {
-  it("an Admin can end early: unfinished tasks are skipped and guest links expire", async () => {
+  it("a Planner can end early: unfinished tasks are skipped and guest links expire", async () => {
     seed();
     await goLive(db, "e1", START, "u1");
     await endEvent(db, "e1", START + min(20), "u1");

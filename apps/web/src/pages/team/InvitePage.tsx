@@ -49,7 +49,7 @@ export function InvitePage() {
     );
   }
 
-  const roleText = `${invite.role === "admin" || invite.role === "approver" ? "an" : "a"} ${ROLE_LABEL[invite.role]}`;
+  const roleText = `${invite.role === "approver" ? "an" : "a"} ${ROLE_LABEL[invite.role]}`;
   const subtitle = (
     <>
       <strong>{invite.invitedBy}</strong> invited you to join <strong>{invite.teamName}</strong> on Qrono as {roleText}.

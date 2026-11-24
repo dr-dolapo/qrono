@@ -6,7 +6,7 @@ import { colors, font, radius, space } from "../theme";
 import type { EventDetail } from "./types";
 
 /**
- * QR012–QR016 on the go: an Approver chosen for this event reviews the program
+ * QR012–QR016 on the go: an Admin chosen for this event reviews the program
  * (tasks and their comments are below) and approves it. "Any to sign": one is enough.
  */
 export function ApprovalPanel({ data, onApproved }: { data: EventDetail; onApproved(d: EventDetail): void }) {
@@ -46,7 +46,7 @@ export function ApprovalPanel({ data, onApproved }: { data: EventDetail; onAppro
   function confirm() {
     Alert.alert(
       `Approve ${data.event.name}?`,
-      "Everyone on the program is emailed their part, and guests get their personal link. Admins can still change the plan afterwards.",
+      "Everyone on the program is emailed their part, and guests get their personal link. Planners can still change the plan afterwards.",
       [
         { text: "Cancel", style: "cancel" },
         { text: "Approve", onPress: () => void approve() },
