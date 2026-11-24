@@ -31,6 +31,7 @@ export function WeekStrip({ selected, eventDays, onSelect }: { selected: string;
       ref={list}
       data={weeks}
       horizontal
+      style={styles.strip}
       pagingEnabled
       showsHorizontalScrollIndicator={false}
       initialScrollIndex={WEEKS_BACK}
@@ -69,6 +70,8 @@ export function WeekStrip({ selected, eventDays, onSelect }: { selected: string;
 }
 
 const styles = StyleSheet.create({
+  // A horizontal list grows to fill the screen unless told not to.
+  strip: { flexGrow: 0, flexShrink: 0 },
   week: { flexDirection: "row", paddingHorizontal: 12 },
   day: { flex: 1, alignItems: "center", gap: 6, paddingVertical: 4 },
   letter: { color: colors.muted, fontSize: 12, ...font("500") },
