@@ -71,20 +71,33 @@ async function loadAgenda(c: Context<AppEnv>, eventId: string) {
  * times change, and stores it (the live room and reports read it later).
  */
 export async function resyncSchedule(c: Context<AppEnv>, eventId: string): Promise<void> {
-  const event = await c.env.DB.prepare("SELECT start_at, end_at FROM events WHERE id = ?")
+  const db = c.env.DB;
+  const event = await db.prepare("SELECT start_at, end_at, status FROM events WHERE id = ?")
     .bind(eventId)
-    .first<{ start_at: string; end_at: string }>();
+    .first<{ start_at: string; end_at: string; status: string }>();
   if (!event) return;
   const { tasks } = await loadAgenda(c, eventId);
-  if (tasks.length === 0) return;
   const schedule = buildSchedule(
     event.start_at,
     event.end_at,
     tasks.map((t) => ({ id: t.id, stageId: t.stage_id, durationMinutes: t.duration_minutes })),
   );
-  await c.env.DB.batch(
-    schedule.tasks.map((t) => c.env.DB.prepare("UPDATE tasks SET planned_start_at = ? WHERE id = ?").bind(t.startAt, t.id)),
-  );
+  // An event ends when its agenda does. With nothing on it yet, a minute after it starts.
+  const endsAt = tasks.length ? schedule.endsAt : new Date(Date.parse(event.start_at) + 60_000).toISOString();
+  const statements = schedule.tasks.map((t) => db.prepare("UPDATE tasks SET planned_start_at = ? WHERE id = ?").bind(t.startAt, t.id));
+  if (endsAt !== event.end_at) {
+    statements.push(db.prepare("UPDATE events SET end_at = ? WHERE id = ?").bind(endsAt, eventId));
+    if (event.status === "approved" || event.status === "live") {
+      // Guests' links expire when the event ends.
+      statements.push(
+        db.prepare(
+          `UPDATE guest_access_links SET expires_at = ?
+            WHERE revoked_at IS NULL AND participant_id IN (SELECT id FROM event_participants WHERE event_id = ?)`,
+        ).bind(endsAt, eventId),
+      );
+    }
+  }
+  if (statements.length) await db.batch(statements);
 }
 
 /** Everything the event editor and viewers need, with computed times. */

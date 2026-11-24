@@ -12,13 +12,15 @@ export function NewEvent() {
 
   return (
     <AppShell>
-      <Link to="/admin" className="muted small">
+      <Link to="/admin" className="back-link">
         ← Events
       </Link>
-      <h1>New event</h1>
-      <p className="muted">You'll build the agenda and add people next. The event stays a draft until you send it for review.</p>
-      <div className="card-panel">
+      <h1 className="with-back">New event</h1>
+      <p className="page-intro">You'll build the agenda and choose who runs each part next. The event stays a draft until you send it for review.</p>
+      <div className="form-card">
         <EventDetailsForm
+          timeZone={currentTeam!.timezone}
+          canChangeZone
           submitLabel="Create draft event"
           onSubmit={async (values) => {
             const res = await api<{ event: { id: string } }>(`/teams/${currentTeam!.id}/events`, { body: values });

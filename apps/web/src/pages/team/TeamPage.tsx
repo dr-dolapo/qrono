@@ -25,7 +25,7 @@ const ROLE_HELP: Record<Role, string> = {
 
 const viewerZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-/** QR001, QR007, QR009: the team's people, join requests and invitations. */
+/** QR001, QR007, QR009: People — everyone on the team, join requests and invitations. */
 export function TeamPage() {
   const { currentTeam, refresh: refreshAuth } = useAuth();
   const navigate = useNavigate();
@@ -83,9 +83,7 @@ export function TeamPage() {
   if (!data) {
     return (
       <AppShell>
-        <h1>
-          <span className="title-pre">Team:</span> {currentTeam!.name}
-        </h1>
+        <h1>People</h1>
         {error ? <Alert>{error}</Alert> : <p className="muted">Loading…</p>}
       </AppShell>
     );
@@ -163,9 +161,7 @@ export function TeamPage() {
 
   return (
     <AppShell rail={rail || undefined}>
-      <h1>
-        <span className="title-pre">Team:</span> {currentTeam!.name}
-      </h1>
+      <h1>People</h1>
       <Alert>{error}</Alert>
 
       <section className="settings-section" aria-labelledby="roles-heading">
@@ -194,7 +190,7 @@ export function TeamPage() {
 
       <section className="settings-section" aria-labelledby="members-heading">
         <div className="section-head">
-          <h2 id="members-heading">People</h2>
+          <h2 id="members-heading">Everyone</h2>
           <span className="count">{active.length + emailInvites.length + listedContacts.length}</span>
           <span className="section-head-grow" />
           <span className="section-head-meta">

@@ -190,7 +190,7 @@ export const auth = new Hono<AppEnv>()
   .get("/me", requireUser, async (c) => {
     const user = currentUser(c);
     const { results } = await c.env.DB.prepare(
-      `SELECT t.id, t.name, m.role, m.status
+      `SELECT t.id, t.name, t.timezone, m.role, m.status
          FROM team_memberships m JOIN teams t ON t.id = m.team_id
         WHERE m.user_id = ? AND m.status <> 'removed'
         ORDER BY t.created_at`,

@@ -8,7 +8,7 @@ import { Alert } from "../../components/Form";
 import { HelpTip } from "../../components/HelpTip";
 import { Icon } from "../../components/Icon";
 import { StatCard } from "../../components/StatCard";
-import { formatClockLength, formatDuration, formatLongDate, formatTime, formatTimeRangeWithZone } from "../../time";
+import { formatClockLength, formatLongDate, formatTime, formatWhenWithZone } from "../../time";
 import { useLiveEvent } from "../../useLiveEvent";
 import { AgendaSection } from "./AgendaSection";
 import { BroadcastAlerts, BroadcastPanel, useBroadcastSignal } from "./Broadcasts";
@@ -106,9 +106,8 @@ export function EventEditor() {
     );
   }
 
-  const { event, permissions, schedule, tasks, participants, comments } = detail;
+  const { event, permissions, tasks, participants, comments } = detail;
   const tz = event.timezone;
-  const eventMinutes = Math.round((Date.parse(event.endAt) - Date.parse(event.startAt)) / 60_000);
   const agendaMinutes = tasks.reduce((n, t) => n + t.durationMinutes, 0);
   const withEmail = participants.filter((p) => p.email).length;
   const confirmed = participants.filter((p) => p.response === "acknowledged").length;
@@ -127,6 +126,8 @@ export function EventEditor() {
           </div>
           <EventDetailsForm
             initial={event}
+            timeZone={event.timezone}
+            canChangeZone={false}
             startLocked={event.status === "live"}
             submitLabel="Save details"
             onCancel={() => setEditingDetails(false)}
@@ -170,7 +171,7 @@ export function EventEditor() {
           <p className="event-meta">
             <span className={`status-pill status-${event.status}`}>{STATUS_LABEL[event.status]}</span>
             <span>
-              {formatLongDate(event.startAt, tz)} · {formatTimeRangeWithZone(event.startAt, event.endAt, tz)}
+              {formatLongDate(event.startAt, tz)} · {formatWhenWithZone(event.startAt, event.endAt, tz, tasks.length > 0)}
             </span>
             {permissions.canEdit && (
               <button type="button" className="edit-link" onClick={() => setEditingDetails(true)}>
@@ -192,12 +193,9 @@ export function EventEditor() {
           <div className="stat-grid">
             <StatCard
               title="Agenda length"
-              caption={`vs the event's ${formatDuration(eventMinutes)}`}
+              caption={tasks.length ? `ends at ${formatTime(event.endAt, tz)}` : "add items to set the end time"}
               value={formatClockLength(agendaMinutes)}
-              total={formatClockLength(eventMinutes)}
-              ratio={eventMinutes ? agendaMinutes / eventMinutes : 0}
-              tone={agendaMinutes > eventMinutes ? "bad" : agendaMinutes === 0 ? "neutral" : "good"}
-              help={<HelpTip label="Agenda length">The items' durations added up, against the time between the event's start and end.</HelpTip>}
+              help={<HelpTip label="Agenda length">The items' durations added up. The event ends when its last item does.</HelpTip>}
             />
             <StatCard
               title="People"
@@ -218,23 +216,6 @@ export function EventEditor() {
               help={<HelpTip label="Replies">Once approved, each person is emailed their part and asked to confirm.</HelpTip>}
             />
           </div>
-          {schedule.overrunMinutes > 0 && (
-            <p className="summary-note">
-              The agenda runs {formatDuration(schedule.overrunMinutes)} past the end time ({formatTime(event.endAt, tz)}).{" "}
-              {permissions.canEdit && (
-                <>
-                  <button type="button" className="text-link" onClick={() => setTab("agenda")}>
-                    Shorten an item
-                  </button>{" "}
-                  or{" "}
-                  <button type="button" className="text-link" onClick={() => setEditingDetails(true)}>
-                    change the end time
-                  </button>
-                  .
-                </>
-              )}
-            </p>
-          )}
         </section>
       )}
 

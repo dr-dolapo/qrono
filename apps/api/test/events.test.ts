@@ -6,8 +6,7 @@ let teamId: string;
 let ada: Browser; // Approver
 
 const START = "2026-12-01T09:00:00.000Z";
-const END = "2026-12-01T12:00:00.000Z";
-const base = { name: "Annual General Meeting", startAt: START, endAt: END, timezone: "Africa/Lagos" };
+const base = { name: "Annual General Meeting", startAt: START, timezone: "Africa/Lagos" };
 
 async function person(first: string, email: string): Promise<Browser> {
   const b = new Browser(t.env);
@@ -41,16 +40,34 @@ describe("creating and editing events (QR019, QR020, QR022)", () => {
   it("creates a draft with manual progression by default", async () => {
     const id = await createEvent();
     const res = await ada.get(`/api/events/${id}`);
-    expect(res.json.event).toMatchObject({ name: base.name, status: "draft", progressionMode: "manual", startAt: START, endAt: END, timezone: "Africa/Lagos" });
+    // No agenda yet, so it "ends" a minute after it starts.
+    expect(res.json.event).toMatchObject({ name: base.name, status: "draft", progressionMode: "manual", startAt: START, endAt: "2026-12-01T09:01:00.000Z", timezone: "Africa/Lagos" });
     expect(res.json.permissions).toMatchObject({ canEdit: true, canManage: true });
     const log = t.sqlite.prepare("SELECT from_status, to_status FROM event_status_changes WHERE event_id = ?").all(id);
     expect(log).toEqual([{ from_status: null, to_status: "draft" }]);
   });
 
-  it("validates times and time zone", async () => {
-    const res = await ada.post(`/api/teams/${teamId}/events`, { ...base, endAt: START });
+  it("uses the team's time zone unless told otherwise", async () => {
+    await ada.request("PATCH", `/api/teams/${teamId}/settings`, { timezone: "Europe/London" });
+    const id = await createEvent({ name: "Carol Service", startAt: START });
+    expect((await ada.get(`/api/events/${id}`)).json.event.timezone).toBe("Europe/London");
+  });
+
+  it("lets only Approvers and Admins change team settings", async () => {
+    const member = await joinTeam("Chi", "chi@example.com", "member");
+    expect((await member.browser.get(`/api/teams/${teamId}/settings`)).json).toMatchObject({ settings: { timezone: "UTC" }, canEdit: false });
+    expect((await member.browser.request("PATCH", `/api/teams/${teamId}/settings`, { timezone: "Africa/Lagos" })).status).toBe(403);
+    expect((await ada.request("PATCH", `/api/teams/${teamId}/settings`, { timezone: "Mars/Olympus" })).json.fields.timezone).toBe("Choose a valid time zone.");
+    expect((await ada.request("PATCH", `/api/teams/${teamId}/settings`, { timezone: "Africa/Lagos" })).json.settings.timezone).toBe("Africa/Lagos");
+  });
+
+  it("validates the start and time zone", async () => {
+    const res = await ada.post(`/api/teams/${teamId}/events`, { ...base, startAt: "2026-12-01T09:10:00.000Z" });
     expect(res.status).toBe(400);
-    expect(res.json.fields.endAt).toBe("The end must be after the start.");
+    expect(res.json.fields.startAt).toBe("Choose a start time on the hour or at :15, :30 or :45.");
+
+    const past = await ada.post(`/api/teams/${teamId}/events`, { ...base, startAt: "2020-01-01T09:00:00.000Z" });
+    expect(past.json.fields.startAt).toBe("Choose a time from now on.");
 
     const tz = await ada.post(`/api/teams/${teamId}/events`, { ...base, timezone: "Mars/Olympus" });
     expect(tz.json.fields.timezone).toBe("Choose a valid time zone.");
@@ -63,8 +80,14 @@ describe("creating and editing events (QR019, QR020, QR022)", () => {
     const id = await createEvent();
     const res = await ada.request("PATCH", `/api/events/${id}`, { name: "AGM 2026", progressionMode: "auto" });
     expect(res.json.event).toMatchObject({ name: "AGM 2026", progressionMode: "auto" });
-    const bad = await ada.request("PATCH", `/api/events/${id}`, { endAt: "2026-12-01T08:00:00.000Z" });
+    const bad = await ada.request("PATCH", `/api/events/${id}`, { startAt: "2026-12-01T08:20:00.000Z" });
     expect(bad.status).toBe(400);
+
+    // Moving the start moves the whole agenda, and the end with it.
+    await ada.post(`/api/events/${id}/tasks`, { title: "Opening", durationMinutes: 30 });
+    const moved = (await ada.request("PATCH", `/api/events/${id}`, { startAt: "2026-12-01T10:00:00.000Z" })).json;
+    expect(moved.tasks[0].startAt).toBe("2026-12-01T10:00:00.000Z");
+    expect(moved.event.endAt).toBe("2026-12-01T10:30:00.000Z");
   });
 
   it("locks the plan while the event is in review", async () => {
@@ -149,10 +172,15 @@ describe("agenda (stages, tasks, timing)", () => {
     expect(detail.tasks[0].startAt).toBe("2026-12-01T10:00:00.000Z");
   });
 
-  it("flags an agenda that runs past the end time", async () => {
-    const id = await createEvent({ ...base, endAt: "2026-12-01T09:30:00.000Z" });
-    const detail = (await ada.post(`/api/events/${id}/tasks`, { title: "Long keynote", durationMinutes: 45 })).json;
-    expect(detail.schedule.overrunMinutes).toBe(15);
+  it("ends when the agenda does", async () => {
+    const id = await createEvent();
+    await ada.post(`/api/events/${id}/tasks`, { title: "Welcome", durationMinutes: 15 });
+    let detail = (await ada.post(`/api/events/${id}/tasks`, { title: "Long keynote", durationMinutes: 45 })).json;
+    expect(detail.event.endAt).toBe("2026-12-01T10:00:00.000Z");
+    expect(detail.schedule.overrunMinutes).toBe(0);
+
+    detail = (await ada.request("DELETE", `/api/events/${id}/tasks/${detail.tasks[1].id}`)).json;
+    expect(detail.event.endAt).toBe("2026-12-01T09:15:00.000Z");
   });
 
   it("runs breakouts on separate stages side by side", async () => {

@@ -88,10 +88,24 @@ async function currentParts(db: D1Database, event: EventInfo): Promise<Part[]> {
       firstName: member ? p.first_name! : p.guest_name!,
       email: member ? p.email! : (p.guest_email ?? ""),
       lines,
-      // Anything that should trigger a notice when it changes.
-      summary: JSON.stringify({ event: event.name, start: event.start_at, end: event.end_at, tz: event.timezone, lines }),
+      // Anything that should trigger a notice when it changes. Not the end time: it follows
+      // the agenda, so a change there already shows in the person's own lines.
+      summary: JSON.stringify({ event: event.name, start: event.start_at, tz: event.timezone, lines }),
     };
   });
+}
+
+/** Compares two summaries, ignoring the end time that older summaries recorded. */
+function sameSummary(a: string, b: string): boolean {
+  const strip = (s: string) => {
+    try {
+      const { end: _end, ...rest } = JSON.parse(s) as Record<string, unknown>;
+      return JSON.stringify(rest);
+    } catch {
+      return s;
+    }
+  };
+  return strip(a) === strip(b);
 }
 
 /** Record what everyone has now been told. */
@@ -171,7 +185,7 @@ export async function flushChanges(db: D1Database, eventId: string, now: number,
         const token = await createGuestLink(db, p.participantId, event.end_at, now);
         emails.push({ to: p.email, ...guestInviteEmail(p.firstName, event.team_name, event.name, when, p.lines, `${hooks.appOrigin}/g/${token}`) });
       }
-    } else if (previous.summary !== p.summary) {
+    } else if (!sameSummary(previous.summary, p.summary)) {
       // Guests' links are stored only as hashes, so each change email carries a fresh one (replacing the old).
       const link = p.kind === "member" ? eventLink : `${hooks.appOrigin}/g/${await createGuestLink(db, p.participantId, event.end_at, now)}`;
       emails.push({ to: p.email, ...planChangedEmail(p.firstName, event.name, when, p.lines, JSON.parse(previous.lines) as string[], link) });

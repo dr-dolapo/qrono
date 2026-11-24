@@ -14,13 +14,13 @@ export function StatCard({
   caption: string;
   value: ReactNode;
   total?: ReactNode;
-  /** 0–1 (or above 1 when over). */
-  ratio: number;
+  /** 0–1 (or above 1 when over). Leave out for a card with no bar. */
+  ratio?: number;
   /** Override the automatic colour: green under 60%, amber up to 99%, red at or over 100%. */
   tone?: "good" | "warn" | "bad" | "neutral";
   help?: ReactNode;
 }) {
-  const auto = ratio >= 1 ? "bad" : ratio >= 0.6 ? "warn" : "good";
+  const auto = ratio === undefined ? "neutral" : ratio >= 1 ? "bad" : ratio >= 0.6 ? "warn" : "good";
   const colour = tone ?? auto;
   return (
     <div className="stat-card">
@@ -33,9 +33,11 @@ export function StatCard({
         {value}
         {total !== undefined && <span> / {total}</span>}
       </p>
-      <div className="stat-bar" aria-hidden="true">
-        <i className={`tone-${colour}`} style={{ width: `${Math.max(3, Math.min(100, ratio * 100))}%` }} />
-      </div>
+      {ratio !== undefined && (
+        <div className="stat-bar" aria-hidden="true">
+          <i className={`tone-${colour}`} style={{ width: `${Math.max(3, Math.min(100, ratio * 100))}%` }} />
+        </div>
+      )}
     </div>
   );
 }

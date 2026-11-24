@@ -131,7 +131,7 @@ export const invites = new Hono<AppEnv>()
     )
       .bind(invite.team_id)
       .all<{ email: string }>();
-    const message = joinRequestEmail(`${user.firstName} ${user.lastName}`, invite.team_name, `${c.env.APP_ORIGIN}/admin/team`);
+    const message = joinRequestEmail(`${user.firstName} ${user.lastName}`, invite.team_name, `${c.env.APP_ORIGIN}/admin/people`);
     for (const m of managers) inBackground(c, sendEmail(c.env, { to: m.email, ...message }));
 
     return c.json({ team: { ...team, role: "member", status: "pending_vetting" } });

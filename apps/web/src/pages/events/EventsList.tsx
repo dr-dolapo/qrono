@@ -7,7 +7,7 @@ import { Alert } from "../../components/Form";
 import { Icon } from "../../components/Icon";
 import { Notice } from "../../components/Notice";
 import { storage } from "../../storage";
-import { dateTile, formatDayMonth, formatTimeRange, relativeDay } from "../../time";
+import { dateTile, formatDayMonth, formatTime, formatTimeRange, relativeDay } from "../../time";
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
@@ -24,7 +24,7 @@ function EventRow({ e }: { e: EventSummary }) {
         <span className="list-main">
           <span className="list-name">{e.name}</span>
           <span className="list-sub">
-            {formatDayMonth(e.startAt, e.timezone)} · {formatTimeRange(e.startAt, e.endAt, e.timezone)} · {plural(e.taskCount, "item")} ·{" "}
+            {formatDayMonth(e.startAt, e.timezone)} · {e.taskCount ? formatTimeRange(e.startAt, e.endAt, e.timezone) : formatTime(e.startAt, e.timezone)} · {plural(e.taskCount, "item")} ·{" "}
             {plural(e.participantCount, "person", "people")}
           </span>
         </span>

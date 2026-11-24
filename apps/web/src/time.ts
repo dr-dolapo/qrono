@@ -172,3 +172,17 @@ export function formatClockLength(minutes: number): string {
 export function formatTimeRangeWithZone(startIso: string, endIso: string, timeZone: string): string {
   return `${formatTimeRange(startIso, endIso, timeZone)} ${zoneAbbreviation(startIso, timeZone)}`.trim();
 }
+
+/** "West Africa Standard Time" for "Africa/Lagos"; falls back to the zone's id. */
+export function zoneLongName(timeZone: string, at = new Date()): string {
+  try {
+    return new Intl.DateTimeFormat("en-GB", { timeZone, timeZoneName: "long" }).formatToParts(at).find((p) => p.type === "timeZoneName")?.value ?? timeZone;
+  } catch {
+    return timeZone;
+  }
+}
+
+/** "6:00 PM WAT", or "6:00 – 8:05 PM WAT" once the agenda gives it an end. */
+export function formatWhenWithZone(startIso: string, endIso: string, timeZone: string, hasAgenda: boolean): string {
+  return hasAgenda ? formatTimeRangeWithZone(startIso, endIso, timeZone) : formatClockWithZone(startIso, timeZone);
+}

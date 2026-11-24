@@ -5,7 +5,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Link, NavLink, useLocation, useNavigate, useParams } from "react-router";
 import { ROLE_LABEL, api, type EventSummary } from "../api";
 import { useAuth } from "../auth/AuthContext";
-import { dateTile, formatTimeRange } from "../time";
+import { dateTile, formatTime, formatTimeRange } from "../time";
 import { Avatar } from "./Avatar";
 import { Icon } from "./Icon";
 import { Logo } from "./Logo";
@@ -83,7 +83,9 @@ export function AppShell({ children, rail, railLined = false }: { children: Reac
   const { pathname } = useLocation();
   const { eventId } = useParams();
   const activeTeams = teams.filter((t) => t.status === "active");
-  const onTeamPage = pathname.startsWith("/admin/team");
+  const onPeoplePage = pathname.startsWith("/admin/people");
+  const onSettingsPage = pathname.startsWith("/admin/settings");
+  const isManager = currentTeam?.role === "approver" || currentTeam?.role === "admin";
   const comingUp = useComingUp(currentTeam?.id, !!currentTeam);
   const fullName = `${user?.firstName ?? ""} ${user?.lastName ?? ""}`.trim();
 
@@ -157,11 +159,11 @@ export function AppShell({ children, rail, railLined = false }: { children: Reac
               {currentTeam.name} · {ROLE_LABEL[currentTeam.role]}
             </p>
           )}
-          <NavLink to="/admin" className={() => clsx("side-nav", !onTeamPage && !eventId && "active")} end>
+          <NavLink to="/admin" className={() => clsx("side-nav", !onPeoplePage && !onSettingsPage && !eventId && "active")} end>
             <Icon name="calendar" size={18} /> Events
           </NavLink>
-          <NavLink to="/admin/team" className={() => clsx("side-nav", onTeamPage && "active")}>
-            <Icon name="people" size={18} /> Team
+          <NavLink to="/admin/people" className={() => clsx("side-nav", onPeoplePage && "active")}>
+            <Icon name="people" size={18} /> People
           </NavLink>
 
           {comingUp.length > 0 && (
@@ -182,13 +184,21 @@ export function AppShell({ children, rail, railLined = false }: { children: Reac
                         <span className="visually-hidden">
                           {tile.day} {tile.month},{" "}
                         </span>
-                        {formatTimeRange(e.startAt, e.endAt, e.timezone)}
+                        {e.taskCount ? formatTimeRange(e.startAt, e.endAt, e.timezone) : formatTime(e.startAt, e.timezone)}
                       </span>
                     </span>
                   </Link>
                 );
               })}
             </>
+          )}
+
+          {isManager && (
+            <div className="side-bottom">
+              <NavLink to="/admin/settings" className={() => clsx("side-nav", onSettingsPage && "active")}>
+                <Icon name="settings" size={18} /> Settings
+              </NavLink>
+            </div>
           )}
         </nav>
 

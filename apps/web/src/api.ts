@@ -44,6 +44,8 @@ export type Role = "approver" | "admin" | "member";
 export interface TeamSummary {
   id: string;
   name: string;
+  /** Time zone new events use (a team setting). */
+  timezone: string;
   role: Role;
   status: "pending_vetting" | "active" | "removed";
 }
