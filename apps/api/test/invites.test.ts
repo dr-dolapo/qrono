@@ -108,7 +108,7 @@ describe("email invites (QR007)", () => {
     expect(res.status).toBe(409);
   });
 
-  it("only lets Approvers and Admins invite, and only Approvers invite Approvers", async () => {
+  it("only lets Admins and Planners invite, and only Admins invite Admins", async () => {
     const member = await inviteAndJoin("bola@example.com", "member");
     expect((await member.post(`/api/teams/${teamId}/invites`, { email: "x@example.com", role: "member" })).status).toBe(403);
 
@@ -201,7 +201,7 @@ describe("roles and removal (QR009)", () => {
     expect(res.json.member.role).toBe("admin");
   });
 
-  it("stops Admins from creating or changing Approvers", async () => {
+  it("stops Planners from creating or changing Admins", async () => {
     const admin = await inviteAndJoin("bola@example.com", "admin");
     await inviteAndJoin("chi@example.com", "member", "Chi");
     const chiId = await membershipOf("chi@example.com");
@@ -210,7 +210,18 @@ describe("roles and removal (QR009)", () => {
     expect((await admin.request("PATCH", `/api/teams/${teamId}/members/${chiId}`, { role: "approver" })).status).toBe(403);
     expect((await admin.request("PATCH", `/api/teams/${teamId}/members/${adaId}`, { role: "member" })).status).toBe(403);
     expect((await admin.request("DELETE", `/api/teams/${teamId}/members/${adaId}`)).status).toBe(403);
-    expect((await admin.request("PATCH", `/api/teams/${teamId}/members/${chiId}`, { role: "admin" })).status).toBe(200);
+    // Only Admins change roles; Planners can remove Members, and add Members only.
+    expect((await admin.request("PATCH", `/api/teams/${teamId}/members/${chiId}`, { role: "admin" })).status).toBe(403);
+    expect((await admin.post(`/api/teams/${teamId}/invites`, { email: "dayo@example.com", role: "admin" })).status).toBe(403);
+    expect((await admin.post(`/api/teams/${teamId}/invites`, { email: "dayo@example.com", role: "member" })).status).toBe(201);
+    expect((await admin.request("DELETE", `/api/teams/${teamId}/members/${chiId}`)).status).toBe(200);
+  });
+
+  it("lets Admins move people up and down", async () => {
+    await inviteAndJoin("bola@example.com", "admin");
+    const bolaId = await membershipOf("bola@example.com");
+    expect((await owner.request("PATCH", `/api/teams/${teamId}/members/${bolaId}`, { role: "approver" })).status).toBe(200);
+    expect((await owner.request("PATCH", `/api/teams/${teamId}/members/${bolaId}`, { role: "member" })).status).toBe(200);
   });
 
   it("stops Members from managing anyone", async () => {
@@ -220,14 +231,14 @@ describe("roles and removal (QR009)", () => {
     expect((await member.request("DELETE", `/api/teams/${teamId}/members/${adaId}`)).status).toBe(403);
   });
 
-  it("always keeps at least one Approver", async () => {
+  it("always keeps at least one Admin", async () => {
     const adaId = await membershipOf("ada@example.com");
     const demote = await owner.request("PATCH", `/api/teams/${teamId}/members/${adaId}`, { role: "admin" });
     expect(demote.status).toBe(409);
     expect(demote.json.code).toBe("last_approver");
     expect((await owner.request("DELETE", `/api/teams/${teamId}/members/${adaId}`)).status).toBe(409);
 
-    // With a second Approver, Ada can step down.
+    // With a second Admin, Ada can step down.
     await inviteAndJoin("bola@example.com", "approver");
     expect((await owner.request("PATCH", `/api/teams/${teamId}/members/${adaId}`, { role: "admin" })).status).toBe(200);
   });

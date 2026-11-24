@@ -3,7 +3,7 @@ import { runCommand } from "../src/live/commands";
 import { Browser, createTestEnv, tokenFromEmail } from "./helpers/client";
 
 let t: ReturnType<typeof createTestEnv>;
-let ada: Browser; // Approver running the event
+let ada: Browser; // Admin running the event
 let chi: { browser: Browser; userId: string; participant: string }; // Member
 let dayo: { browser: Browser; userId: string; participant: string }; // Member
 let guest: string;
@@ -59,7 +59,7 @@ describe("sending broadcasts (QR038, QR039)", () => {
     expect(res.json.code).toBe("event_not_live");
   });
 
-  it("only by Approvers and Admins", async () => {
+  it("only by Admins and Planners", async () => {
     await goLive();
     expect((await chi.browser.post(`/api/events/${eventId}/broadcasts`, { body: "Hi", audience: "everyone" })).status).toBe(403);
   });

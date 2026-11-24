@@ -2,7 +2,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { ApiError, api, type Member } from "../../api";
 
-/** Approvers only: hand the team to someone else, or delete it. Both need a clear second step. */
+/** Admins only: hand the team to someone else, or delete it. Both need a clear second step. */
 export function DangerZone({ teamId, teamName, members, onGone }: { teamId: string; teamName: string; members: Member[]; onGone: () => Promise<void> }) {
   const [heir, setHeir] = useState("");
   const [confirmHandover, setConfirmHandover] = useState(false);
@@ -30,7 +30,7 @@ export function DangerZone({ teamId, teamName, members, onGone }: { teamId: stri
       <div className="danger-item">
         <div>
           <h3 className="sub-head">Hand the team over</h3>
-          <p>They become an Approver, and you leave the team.</p>
+          <p>They become an Admin, and you leave the team.</p>
         </div>
         <div className="setting-row">
           <label className="visually-hidden" htmlFor="heir">

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { Browser, createTestEnv, tokenFromEmail } from "./helpers/client";
 
 let t: ReturnType<typeof createTestEnv>;
-let ada: Browser; // Approver
+let ada: Browser; // Admin
 let chi: Browser; // Member on the program
 let eventId: string;
 
@@ -50,7 +50,7 @@ describe("running an event live", () => {
     expect(res.status).toBe(409);
   });
 
-  it("an Admin starts early, moves on, and ends the event", async () => {
+  it("a Planner starts early, moves on, and ends the event", async () => {
     await approve();
     let state = (await ada.post(`/api/events/${eventId}/live/start`)).json;
     expect(state.event.status).toBe("live");

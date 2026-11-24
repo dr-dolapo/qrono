@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { Browser, createTestEnv, tokenFromEmail } from "./helpers/client";
 
 let t: ReturnType<typeof createTestEnv>;
-let ada: Browser; // Approver, creates the team
+let ada: Browser; // Admin, creates the team
 let adaId: string;
 let teamId: string;
 
@@ -65,7 +65,7 @@ describe("the team's people list", () => {
     expect(await addContact("B. Test", "BOLA@example.com")).toMatchObject({ kind: "member", userId: bolaId });
   });
 
-  it("is only for Approvers and Admins, and only for your own team", async () => {
+  it("is only for Admins and Planners, and only for your own team", async () => {
     const bola = await person("Bola", "bola@example.com");
     await joinTeam(bola, "bola@example.com");
     expect((await bola.get(`/api/teams/${teamId}/people`)).status).toBe(403);

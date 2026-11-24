@@ -58,7 +58,7 @@ export function EventEditor() {
   useEffect(load, [load]);
   useEffect(() => setTab("agenda"), [eventId]);
 
-  // The team's people list, for Who and for people's status (Approvers and Admins only).
+  // The team's people list, for Who and for people's status (Admins and Planners only).
   const [people, setPeople] = useState<Person[]>([]);
   const teamId = detail?.event.teamId;
   const canEdit = detail?.permissions.canEdit ?? false;

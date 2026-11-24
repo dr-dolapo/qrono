@@ -10,7 +10,7 @@ import { snapshot } from "./live/engine";
  *
  *  - Every screen watching the event (command centre, participants' pages)
  *    holds a WebSocket here and gets the full state whenever it changes.
- *  - Admin commands (start, next task, end) arrive from the Worker, which has
+ *  - Planner commands (start, next task, end) arrive from the Worker, which has
  *    already checked permissions.
  *  - A Durable Object alarm wakes the room exactly when something is due:
  *    the start time, an automatic hand-over (QR027), or the end time.
@@ -29,7 +29,7 @@ export class LiveEvent extends DurableObject<Env> {
       if (request.headers.get("Upgrade") !== "websocket") return new Response("Expected a WebSocket upgrade", { status: 426 });
       const pair = new WebSocketPair();
       const [client, server] = Object.values(pair) as [WebSocket, WebSocket];
-      // Tags let the room reach Approvers/Admins, or one person (broadcast alerts).
+      // Tags let the room reach Admins/Planners, or one person (broadcast alerts).
       const tags = [request.headers.get("X-Qrono-Viewer") ?? "participant"];
       const userId = request.headers.get("X-Qrono-User");
       if (userId) tags.push(`user:${userId}`);

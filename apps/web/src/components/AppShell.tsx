@@ -62,7 +62,7 @@ function HelpMenu() {
             <Popover.Title className="popover-title">How Qrono works</Popover.Title>
             <ol className="help-steps">
               <li><strong>Plan.</strong> Create an event, then add each item: what, how long, and who.</li>
-              <li><strong>Review.</strong> Send the program to an Approver. Nobody is emailed yet.</li>
+              <li><strong>Review.</strong> Send the program to an Admin. Nobody is emailed yet.</li>
               <li><strong>Approve.</strong> Everyone on the program gets their part by email, and anyone new is invited to the team.</li>
               <li><strong>Run it.</strong> Open the live view or command centre on the day to move through the items.</li>
             </ol>
@@ -77,7 +77,7 @@ function HelpMenu() {
  * The signed-in admin area: a top bar (logo, help, team, account), a sidebar of
  * navigation and the next few events, the page, and an optional right rail.
  */
-export function AppShell({ children, rail, railLined = false }: { children: ReactNode; rail?: ReactNode; railLined?: boolean }) {
+export function AppShell({ children, rail, railLined = false, wide = false }: { children: ReactNode; rail?: ReactNode; railLined?: boolean; wide?: boolean }) {
   const { user, teams, currentTeam, setCurrentTeam, logout } = useAuth();
   const navigate = useNavigate();
   const { pathname } = useLocation();
@@ -151,7 +151,7 @@ export function AppShell({ children, rail, railLined = false }: { children: Reac
         </Menu.Root>
       </header>
 
-      <div className={clsx("app-shell", rail && "has-rail")}>
+      <div className={clsx("app-shell", rail && "has-rail", wide && "is-wide")}>
         <nav className="sidebar" aria-label="Main">
           {currentTeam && (
             <p className="side-label">

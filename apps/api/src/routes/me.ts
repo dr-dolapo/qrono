@@ -30,7 +30,7 @@ export const me = new Hono<AppEnv>()
 
   /**
    * The events I'm part of in every team I'm active in (QR018, QR023): the ones I'm a participant in,
-   * plus events in review where I'm one of the chosen Approvers (QR016). Soonest first.
+   * plus events in review where I'm one of the chosen Admins (QR016). Soonest first.
    */
   .get("/events", async (c) => {
     const user = currentUser(c);
@@ -69,7 +69,7 @@ export const me = new Hono<AppEnv>()
         endAt: e.end_at,
         timezone: e.timezone,
         status: e.status,
-        /** null when I'm only here as a chosen Approver. */
+        /** null when I'm only here as a chosen Admin. */
         myResponse: e.my_response,
         myTaskCount: e.my_task_count,
         myNextTask: e.next_task_title ? { title: e.next_task_title, startAt: e.next_task_start_at } : null,

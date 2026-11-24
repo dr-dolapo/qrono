@@ -79,7 +79,7 @@ export function passwordResetEmail(firstName: string, link: string): Omit<Outgoi
   };
 }
 
-const ROLE_NAMES = { approver: "an Approver", admin: "an Admin", member: "a Member" } as const;
+const ROLE_NAMES = { approver: "an Admin", admin: "a Planner", member: "a Member" } as const;
 
 export function teamInviteEmail(
   inviterName: string,
@@ -98,7 +98,7 @@ export function teamInviteEmail(
 
 export function joinRequestEmail(requesterName: string, teamName: string, link: string): Omit<OutgoingEmail, "to"> {
   const body = `${requesterName} used your team's invite link to ask to join ${teamName}. Check who they are before letting them in.`;
-  const footer = "You're getting this because you're an Approver or Admin on this team.";
+  const footer = "You're getting this because you're an Admin or Planner on this team.";
   return {
     subject: `${requesterName} wants to join ${teamName}`,
     text: `${body}\n\n${link}\n\n${footer}`,
@@ -128,7 +128,7 @@ const withText = (body: string, details: string[], link: string, footer: string)
 
 export function reviewRequestedEmail(submitter: string, eventName: string, when: string, link: string): Omit<OutgoingEmail, "to"> {
   const body = `${submitter} has sent "${eventName}" (${when}) for your approval. Review the agenda, leave comments on any task, and approve it when it's ready.`;
-  const footer = "You're getting this because you were chosen as an Approver for this event.";
+  const footer = "You're getting this because you were chosen as an Admin for this event.";
   return {
     subject: `Please review: ${eventName}`,
     text: withText(body, [], link, footer),
@@ -138,7 +138,7 @@ export function reviewRequestedEmail(submitter: string, eventName: string, when:
 
 export function eventApprovedEmail(approver: string, eventName: string, when: string, link: string): Omit<OutgoingEmail, "to"> {
   const body = `${approver} approved "${eventName}" (${when}). Everyone on the agenda has been told about their part.`;
-  const footer = "You're getting this because you're an Approver or Admin on this team.";
+  const footer = "You're getting this because you're an Admin or Planner on this team.";
   return {
     subject: `Approved: ${eventName}`,
     text: withText(body, [], link, footer),

@@ -3,7 +3,7 @@ import { sendDueReminders } from "../src/reminders";
 import { Browser, createTestEnv, tokenFromEmail } from "./helpers/client";
 
 let t: ReturnType<typeof createTestEnv>;
-let ada: Browser; // Approver, creates the team
+let ada: Browser; // Admin, creates the team
 let adaId: string;
 let teamId: string;
 
@@ -54,7 +54,7 @@ describe("who sees and changes settings", () => {
     expect((await chi.browser.get(`/api/teams/${teamId}/settings`)).json.me.reminderEmails).toBe(false);
   });
 
-  it("lets Admins change team settings, and checks them", async () => {
+  it("lets Planners change team settings, and checks them", async () => {
     const bola = await join("Bola", "bola@example.com", "admin");
     const res = await bola.browser.request("PATCH", `/api/teams/${teamId}/settings`, {
       name: "Tend Events",
@@ -87,7 +87,7 @@ describe("who sees and changes settings", () => {
     expect((await ada.get(`/api/events/${id}`)).json.event.progressionMode).toBe("auto");
   });
 
-  it("keeps the danger zone for Approvers", async () => {
+  it("keeps the danger zone for Admins", async () => {
     const bola = await join("Bola", "bola@example.com", "admin");
     expect((await bola.browser.request("DELETE", `/api/teams/${teamId}`, { confirmName: "Events Team" })).status).toBe(403);
     expect((await ada.request("DELETE", `/api/teams/${teamId}`, { confirmName: "Events" })).json.fields.confirmName).toBeDefined();
@@ -95,7 +95,7 @@ describe("who sees and changes settings", () => {
     expect((await ada.get("/api/auth/me")).json.teams).toEqual([]);
   });
 
-  it("hands the team over: the new person becomes an Approver and you leave", async () => {
+  it("hands the team over: the new person becomes an Admin and you leave", async () => {
     const chi = await join("Chi", "chi@example.com");
     const members = (await ada.get(`/api/teams/${teamId}/members`)).json.members;
     const chiMembership = members.find((m: { user: { id: string } }) => m.user.id === chi.userId).id;
@@ -106,7 +106,7 @@ describe("who sees and changes settings", () => {
 });
 
 describe("approval rules", () => {
-  it("lets Admins publish directly when the team doesn't require approval", async () => {
+  it("lets Planners publish directly when the team doesn't require approval", async () => {
     const chi = await join("Chi", "chi@example.com");
     const id = await programWith([{ userId: chi.userId }]);
     expect((await ada.post(`/api/events/${id}/publish`)).json.code).toBe("approval_required");
@@ -125,14 +125,14 @@ describe("approval rules", () => {
     const chi = await join("Chi", "chi@example.com");
     const id = await programWith([{ userId: chi.userId }]);
     const own = await ada.post(`/api/events/${id}/submit`, { approverIds: [adaId] });
-    expect(own.json.fields.approverIds).toMatch(/Choose another Approver/);
+    expect(own.json.fields.approverIds).toMatch(/Choose another Admin/);
 
     const bola = await join("Bola", "bola@example.com", "approver");
     expect((await ada.post(`/api/events/${id}/submit`, { approverIds: [bola.userId] })).status).toBe(200);
     expect((await bola.browser.post(`/api/events/${id}/approve`)).status).toBe(200);
   });
 
-  it("remembers default Approvers, and only Approvers can be defaults", async () => {
+  it("remembers default Admins, and only Admins can be defaults", async () => {
     const bola = await join("Bola", "bola@example.com", "approver");
     const chi = await join("Chi", "chi@example.com");
     expect((await ada.request("PATCH", `/api/teams/${teamId}/settings`, { defaultApproverIds: [chi.userId] })).json.fields.defaultApproverIds).toBeDefined();

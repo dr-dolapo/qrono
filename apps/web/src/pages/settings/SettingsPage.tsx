@@ -1,7 +1,7 @@
 import { Switch } from "@base-ui/react/switch";
 import clsx from "clsx";
 import { useCallback, useEffect, useId, useMemo, useState, type ReactNode } from "react";
-import { useNavigate } from "react-router";
+import { NavLink, Navigate, useNavigate, useParams } from "react-router";
 import { toast } from "sonner";
 import { ApiError, api, type Member, type SettingsResponse, type TeamSettings } from "../../api";
 import { useAuth } from "../../auth/AuthContext";
@@ -21,25 +21,45 @@ const REMINDER_CHOICES = [
 ];
 const QUARTER_HOURS = Array.from({ length: 96 }, (_, i) => `${String(Math.floor(i / 4)).padStart(2, "0")}:${String((i % 4) * 15).padStart(2, "0")}`);
 
+/** The settings menu, in groups. "you" is everyone's; the rest are the team's. */
 const SECTIONS = [
-  { id: "you", label: "Your settings" },
-  { id: "profile", label: "Team profile" },
-  { id: "time", label: "Time and region" },
-  { id: "defaults", label: "Program defaults" },
-  { id: "approval", label: "Approval" },
-  { id: "reminders", label: "Reminders" },
-  { id: "invites", label: "Invites" },
-  { id: "live", label: "Live screen" },
-  { id: "library", label: "Agenda library" },
-  { id: "danger", label: "Danger zone" },
-];
+  { id: "you", label: "Your settings", group: "You" },
+  { id: "profile", label: "Team profile", group: "Team" },
+  { id: "time", label: "Time and region", group: "Team" },
+  { id: "defaults", label: "Program defaults", group: "Team" },
+  { id: "approval", label: "Approval", group: "Team" },
+  { id: "reminders", label: "Reminders", group: "Team" },
+  { id: "invites", label: "Invites", group: "Team" },
+  { id: "live", label: "Live screen", group: "Team" },
+  { id: "library", label: "Agenda library", group: "Team" },
+  { id: "danger", label: "Danger zone", group: "Owner" },
+] as const;
 
 /** A labelled on/off switch with a line of explanation. */
-function Toggle({ label, hint, checked, onChange, disabled }: { label: string; hint?: ReactNode; checked: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
+function Toggle({
+  label,
+  hint,
+  checked,
+  onChange,
+  disabled,
+}: {
+  label: string;
+  hint?: ReactNode;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  disabled?: boolean;
+}) {
   const id = useId();
   return (
     <div className={clsx("toggle-row", disabled && "is-disabled")}>
-      <Switch.Root id={id} className="switch" checked={checked} onCheckedChange={onChange} disabled={disabled} aria-describedby={hint ? `${id}-hint` : undefined}>
+      <Switch.Root
+        id={id}
+        className="switch"
+        checked={checked}
+        onCheckedChange={onChange}
+        disabled={disabled}
+        aria-describedby={hint ? `${id}-hint` : undefined}
+      >
         <Switch.Thumb className="switch-thumb" />
       </Switch.Root>
       <label htmlFor={id} className="toggle-text">
@@ -55,7 +75,17 @@ function Toggle({ label, hint, checked, onChange, disabled }: { label: string; h
 }
 
 /** A small set of choices shown side by side (radio buttons). */
-function Choice<T extends string | number>({ label, value, options, onChange }: { label: string; value: T; options: { value: T; label: string }[]; onChange: (v: T) => void }) {
+function Choice<T extends string | number>({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: T;
+  options: { value: T; label: string }[];
+  onChange: (v: T) => void;
+}) {
   const name = useId();
   return (
     <fieldset className="choice">
@@ -73,7 +103,19 @@ function Choice<T extends string | number>({ label, value, options, onChange }: 
 }
 
 /** A text setting with its own Save button. */
-function TextSetting({ label, value, placeholder, maxLength, onSave }: { label: string; value: string; placeholder?: string; maxLength: number; onSave: (v: string) => Promise<void> }) {
+function TextSetting({
+  label,
+  value,
+  placeholder,
+  maxLength,
+  onSave,
+}: {
+  label: string;
+  value: string;
+  placeholder?: string;
+  maxLength: number;
+  onSave: (v: string) => Promise<void>;
+}) {
   const id = useId();
   const [draft, setDraft] = useState(value);
   useEffect(() => setDraft(value), [value]);
@@ -112,12 +154,13 @@ function Section({ id, title, help, children }: { id: string; title: string; hel
 }
 
 /**
- * Settings. Everyone sees their own (reminder emails); Approvers and Admins also
+ * Settings. Everyone sees their own (reminder emails); Admins and Planners also
  * change the team's. Each change saves straight away.
  */
 export function SettingsPage() {
   const { currentTeam, refresh, user } = useAuth();
   const navigate = useNavigate();
+  const { section } = useParams();
   const teamId = currentTeam!.id;
   const [data, setData] = useState<SettingsResponse | null>(null);
   const [approvers, setApprovers] = useState<Member[]>([]);
@@ -170,30 +213,19 @@ export function SettingsPage() {
     }
   }
 
-  // Links like /admin/settings#invites: scroll there once the page has loaded.
-  const loaded = data !== null;
-  useEffect(() => {
-    if (!loaded || !window.location.hash) return;
-    document.getElementById(window.location.hash.slice(1))?.scrollIntoView();
-  }, [loaded]);
-
   const s = data?.settings;
   const visible = SECTIONS.filter((x) => x.id === "you" || (data?.canEdit && (x.id !== "danger" || data.canDeleteTeam)));
-  const rail = data && visible.length > 1 && (
-    <nav className="panel settings-toc" aria-label="Settings sections">
-      <h2>On this page</h2>
-      <ul>
-        {visible.map((x) => (
-          <li key={x.id}>
-            <a href={`#${x.id}`}>{x.label}</a>
-          </li>
-        ))}
-      </ul>
-    </nav>
-  );
-
+  const active = visible.some((x) => x.id === section) ? section : null;
+  // On phones the menu scrolls sideways: keep the open section's tab in view.
+  useEffect(() => {
+    if (window.innerWidth > 900) return;
+    document.querySelector(".settings-nav-item.active")?.scrollIntoView({ inline: "center", block: "nearest" });
+  }, [active]);
+  const groups = [...new Set(visible.map((x) => x.group))];
+  // /admin/settings opens the first section; an unknown or not-allowed one does too.
+  if (data && !visible.some((x) => x.id === section)) return <Navigate to={`/admin/settings/${data.canEdit ? "profile" : "you"}`} replace />;
   return (
-    <AppShell rail={rail || undefined}>
+    <AppShell wide>
       <h1>
         <span className="title-pre">Settings:</span> {currentTeam!.name}
       </h1>
@@ -201,227 +233,285 @@ export function SettingsPage() {
       {!data && !error && <p className="muted">Loading…</p>}
 
       {data && (
-        <Section id="you" title="Your settings" help="These are just for you, on this team. Nobody else sees or changes them.">
-          <Toggle
-            label="Email me reminders before events I'm on"
-            hint={data.remindersEnabled ? "Sent at the times your team has chosen." : "Your team has turned reminders off, so none are sent at the moment."}
-            checked={data.me.reminderEmails}
-            onChange={saveMine}
-          />
-        </Section>
-      )}
-
-      {s && (
-        <>
-          <Section id="profile" title="Team profile" help="Shown on emails about your programs and on the page guests open from their email.">
-            <TextSetting label="Team name" value={s.name} maxLength={80} onSave={(name) => save({ name }, "Team name saved")} />
-            <LogoField logo={s.logo} teamName={s.name} onChange={(logo) => save({ logo }, logo ? "Logo saved" : "Logo removed")} />
-            <TextSetting
-              label="Usual venue"
-              value={s.defaultVenue ?? ""}
-              placeholder="e.g. Main auditorium, 12 Allen Avenue, Ikeja"
-              maxLength={120}
-              onSave={(v) => save({ defaultVenue: v || null }, "Venue saved")}
-            />
-          </Section>
-
-          <Section id="time" title="Time and region" help="Everyone sees an event's times in its time zone, whatever their own device is set to.">
-            <div className="setting-field">
-              <label htmlFor="team-zone" className="field-label">
-                Time zone
-              </label>
-              <div className="setting-row">
-                <select id="team-zone" className="select setting-select" value={s.timezone} onChange={(e) => save({ timezone: e.target.value }, `Time zone set to ${zoneLongName(e.target.value)}`)}>
-                  {zones.map((z) => (
-                    <option key={z} value={z}>
-                      {z.replace(/_/g, " ")}
-                    </option>
+        <div className="settings-layout">
+          <nav className="settings-nav" aria-label="Settings">
+            {groups.map((g) => (
+              <div key={g} className="settings-nav-group">
+                {visible.length > 1 && <p className="settings-nav-label">{g}</p>}
+                {visible
+                  .filter((x) => x.group === g)
+                  .map((x) => (
+                    <NavLink
+                      key={x.id}
+                      to={`/admin/settings/${x.id}`}
+                      className={({ isActive }) => clsx("settings-nav-item", isActive && "active", x.id === "danger" && "is-danger")}
+                    >
+                      {x.label}
+                    </NavLink>
                   ))}
-                </select>
               </div>
-              <p className="setting-hint">
-                {zoneLongName(s.timezone)} · it's {formatTime(new Date().toISOString(), s.timezone)} there now. New events use it; events already planned keep theirs.
-              </p>
-            </div>
-            <Choice
-              label="Clock"
-              value={s.clockFormat}
-              options={[
-                { value: "12h", label: "12-hour (6:00 PM)" },
-                { value: "24h", label: "24-hour (18:00)" },
-              ]}
-              onChange={(clockFormat) => save({ clockFormat })}
-            />
-            <Choice
-              label="Weeks start on"
-              value={s.weekStart}
-              options={[
-                { value: "monday", label: "Monday" },
-                { value: "sunday", label: "Sunday" },
-              ]}
-              onChange={(weekStart) => save({ weekStart })}
-            />
-          </Section>
+            ))}
+          </nav>
+          <div className="settings-body">
+            {active === "you" && (
+              <Section id="you" title="Your settings" help="These are just for you, on this team. Nobody else sees or changes them.">
+                <Toggle
+                  label="Email me reminders before events I'm on"
+                  hint={
+                    data.remindersEnabled ? "Sent at the times your team has chosen." : "Your team has turned reminders off, so none are sent at the moment."
+                  }
+                  checked={data.me.reminderEmails}
+                  onChange={saveMine}
+                />
+              </Section>
+            )}
 
-          <Section id="defaults" title="Program defaults" help="Filled in for each new event. You can still change them on the event.">
-            <div className="setting-field">
-              <label htmlFor="default-start" className="field-label">
-                Usual start time
-              </label>
-              <select
-                id="default-start"
-                className="select setting-select-narrow"
-                value={s.defaultStartTime ?? ""}
-                onChange={(e) => save({ defaultStartTime: e.target.value || null })}
-              >
-                <option value="">No usual time</option>
-                {QUARTER_HOURS.map((t) => (
-                  <option key={t} value={t}>
-                    {formatTime(`2000-01-01T${t}:00.000Z`, "UTC")}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <Choice
-              label="Moving to the next item"
-              value={s.defaultProgression}
-              options={[
-                { value: "manual", label: "Manually, by an Admin" },
-                { value: "auto", label: "Automatically, on time" },
-              ]}
-              onChange={(defaultProgression) => save({ defaultProgression })}
-            />
-          </Section>
+            {s && (
+              <>
+                {active === "profile" && (
+                  <Section id="profile" title="Team profile" help="Shown on emails about your programs and on the page guests open from their email.">
+                    <TextSetting label="Team name" value={s.name} maxLength={80} onSave={(name) => save({ name }, "Team name saved")} />
+                    <LogoField logo={s.logo} teamName={s.name} onChange={(logo) => save({ logo }, logo ? "Logo saved" : "Logo removed")} />
+                    <TextSetting
+                      label="Usual venue"
+                      value={s.defaultVenue ?? ""}
+                      placeholder="e.g. Main auditorium, 12 Allen Avenue, Ikeja"
+                      maxLength={120}
+                      onSave={(v) => save({ defaultVenue: v || null }, "Venue saved")}
+                    />
+                  </Section>
+                )}
 
-          <Section id="approval" title="Approval" help="Approval is when everyone on a program is emailed their part.">
-            <Toggle
-              label="Programs need an Approver's approval"
-              hint={s.requireApproval ? "Drafts are sent for review, and an Approver approves them." : "Approvers and Admins publish drafts straight away, with no review."}
-              checked={s.requireApproval}
-              onChange={(requireApproval) => save({ requireApproval })}
-            />
-            <Toggle
-              label="People can approve programs they sent for review"
-              hint={s.allowSelfApproval ? "Handy for small teams." : "Someone else must approve, for a second pair of eyes."}
-              checked={s.allowSelfApproval}
-              disabled={!s.requireApproval}
-              onChange={(allowSelfApproval) => save({ allowSelfApproval })}
-            />
-            <fieldset className="choice" disabled={!s.requireApproval}>
-              <legend>Approvers chosen by default</legend>
-              {approvers.length === 0 && <p className="setting-hint">Nobody on the team is an Approver yet.</p>}
-              <div className="check-list">
-                {approvers.map((a) => {
-                  const on = s.defaultApproverIds.includes(a.user.id);
-                  return (
-                    <label key={a.id} className="check-row">
-                      <input
-                        type="checkbox"
-                        checked={on}
-                        onChange={() =>
-                          save({ defaultApproverIds: on ? s.defaultApproverIds.filter((x) => x !== a.user.id) : [...s.defaultApproverIds, a.user.id] })
-                        }
-                      />
-                      {a.user.firstName} {a.user.lastName}
-                      {a.user.id === user?.id && <span className="muted"> (you)</span>}
-                    </label>
-                  );
-                })}
-              </div>
-            </fieldset>
-          </Section>
+                {active === "time" && (
+                  <Section id="time" title="Time and region" help="Everyone sees an event's times in its time zone, whatever their own device is set to.">
+                    <div className="setting-field">
+                      <label htmlFor="team-zone" className="field-label">
+                        Time zone
+                      </label>
+                      <div className="setting-row">
+                        <select
+                          id="team-zone"
+                          className="select setting-select"
+                          value={s.timezone}
+                          onChange={(e) => save({ timezone: e.target.value }, `Time zone set to ${zoneLongName(e.target.value)}`)}
+                        >
+                          {zones.map((z) => (
+                            <option key={z} value={z}>
+                              {z.replace(/_/g, " ")}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <p className="setting-hint">
+                        {zoneLongName(s.timezone)} · it's {formatTime(new Date().toISOString(), s.timezone)} there now. New events use it; events already
+                        planned keep theirs.
+                      </p>
+                    </div>
+                    <Choice
+                      label="Clock"
+                      value={s.clockFormat}
+                      options={[
+                        { value: "12h", label: "12-hour (6:00 PM)" },
+                        { value: "24h", label: "24-hour (18:00)" },
+                      ]}
+                      onChange={(clockFormat) => save({ clockFormat })}
+                    />
+                    <Choice
+                      label="Weeks start on"
+                      value={s.weekStart}
+                      options={[
+                        { value: "monday", label: "Monday" },
+                        { value: "sunday", label: "Sunday" },
+                      ]}
+                      onChange={(weekStart) => save({ weekStart })}
+                    />
+                  </Section>
+                )}
 
-          <Section id="reminders" title="Reminders" help="Emailed to everyone on an approved program. Each person can turn them off for themselves.">
-            <Toggle
-              label="Send reminder emails before events"
-              hint="To everyone on the program, team members and guests."
-              checked={s.remindersEnabled}
-              onChange={(remindersEnabled) => save({ remindersEnabled })}
-            />
-            <fieldset className="choice" disabled={!s.remindersEnabled}>
-              <legend>When</legend>
-              <div className="check-list check-list-inline">
-                {REMINDER_CHOICES.map((r) => {
-                  const on = s.reminderOffsets.includes(r.value);
-                  return (
-                    <label key={r.value} className="check-row">
-                      <input
-                        type="checkbox"
-                        checked={on}
-                        onChange={() => save({ reminderOffsets: on ? s.reminderOffsets.filter((x) => x !== r.value) : [...s.reminderOffsets, r.value] })}
-                      />
-                      {r.label}
-                    </label>
-                  );
-                })}
-              </div>
-            </fieldset>
-          </Section>
+                {active === "defaults" && (
+                  <Section id="defaults" title="Program defaults" help="Filled in for each new event. You can still change them on the event.">
+                    <div className="setting-field">
+                      <label htmlFor="default-start" className="field-label">
+                        Usual start time
+                      </label>
+                      <select
+                        id="default-start"
+                        className="select setting-select-narrow"
+                        value={s.defaultStartTime ?? ""}
+                        onChange={(e) => save({ defaultStartTime: e.target.value || null })}
+                      >
+                        <option value="">No usual time</option>
+                        {QUARTER_HOURS.map((t) => (
+                          <option key={t} value={t}>
+                            {formatTime(`2000-01-01T${t}:00.000Z`, "UTC")}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <Choice
+                      label="Moving to the next item"
+                      value={s.defaultProgression}
+                      options={[
+                        { value: "manual", label: "Manually, by a Planner" },
+                        { value: "auto", label: "Automatically, on time" },
+                      ]}
+                      onChange={(defaultProgression) => save({ defaultProgression })}
+                    />
+                  </Section>
+                )}
 
-          <Section id="invites" title="Invites">
-            <Choice
-              label="New invitations are for"
-              value={s.inviteDefaultRole}
-              options={[
-                { value: "member", label: "Members" },
-                { value: "admin", label: "Admins" },
-              ]}
-              onChange={(inviteDefaultRole) => save({ inviteDefaultRole })}
-            />
-            <Choice
-              label="Email invitations last"
-              value={s.inviteExpiryDays}
-              options={[3, 7, 14, 30].map((d) => ({ value: d, label: `${d} days` }))}
-              onChange={(inviteExpiryDays) => save({ inviteExpiryDays })}
-            />
-            <Toggle
-              label="Allow an invite link"
-              hint={s.inviteLinkEnabled ? "One link to share with a group, made on the People page." : "Turning it off also stops the link that's out there now."}
-              checked={s.inviteLinkEnabled}
-              onChange={(inviteLinkEnabled) => save({ inviteLinkEnabled })}
-            />
-            <Toggle
-              label="People who use the link wait to be let in"
-              hint={s.linkRequiresApproval ? "An Approver or Admin checks who they are first." : "They join as Members straight away."}
-              checked={s.linkRequiresApproval}
-              disabled={!s.inviteLinkEnabled}
-              onChange={(linkRequiresApproval) => save({ linkRequiresApproval })}
-            />
-          </Section>
+                {active === "approval" && (
+                  <Section id="approval" title="Approval" help="Approval is when everyone on a program is emailed their part.">
+                    <Toggle
+                      label="Programs need an Admin's approval"
+                      hint={
+                        s.requireApproval
+                          ? "Drafts are sent for review, and an Admin approves them."
+                          : "Admins and Planners publish drafts straight away, with no review."
+                      }
+                      checked={s.requireApproval}
+                      onChange={(requireApproval) => save({ requireApproval })}
+                    />
+                    <Toggle
+                      label="People can approve programs they sent for review"
+                      hint={s.allowSelfApproval ? "Handy for small teams." : "Someone else must approve, for a second pair of eyes."}
+                      checked={s.allowSelfApproval}
+                      disabled={!s.requireApproval}
+                      onChange={(allowSelfApproval) => save({ allowSelfApproval })}
+                    />
+                    <fieldset className="choice" disabled={!s.requireApproval}>
+                      <legend>Admins chosen by default</legend>
+                      {approvers.length === 0 && <p className="setting-hint">Nobody on the team is an Admin yet.</p>}
+                      <div className="check-list">
+                        {approvers.map((a) => {
+                          const on = s.defaultApproverIds.includes(a.user.id);
+                          return (
+                            <label key={a.id} className="check-row">
+                              <input
+                                type="checkbox"
+                                checked={on}
+                                onChange={() =>
+                                  save({ defaultApproverIds: on ? s.defaultApproverIds.filter((x) => x !== a.user.id) : [...s.defaultApproverIds, a.user.id] })
+                                }
+                              />
+                              {a.user.firstName} {a.user.lastName}
+                              {a.user.id === user?.id && <span className="muted"> (you)</span>}
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </fieldset>
+                  </Section>
+                )}
 
-          <Section id="live" title="Live screen" help="How the command centre looks on the day.">
-            <Choice
-              label="The countdown turns amber with"
-              value={s.liveWarningMinutes}
-              options={[1, 2, 5].map((m) => ({ value: m, label: `${m} minute${m === 1 ? "" : "s"} left` }))}
-              onChange={(liveWarningMinutes) => save({ liveWarningMinutes })}
-            />
-            <Toggle
-              label="Show who's on each item"
-              hint="Turn off if the screen is seen by the audience and names shouldn't be."
-              checked={s.liveShowNames}
-              onChange={(liveShowNames) => save({ liveShowNames })}
-            />
-          </Section>
+                {active === "reminders" && (
+                  <Section id="reminders" title="Reminders" help="Emailed to everyone on an approved program. Each person can turn them off for themselves.">
+                    <Toggle
+                      label="Send reminder emails before events"
+                      hint="To everyone on the program, team members and guests."
+                      checked={s.remindersEnabled}
+                      onChange={(remindersEnabled) => save({ remindersEnabled })}
+                    />
+                    <fieldset className="choice" disabled={!s.remindersEnabled}>
+                      <legend>When</legend>
+                      <div className="check-list check-list-inline">
+                        {REMINDER_CHOICES.map((r) => {
+                          const on = s.reminderOffsets.includes(r.value);
+                          return (
+                            <label key={r.value} className="check-row">
+                              <input
+                                type="checkbox"
+                                checked={on}
+                                onChange={() =>
+                                  save({ reminderOffsets: on ? s.reminderOffsets.filter((x) => x !== r.value) : [...s.reminderOffsets, r.value] })
+                                }
+                              />
+                              {r.label}
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </fieldset>
+                  </Section>
+                )}
 
-          <Section id="library" title="Agenda library" help="What's suggested as you type What, and the programs offered as templates.">
-            <AgendaLibrary teamId={teamId} />
-          </Section>
+                {active === "invites" && (
+                  <Section id="invites" title="Invites">
+                    <Choice
+                      label="New invitations are for"
+                      value={s.inviteDefaultRole}
+                      options={[
+                        { value: "member", label: "Members" },
+                        { value: "admin", label: "Planners" },
+                      ]}
+                      onChange={(inviteDefaultRole) => save({ inviteDefaultRole })}
+                    />
+                    <Choice
+                      label="Email invitations last"
+                      value={s.inviteExpiryDays}
+                      options={[3, 7, 14, 30].map((d) => ({ value: d, label: `${d} days` }))}
+                      onChange={(inviteExpiryDays) => save({ inviteExpiryDays })}
+                    />
+                    <Toggle
+                      label="Allow an invite link"
+                      hint={
+                        s.inviteLinkEnabled
+                          ? "One link to share with a group, made on the People page."
+                          : "Turning it off also stops the link that's out there now."
+                      }
+                      checked={s.inviteLinkEnabled}
+                      onChange={(inviteLinkEnabled) => save({ inviteLinkEnabled })}
+                    />
+                    <Toggle
+                      label="People who use the link wait to be let in"
+                      hint={s.linkRequiresApproval ? "An Admin or Planner checks who they are first." : "They join as Members straight away."}
+                      checked={s.linkRequiresApproval}
+                      disabled={!s.inviteLinkEnabled}
+                      onChange={(linkRequiresApproval) => save({ linkRequiresApproval })}
+                    />
+                  </Section>
+                )}
 
-          {data.canDeleteTeam && (
-            <Section id="danger" title="Danger zone">
-              <DangerZone
-                teamId={teamId}
-                teamName={s.name}
-                members={members.filter((m) => m.user.id !== user?.id)}
-                onGone={async () => {
-                  await refresh();
-                  navigate("/admin", { replace: true });
-                }}
-              />
-            </Section>
-          )}
-        </>
+                {active === "live" && (
+                  <Section id="live" title="Live screen" help="How the command centre looks on the day.">
+                    <Choice
+                      label="The countdown turns amber with"
+                      value={s.liveWarningMinutes}
+                      options={[1, 2, 5].map((m) => ({ value: m, label: `${m} minute${m === 1 ? "" : "s"} left` }))}
+                      onChange={(liveWarningMinutes) => save({ liveWarningMinutes })}
+                    />
+                    <Toggle
+                      label="Show who's on each item"
+                      hint="Turn off if the screen is seen by the audience and names shouldn't be."
+                      checked={s.liveShowNames}
+                      onChange={(liveShowNames) => save({ liveShowNames })}
+                    />
+                  </Section>
+                )}
+
+                {active === "library" && (
+                  <Section id="library" title="Agenda library" help="What's suggested as you type What, and the programs offered as templates.">
+                    <AgendaLibrary teamId={teamId} />
+                  </Section>
+                )}
+
+                {data.canDeleteTeam && active === "danger" && (
+                  <Section id="danger" title="Danger zone">
+                    <DangerZone
+                      teamId={teamId}
+                      teamName={s.name}
+                      members={members.filter((m) => m.user.id !== user?.id)}
+                      onGone={async () => {
+                        await refresh();
+                        navigate("/admin", { replace: true });
+                      }}
+                    />
+                  </Section>
+                )}
+              </>
+            )}
+          </div>
+        </div>
       )}
     </AppShell>
   );

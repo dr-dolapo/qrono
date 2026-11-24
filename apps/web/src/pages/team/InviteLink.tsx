@@ -7,7 +7,7 @@ import { Icon } from "../../components/Icon";
 
 /**
  * QR001: the team's shareable invite link. People who use it join as Members
- * after an Approver or Admin lets them in. The link is shown once, when it's
+ * after an Admin or Planner lets them in. The link is shown once, when it's
  * created (only a hash is stored); making a new one turns off the old one.
  */
 export function InviteLink({
@@ -63,7 +63,7 @@ export function InviteLink({
         <h2 id="link-heading">Invite link</h2>
         <p className="panel-sub">
           Turned off for this team. Invite people by email, or{" "}
-          <Link className="text-link" to="/admin/settings#invites">
+          <Link className="text-link" to="/admin/settings/invites">
             turn it on in Settings
           </Link>
           .

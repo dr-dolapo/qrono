@@ -80,7 +80,7 @@ export interface InviteInfo {
   expiresAt: string;
 }
 
-export const ROLE_LABEL: Record<Role, string> = { approver: "Approver", admin: "Admin", member: "Member" };
+export const ROLE_LABEL: Record<Role, string> = { approver: "Admin", admin: "Planner", member: "Member" };
 
 export type EventStatus = "draft" | "review" | "approved" | "live" | "past";
 
@@ -230,7 +230,7 @@ export const AGENDA_DURATIONS: readonly number[] = [
   120,
 ];
 
-/** Team-wide settings (Settings page; Approvers and Admins). */
+/** Team-wide settings (Settings page; Admins and Planners). */
 export interface TeamSettings {
   name: string;
   logo: string | null;

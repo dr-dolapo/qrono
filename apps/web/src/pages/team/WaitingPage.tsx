@@ -3,7 +3,7 @@ import { Link, Navigate, useNavigate } from "react-router";
 import { useAuth } from "../../auth/AuthContext";
 import { Alert, AuthLayout } from "../../components/Form";
 
-/** Shown to people who joined with an invite link until an Approver or Admin lets them in. */
+/** Shown to people who joined with an invite link until an Admin or Planner lets them in. */
 export function WaitingPage() {
   const { user, teams, currentTeam, refresh, logout } = useAuth();
   const navigate = useNavigate();
@@ -22,7 +22,7 @@ export function WaitingPage() {
       title="Waiting for approval"
       subtitle={
         <>
-          Your request to join <strong>{names}</strong> has been sent. An Approver or Admin on the team will let you in, and
+          Your request to join <strong>{names}</strong> has been sent. An Admin or Planner on the team will let you in, and
           then you'll see the team here.
         </>
       }

@@ -48,7 +48,7 @@ const router = createBrowserRouter([
       { path: "/verify-email", element: <VerifyEmail /> },
       { path: "/onboarding/team", element: <RequireAuth needsTeam={false}><CreateTeam /></RequireAuth> },
 
-      // Admin & Approver area
+      // Planner & Admin area
       { path: "/admin", element: <RequireAuth><EventsList /></RequireAuth> },
       { path: "/admin/events/new", element: <RequireAuth><NewEvent /></RequireAuth> },
       { path: "/admin/events/:eventId", element: <RequireAuth><EventEditor /></RequireAuth> },
@@ -56,12 +56,13 @@ const router = createBrowserRouter([
       // The page was called Team before; keep old links working.
       { path: "/admin/team", element: <Navigate to="/admin/people" replace /> },
       { path: "/admin/settings", element: <RequireAuth><SettingsPage /></RequireAuth> },
+      { path: "/admin/settings/:section", element: <RequireAuth><SettingsPage /></RequireAuth> },
 
       // Team invitations (QR001, QR007)
       { path: "/invite/:token", element: <InvitePage /> },
       { path: "/waiting", element: <WaitingPage /> },
 
-      // Command centre — desktop/laptop on an HDMI screen (Approvers and Admins)
+      // Command centre — desktop/laptop on an HDMI screen (Admins and Planners)
       { path: "/command/:eventId", element: <RequireAuth><CommandCentre /></RequireAuth> },
       // Guest view — personal link opened on a phone browser (QR044–QR046)
       { path: "/g/:token", element: <GuestView /> },

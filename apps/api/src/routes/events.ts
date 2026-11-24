@@ -75,7 +75,7 @@ const checkStart = (startAt: string, timeZone: string) => {
 export const teamEvents = new Hono<AppEnv>()
   .use(requireVerifiedUser)
 
-  /** Events for the team: everything for Approvers/Admins, the ones they're in for Members. */
+  /** Events for the team: everything for Admins/Planners, the ones they're in for Members. */
   .get("/:teamId/events", async (c) => {
     const teamId = c.req.param("teamId");
     const me = await requireMembership(c, teamId);

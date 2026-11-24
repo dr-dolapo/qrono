@@ -28,7 +28,7 @@ export interface EventAccess {
 
 /**
  * Loads an event the signed-in user may see:
- *  - Approvers and Admins of its team see every event.
+ *  - Admins and Planners of its team see every event.
  *  - Members see events they're a participant in (PRD §6.1).
  * Anyone else gets 404, so event IDs can't be probed.
  */
@@ -55,13 +55,13 @@ export async function loadEvent(c: Context<AppEnv>, eventId: string): Promise<Ev
 }
 
 /**
- * For changes to the plan (QR020): Approvers/Admins only. Drafts, approved and
+ * For changes to the plan (QR020): Admins/Planners only. Drafts, approved and
  * live events can be edited; changes to approved/live events are sent to the
  * people affected. While in review the plan is locked; past events are final.
  */
 export async function loadEditableEvent(c: Context<AppEnv>, eventId: string): Promise<EventAccess> {
   const access = await loadEvent(c, eventId);
-  if (!access.canManage) fail(403, "Only Approvers and Admins can edit events.");
+  if (!access.canManage) fail(403, "Only Admins and Planners can edit events.");
   if (access.event.status === "review") {
     fail(409, "This event is in review, so its plan is locked. Move it back to draft to change it.", { code: "event_in_review" });
   }

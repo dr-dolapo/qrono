@@ -5,7 +5,7 @@ import { sendEmail } from "../src/mail";
 import { Browser, ORIGIN, createTestEnv, tokenFromEmail } from "./helpers/client";
 
 let t: ReturnType<typeof createTestEnv>;
-let ada: Browser; // Approver
+let ada: Browser; // Admin
 let teamId: string;
 let eventId: string;
 let chi: { browser: Browser; userId: string; participant: string };

@@ -19,8 +19,8 @@ export const teams = new Hono<AppEnv>()
   .use(requireVerifiedUser)
 
   /**
-   * QR006: create a team. The creator becomes its first Approver,
-   * since an Approver has every Admin right plus approval (PRD §6).
+   * QR006: create a team. The creator becomes its first Admin,
+   * since an Admin has every Planner right plus approval (PRD §6).
    */
   .post(
     "/",
@@ -64,7 +64,7 @@ export const teams = new Hono<AppEnv>()
 
   // ───────────── Members ─────────────
 
-  /** Everyone on the team. Approvers and Admins also see join requests waiting for approval. */
+  /** Everyone on the team. Admins and Planners also see join requests waiting for approval. */
   .get("/:teamId/members", async (c) => {
     const teamId = c.req.param("teamId");
     const me = await requireMembership(c, teamId);
@@ -143,7 +143,7 @@ export const teams = new Hono<AppEnv>()
 
   // ───────────── Invites ─────────────
 
-  /** Pending invitations (Approvers and Admins). */
+  /** Pending invitations (Admins and Planners). */
   .get("/:teamId/invites", async (c) => {
     const teamId = c.req.param("teamId");
     await requireMembership(c, teamId, MANAGERS);
@@ -174,8 +174,9 @@ export const teams = new Hono<AppEnv>()
     const teamId = c.req.param("teamId");
     const me = await requireMembership(c, teamId, MANAGERS);
     const { email, role } = c.req.valid("json");
-    if (role === "approver" && me.role !== "approver") {
-      fail(403, "Only an Approver can invite someone as an Approver.", { fields: { role: "Only an Approver can invite Approvers." } });
+    // Planners add Members; only Admins add Planners and Admins.
+    if (role !== "member" && me.role !== "approver") {
+      fail(403, "Only an Admin can invite Planners and Admins.", { fields: { role: "Planners can invite Members only." } });
     }
 
     const existing = await c.env.DB.prepare(
@@ -212,7 +213,7 @@ export const teams = new Hono<AppEnv>()
 
   /**
    * QR001: create the team's shareable invite link. People who use it join as
-   * Members and wait for an Approver or Admin to let them in. Creating a new
+   * Members and wait for an Admin or Planner to let them in. Creating a new
    * link turns off the old one. The link is only shown now; we store a hash.
    */
   .post("/:teamId/invite-link", async (c) => {

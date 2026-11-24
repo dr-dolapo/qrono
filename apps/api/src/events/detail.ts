@@ -197,7 +197,7 @@ export async function eventDetail(c: Context<AppEnv>, access: EventAccess) {
       canEdit: access.canManage && (event.status === "draft" || event.status === "approved" || event.status === "live"),
       canManage: access.canManage,
       canSubmit: requireApproval && access.canManage && event.status === "draft" && tasks.length > 0,
-      /** When the team doesn't require approval, Approvers and Admins publish drafts directly. */
+      /** When the team doesn't require approval, Admins and Planners publish drafts directly. */
       canPublish: !requireApproval && access.canManage && event.status === "draft" && tasks.length > 0,
       canWithdraw: access.canManage && event.status === "review",
       canApprove: event.status === "review" && iAmChosenApprover && access.role === "approver" && !selfBlocked,

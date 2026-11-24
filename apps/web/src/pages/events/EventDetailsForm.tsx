@@ -141,7 +141,7 @@ export function EventDetailsForm({
           {canChangeZone && !initial && (
             <>
               {" "}
-              <Link className="text-link" to="/admin/settings">
+              <Link className="text-link" to="/admin/settings/time">
                 Change the time zone in Settings
               </Link>
             </>

@@ -49,14 +49,14 @@ export const responseBody = z
 export const review = new Hono<AppEnv>()
   .use(requireVerifiedUser)
 
-  /** QR011: send a draft for review to one or more chosen Approvers. */
+  /** QR011: send a draft for review to one or more chosen Admins. */
   .post(
     "/:eventId/submit",
-    json(z.object({ approverIds: z.array(z.string()).min(1, { error: "Choose at least one Approver." }).max(20) })),
+    json(z.object({ approverIds: z.array(z.string()).min(1, { error: "Choose at least one Admin." }).max(20) })),
     async (c) => {
       const access = await loadEvent(c, c.req.param("eventId"));
       const { event } = access;
-      if (!access.canManage) fail(403, "Only Approvers and Admins can send events for review.");
+      if (!access.canManage) fail(403, "Only Admins and Planners can send events for review.");
       if (event.status !== "draft") fail(409, "Only draft events can be sent for review.", { code: "event_not_draft" });
 
       const tasks = await c.env.DB.prepare("SELECT COUNT(*) AS n FROM tasks WHERE event_id = ?").bind(event.id).first<{ n: number }>();
@@ -67,7 +67,7 @@ export const review = new Hono<AppEnv>()
       const team = (await loadTeam(c.env.DB, event.team_id))!;
       if (team.allow_self_approval !== 1 && ids.includes(currentUser(c).id)) {
         fail(400, "Please check the highlighted fields.", {
-          fields: { approverIds: "Your team doesn't let people approve programs they sent. Choose another Approver." },
+          fields: { approverIds: "Your team doesn't let people approve programs they sent. Choose another Admin." },
         });
       }
       const { results: approvers } = await c.env.DB.prepare(
@@ -77,7 +77,7 @@ export const review = new Hono<AppEnv>()
         .bind(event.team_id, ...ids)
         .all<{ id: string; first_name: string; email: string }>();
       if (approvers.length !== ids.length) {
-        fail(400, "Please check the highlighted fields.", { fields: { approverIds: "Choose Approvers from this team." } });
+        fail(400, "Please check the highlighted fields.", { fields: { approverIds: "Choose Admins from this team." } });
       }
 
       const me = currentUser(c);
@@ -100,7 +100,7 @@ export const review = new Hono<AppEnv>()
   /** Take an event back out of review so its plan can be changed. */
   .post("/:eventId/withdraw", async (c) => {
     const access = await loadEvent(c, c.req.param("eventId"));
-    if (!access.canManage) fail(403, "Only Approvers and Admins can do that.");
+    if (!access.canManage) fail(403, "Only Admins and Planners can do that.");
     if (access.event.status !== "review") fail(409, "Only events in review can be moved back to draft.");
     await c.env.DB.batch([
       c.env.DB.prepare("DELETE FROM event_approvers WHERE event_id = ?").bind(access.event.id),
@@ -111,8 +111,8 @@ export const review = new Hono<AppEnv>()
   })
 
   /**
-   * QR016: approve. Mandate "any to sign": one of the chosen Approvers is enough.
-   * Then QR017 (Admins told), QR018/QR032 (team members emailed their part) and
+   * QR016: approve. Mandate "any to sign": one of the chosen Admins is enough.
+   * Then QR017 (Planners told), QR018/QR032 (team members emailed their part) and
    * QR044 (guests emailed a personal link that expires when the event ends).
    */
   .post("/:eventId/approve", async (c) => {
@@ -121,13 +121,13 @@ export const review = new Hono<AppEnv>()
     if (event.status !== "review") fail(409, "Only events in review can be approved.");
     const me = currentUser(c);
     const chosen = await c.env.DB.prepare("SELECT 1 FROM event_approvers WHERE event_id = ? AND user_id = ?").bind(event.id, me.id).first();
-    if (!chosen || access.role !== "approver") fail(403, "Only the Approvers chosen for this event can approve it.");
+    if (!chosen || access.role !== "approver") fail(403, "Only the Admins chosen for this event can approve it.");
     const team = (await loadTeam(c.env.DB, event.team_id))!;
     if (team.allow_self_approval !== 1) {
       const sent = await c.env.DB.prepare("SELECT changed_by FROM event_status_changes WHERE event_id = ? AND to_status = 'review' ORDER BY changed_at DESC, rowid DESC LIMIT 1")
         .bind(event.id)
         .first<{ changed_by: string | null }>();
-      if (sent?.changed_by === me.id) fail(403, "Your team doesn't let people approve programs they sent. Another Approver needs to approve it.", { code: "self_approval" });
+      if (sent?.changed_by === me.id) fail(403, "Your team doesn't let people approve programs they sent. Another Admin needs to approve it.", { code: "self_approval" });
     }
     // Approval sends everyone their invitation, so everyone needs an email by now.
     await requireEmails(c, event.id);
@@ -145,13 +145,13 @@ export const review = new Hono<AppEnv>()
   })
 
   /**
-   * When the team doesn't require approval (a Settings choice), Approvers and Admins
+   * When the team doesn't require approval (a Settings choice), Admins and Planners
    * publish a draft directly. Everything else is as for an approval.
    */
   .post("/:eventId/publish", async (c) => {
     const access = await loadEvent(c, c.req.param("eventId"));
     const { event } = access;
-    if (!access.canManage) fail(403, "Only Approvers and Admins can publish programs.");
+    if (!access.canManage) fail(403, "Only Admins and Planners can publish programs.");
     if (event.status !== "draft") fail(409, "Only draft events can be published.", { code: "event_not_draft" });
     const team = (await loadTeam(c.env.DB, event.team_id))!;
     if (team.require_approval === 1) fail(409, "Your team requires programs to be approved. Send it for review instead.", { code: "approval_required" });
@@ -229,7 +229,7 @@ async function notifyOnApproval(c: Ctx, event: EventRow, approverName: string, a
   const eventLink = `${c.env.APP_ORIGIN}/admin/events/${event.id}`;
   const brand = emailBrand(c.env.APP_ORIGIN, team);
 
-  // QR017: the team's Approvers and Admins.
+  // QR017: the team's Admins and Planners.
   const { results: managers } = await db
     .prepare(
       `SELECT u.email FROM team_memberships m JOIN users u ON u.id = m.user_id

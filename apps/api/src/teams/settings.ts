@@ -103,7 +103,7 @@ export async function loadSettings(db: D1Database, teamId: string): Promise<Team
 
 const oneOf = <T extends readonly number[]>(list: T, message: string) => z.number().refine((n) => (list as readonly number[]).includes(n), { error: message });
 
-/** What Approvers and Admins can change. Every field is optional: send only what changed. */
+/** What Admins and Planners can change. Every field is optional: send only what changed. */
 export const settingsPatch = z
   .object({
     name: z.string().trim().min(2, { error: "Use at least 2 characters." }).max(80, { error: "Use at most 80 characters." }),

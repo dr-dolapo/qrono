@@ -2,11 +2,11 @@
  * The live-event state machine (PRD §7, §9.5). Pure functions over D1 with
  * an explicit clock, so they can be tested without a Durable Object.
  *
- *  approved ──(start time, or an Admin starts early)──▶ live ──(end time, or End Event)──▶ past
+ *  approved ──(start time, or a Planner starts early)──▶ live ──(end time, or End Event)──▶ past
  *
  * While live, exactly one task is "in_progress". Moving on marks it done and
  * starts the next one, recording actual start/end times for the event report.
- *  - manual mode (QR028): an Admin moves on.
+ *  - manual mode (QR028): a Planner moves on.
  *  - auto mode (QR027): the next task starts when the current one's time is up.
  */
 
@@ -99,7 +99,7 @@ function statusChange(db: D1Database, eventId: string, from: LiveStatus, to: Liv
     .bind(crypto.randomUUID(), eventId, from, to, by, iso(at));
 }
 
-/** Start the event: it goes live and its first task starts. Allowed early by an Admin. */
+/** Start the event: it goes live and its first task starts. Allowed early by a Planner. */
 export async function goLive(db: D1Database, eventId: string, now: number, by: string | null): Promise<void> {
   const event = await loadEvent(db, eventId);
   if (event.status === "live") return;
@@ -129,7 +129,7 @@ export async function nextTask(db: D1Database, eventId: string, now: number): Pr
 }
 
 /**
- * End the event (QR029), either by an Admin or because the end time passed.
+ * End the event (QR029), either by a Planner or because the end time passed.
  * Unfinished tasks are marked skipped; guests' links stop working.
  */
 export async function endEvent(db: D1Database, eventId: string, now: number, by: string | null): Promise<void> {

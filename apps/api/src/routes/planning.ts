@@ -26,7 +26,7 @@ export const planning = new Hono<AppEnv>()
 
   /**
    * The team's running list of people for "Who": members (joined) and contacts
-   * (typed into an agenda; invited, or not invited yet). Approvers and Admins only.
+   * (typed into an agenda; invited, or not invited yet). Admins and Planners only.
    */
   .get("/:teamId/people", async (c) => {
     const teamId = c.req.param("teamId");

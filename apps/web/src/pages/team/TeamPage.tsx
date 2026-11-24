@@ -17,10 +17,11 @@ interface MembersResponse {
   members: Member[];
 }
 
+/** Roles are stored as approver / admin / member and shown as Admin / Planner / Member. */
 const ROLE_HELP: Record<Role, string> = {
-  approver: "Everything an Admin can do, plus approving programs.",
-  admin: "Creates and edits events, and manages people.",
-  member: "Can be given parts in events.",
+  approver: "Owns the team: approves programs, changes people's roles, and can do everything a Planner can.",
+  admin: "Plans events, adds Members, makes invite links and sends programs for approval.",
+  member: "Sees the full program of events they're on.",
 };
 
 const viewerZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -102,12 +103,9 @@ export function TeamPage() {
   const needEmail = listedContacts.filter((c) => !c.email).length;
 
   /** Mirrors the API's rules so people only see choices that will work. */
-  const roleOptions = (target: Member): Role[] => {
-    if (!canManage) return [];
-    if (target.role === "approver" && me.role !== "approver") return [];
-    return me.role === "approver" ? ["approver", "admin", "member"] : ["admin", "member"];
-  };
-  const canRemove = (target: Member) => target.id === me.membershipId || (canManage && !(target.role === "approver" && me.role !== "approver"));
+  // Only Admins change roles, up or down. Planners can remove Members only.
+  const roleOptions = (): Role[] => (me.role === "approver" ? ["approver", "admin", "member"] : []);
+  const canRemove = (target: Member) => target.id === me.membershipId || me.role === "approver" || (canManage && target.role === "member");
 
   const rail = canManage && (
     <>
@@ -173,13 +171,20 @@ export function TeamPage() {
         <div className="section-head">
           <h2 id="roles-heading">Roles</h2>
           <HelpTip label="Roles">
-            Only Approvers can make someone else an Approver. People who join through the invite link start as Members.
+            Only Admins change roles, and a team always keeps at least one Admin. People who join through the invite link start as Members.
           </HelpTip>
         </div>
-        <p>
-          <strong>Approvers</strong> can do everything Admins can, and approve programs. <strong>Admins</strong> create and edit events and manage people.{" "}
-          <strong>Members</strong> can be given parts in events.
-        </p>
+        <ul className="role-list">
+          <li>
+            <strong>Admin</strong> {ROLE_HELP.approver}
+          </li>
+          <li>
+            <strong>Planner</strong> {ROLE_HELP.admin}
+          </li>
+          <li>
+            <strong>Member</strong> {ROLE_HELP.member}
+          </li>
+        </ul>
       </section>
 
       {canManage && (
@@ -209,7 +214,7 @@ export function TeamPage() {
         <ul className="list list-ruled">
           {active.map((m) => {
             const isMe = m.id === me.membershipId;
-            const options = roleOptions(m);
+            const options = roleOptions();
             const name = `${m.user.firstName} ${m.user.lastName}`;
             return (
               <li key={m.id} className="list-row">
@@ -238,7 +243,7 @@ export function TeamPage() {
                         title={ROLE_HELP[m.role]}
                         onChange={(e) => {
                           const role = e.target.value as Role;
-                          void act(m.id, () => api(`/teams/${teamId}/members/${m.id}`, { method: "PATCH", body: { role } }), `${m.user.firstName} is now ${role === "admin" ? "an" : "a"} ${ROLE_LABEL[role]}.`);
+                          void act(m.id, () => api(`/teams/${teamId}/members/${m.id}`, { method: "PATCH", body: { role } }), `${m.user.firstName} is now ${role === "approver" ? "an" : "a"} ${ROLE_LABEL[role]}.`);
                         }}
                       >
                         {options.map((r) => (
