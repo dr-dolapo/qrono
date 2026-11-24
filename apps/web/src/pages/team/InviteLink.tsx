@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ApiError, api, type PendingInvite } from "../../api";
 import { Alert } from "../../components/Form";
+import { toast } from "sonner";
 
 /**
  * QR001: the team's shareable invite link. People who use it join as Members
@@ -43,6 +44,7 @@ export function InviteLink({
     try {
       await navigator.clipboard.writeText(url);
       setCopied(true);
+      toast.success("Invite link copied");
     } catch {
       setError("Couldn't copy automatically. Select the link and copy it.");
     }

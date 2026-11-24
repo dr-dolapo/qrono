@@ -4,6 +4,7 @@ import { ApiError, api, type GuestProgram } from "../api";
 import { Alert } from "../components/Form";
 import { formatDate, formatDuration, formatTime } from "../time";
 import { Logo } from "../components/Logo";
+import clsx from "clsx";
 
 /**
  * QR044–QR046: the guest's personal page, opened from their emailed link on a
@@ -127,7 +128,7 @@ export function GuestView() {
         <h2 id="guest-program">Full program</h2>
         <ol className="rows">
           {program.map((t) => (
-            <li key={t.id} className={`row agenda-row ${t.mine ? "row-mine" : ""}`}>
+            <li key={t.id} className={clsx("row agenda-row", t.mine && "row-mine")}>
               <div className="agenda-time">
                 <strong>{formatTime(t.startAt, tz)}</strong>
               </div>

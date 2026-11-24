@@ -3,13 +3,19 @@
   /* The app's background: black fading to a deep purple (from the agenda editor design). */
   --bg-gradient: linear-gradient(180deg, #000 0%, #020003 30%, #040106 60%, #050108 100%);
   --panel: #0e0f13;
-  --line: #24262d;
+  --line: #26272d;
+  --field: #15161b;
+  --field-line: #2e3038;
+  --radius-control: 8px;
+  --radius-card: 12px;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
   --purple: #a44be9;
   --go: #48b02c;
   --danger: #f44336;
   --text: #f2f4f8;
-  --muted: #9aa3b2;
-  --accent: #f5b301;
+  --muted: #8e8e96;
+  --accent: #b36cf0;      /* links, focus, selection */
+  --brand: #a44be9;       /* filled buttons */
   --ok: #34c77b;
   --warn: #f5b301;
   color-scheme: dark;
@@ -22,7 +28,7 @@
 
 * { box-sizing: border-box; }
 body { margin: 0; min-height: 100vh; background: var(--bg-gradient) fixed; background-color: var(--bg); }
-a { color: var(--accent); text-decoration: none; }
+a { color: #c48cff; text-decoration: none; }
 h1 { font-size: 1.75rem; margin: 0.5rem 0 1rem; }
 
 .page { max-width: 40rem; margin: 0 auto; padding: 2rem 1.25rem; }
@@ -35,7 +41,7 @@ h1 { font-size: 1.75rem; margin: 0.5rem 0 1rem; }
   display: grid; gap: 0.25rem; padding: 1rem 1.25rem;
   background: var(--panel); border: 1px solid var(--line); border-radius: 12px; color: var(--text);
 }
-.card:hover { border-color: var(--accent); }
+.card:hover { border-color: #3d3f49; }
 
 .placeholder { background: var(--panel); border: 1px dashed var(--line); border-radius: 12px; padding: 1rem 1.25rem; }
 .placeholder ul { margin: 0.5rem 0 0; padding-left: 1.25rem; line-height: 1.7; }
@@ -59,10 +65,10 @@ h1 { font-size: 1.75rem; margin: 0.5rem 0 1rem; }
   outline: 2px solid var(--accent); outline-offset: 2px;
 }
 .button:disabled { opacity: 0.6; cursor: progress; }
-.button-primary { background: var(--accent); border-color: var(--accent); color: #111; }
-.button-primary:hover { border-color: var(--accent); filter: brightness(1.05); }
+.button-primary { background: var(--brand); border-color: var(--brand); color: #fff; }
+.button-primary:hover { background: #b15cf2; border-color: #b15cf2; }
 .button-small { width: auto; min-height: 36px; padding: 0 0.8rem; font-size: 0.875rem; }
-.link-button { background: none; border: 0; padding: 0; color: var(--accent); font: inherit; cursor: pointer; }
+.link-button { background: none; border: 0; padding: 0; color: #c48cff; font: inherit; cursor: pointer; }
 .stack { display: grid; gap: 0.75rem; }
 
 /* ───────── Auth pages ───────── */
@@ -149,7 +155,7 @@ h1 { font-size: 1.75rem; margin: 0.5rem 0 1rem; }
 }
 .badge {
   font-size: 0.75rem; font-weight: 600; padding: 0.1rem 0.5rem; border-radius: 999px;
-  background: rgba(245, 179, 1, 0.15); color: var(--accent);
+  background: rgba(164, 75, 233, 0.18); color: #d2a6ff;
 }
 
 /* ───────── Admin pages ───────── */
@@ -196,7 +202,6 @@ h1 { font-size: 1.75rem; margin: 0.5rem 0 1rem; }
 .button-auto { width: auto; }
 .page-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
 .row-link { color: var(--text); flex: 1; }
-.row-link:hover strong { color: var(--accent); }
 .card-panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 1.25rem; margin-top: 1rem; }
 .card-panel h2, .card-panel h3 { margin: 0 0 0.75rem; font-size: 1rem; }
 .field textarea {
@@ -208,7 +213,7 @@ h1 { font-size: 1.75rem; margin: 0.5rem 0 1rem; }
 
 .status-pill { font-size: 0.75rem; font-weight: 700; padding: 0.2rem 0.6rem; border-radius: 999px; white-space: nowrap; }
 .status-draft { background: rgba(154, 163, 178, 0.16); color: #c9d0db; }
-.status-review { background: rgba(245, 179, 1, 0.16); color: var(--accent); }
+.status-review { background: rgba(245, 179, 1, 0.16); color: var(--warn); }
 .status-approved { background: rgba(52, 199, 123, 0.16); color: var(--ok); }
 .status-live { background: rgba(255, 92, 92, 0.18); color: #ff8a8a; }
 .status-past { background: rgba(255, 255, 255, 0.06); color: var(--muted); }
@@ -248,10 +253,10 @@ h1 { font-size: 1.75rem; margin: 0.5rem 0 1rem; }
 }
 .chip input { position: absolute; opacity: 0; pointer-events: none; }
 .chip:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
-.chip-on { border-color: var(--accent); background: rgba(245, 179, 1, 0.12); }
+.chip-on { border-color: var(--accent); background: rgba(164, 75, 233, 0.12); }
 .chip-number {
   display: inline-grid; place-items: center; width: 1.3rem; height: 1.3rem; border-radius: 50%;
-  background: var(--accent); color: #111; font-size: 0.75rem; font-weight: 700;
+  background: var(--brand); color: #fff; font-size: 0.75rem; font-weight: 700;
 }
 .task-form .button-row .button { width: auto; min-width: 8rem; }
 .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; align-items: start; }
@@ -278,7 +283,7 @@ h1 { font-size: 1.75rem; margin: 0.5rem 0 1rem; }
 .agenda-item { display: block; }
 .agenda-line { display: flex; align-items: flex-start; gap: 1rem; }
 .agenda-line .row-main { flex: 1; }
-.has-comments { border-color: rgba(245, 179, 1, 0.5); color: var(--accent); }
+.has-comments { border-color: rgba(245, 179, 1, 0.5); color: var(--warn); }
 .comments { margin: 0.75rem 0 0.25rem 6.75rem; display: grid; gap: 0.6rem; }
 .comment-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.6rem; }
 .comment-list li { background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 0.6rem 0.8rem; }
@@ -290,7 +295,7 @@ h1 { font-size: 1.75rem; margin: 0.5rem 0 1rem; }
   color: var(--text); font: inherit; font-size: 16px; resize: vertical;
 }
 
-.my-part { border-color: rgba(245, 179, 1, 0.4); }
+.my-part { border-color: rgba(164, 75, 233, 0.4); }
 .plain-list { list-style: none; margin: 0 0 1rem; padding: 0; display: grid; gap: 0.35rem; }
 .response { font-size: 0.8rem; font-weight: 700; padding: 0.2rem 0.6rem; border-radius: 999px; white-space: nowrap; }
 .response-acknowledged { background: rgba(52, 199, 123, 0.16); color: var(--ok); }
@@ -306,7 +311,7 @@ h1 { font-size: 1.75rem; margin: 0.5rem 0 1rem; }
 .guest-mine h2 { font-size: 1.05rem; }
 .guest-tasks li { display: flex; gap: 0.75rem; align-items: baseline; }
 .guest-time { font-weight: 700; font-variant-numeric: tabular-nums; min-width: 5.5rem; }
-.row-mine { background: rgba(245, 179, 1, 0.08); }
+.row-mine { background: rgba(164, 75, 233, 0.08); }
 .guest .field textarea { width: 100%; }
 
 @media (max-width: 720px) {
@@ -333,7 +338,7 @@ h1 { font-size: 1.75rem; margin: 0.5rem 0 1rem; }
 .command-people { font-size: clamp(1rem, 1.9vw, 2.3rem); margin: 0; color: var(--accent); }
 .small-people { font-size: clamp(0.9rem, 1.4vw, 1.7rem); }
 .command-countdown { font-size: clamp(2rem, 4.5vw, 6rem); font-weight: 700; margin: auto 0 0; font-variant-numeric: tabular-nums; }
-.command-countdown.soon { color: var(--accent); }
+.command-countdown.soon { color: var(--warn); }
 .command-countdown.over { color: #ff6b6b; }
 .command-progress { height: 1vh; min-height: 6px; background: rgba(255, 255, 255, 0.08); border-radius: 999px; overflow: hidden; }
 .command-progress div { height: 100%; background: var(--accent); transition: width 1s linear; }
@@ -365,7 +370,7 @@ h1 { font-size: 1.75rem; margin: 0.5rem 0 1rem; }
 /* ───────── Broadcasts ───────── */
 .broadcast-alerts { display: grid; gap: 0.75rem; margin: 1rem 0; }
 .broadcast-alert {
-  border: 2px solid var(--accent); background: rgba(245, 179, 1, 0.1); border-radius: 14px; padding: 1rem 1.25rem;
+  border: 2px solid var(--warn); background: rgba(245, 179, 1, 0.1); border-radius: 14px; padding: 1rem 1.25rem;
   animation: arrive 0.4s ease-out;
 }
 @keyframes arrive { from { transform: translateY(-6px); opacity: 0; } }
@@ -394,7 +399,7 @@ h1 { font-size: 1.75rem; margin: 0.5rem 0 1rem; }
   font-size: 0.8rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase;
   background: #bebebe; color: #000; white-space: nowrap;
 }
-.status-badge-review { background: var(--accent); }
+.status-badge-review { background: var(--warn); }
 .status-badge-approved { background: var(--go); color: #fff; }
 .status-badge-live { background: var(--danger); color: #fff; }
 .event-when { display: flex; align-items: center; gap: 0.9rem; font-size: 1.25rem; font-weight: 400; margin: 0.5rem 0 0; flex-wrap: wrap; }
@@ -450,7 +455,6 @@ button.agenda-card-main:hover .agenda-cell-what { text-decoration: underline; te
 .agenda-select.is-empty { color: #6b6b6b; }
 .agenda-select option { color: var(--text); }
 .who-input:focus-visible { outline: none; }
-.who-list { left: auto; right: 0; }
 .agenda-save {
   display: grid; place-items: center; width: 3.2rem; height: 3.2rem; border-radius: 50%; border: 0; margin-bottom: 0;
   background: #3f3e3e; color: #fff; cursor: not-allowed; transition: background 0.15s;
@@ -468,17 +472,20 @@ button.agenda-card-main:hover .agenda-cell-what { text-decoration: underline; te
 
 /* Comboboxes: What suggestions and the Who picker. */
 .combo { position: relative; }
+.combo-positioner { z-index: 60; outline: 0; }
 .combo-list {
-  position: absolute; z-index: 20; top: calc(100% + 4px); left: 0; right: 0; min-width: 16rem;
-  margin: 0; padding: 0.3rem; list-style: none; background: #16171d; border: 1px solid #34363f; border-radius: 10px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6); max-height: 18rem; overflow: auto;
+  min-width: max(16rem, var(--anchor-width)); max-width: min(28rem, var(--available-width));
+  max-height: min(18rem, var(--available-height)); overflow: auto;
+  margin: 0; padding: 0.3rem; background: #16171d; border: 1px solid #34363f; border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6); outline: 0;
 }
 .combo-list ul { list-style: none; margin: 0; padding: 0; }
 .combo-option { display: flex; align-items: center; gap: 0.45rem; padding: 0.55rem 0.65rem; border-radius: 7px; cursor: pointer; font-size: 1rem; }
-.combo-option.is-active, .combo-option:hover { background: rgba(164, 75, 233, 0.18); }
+.combo-option[data-highlighted] { background: rgba(164, 75, 233, 0.18); }
+.combo-option { outline: 0; color: var(--text); }
 .option-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .option-new { color: var(--purple); font-weight: 600; }
-.who-list { min-width: 19rem; right: auto; }
+.who-list { min-width: max(19rem, var(--anchor-width)); }
 .who-box { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem; padding: 0.3rem 0.4rem; cursor: text; }
 .who-input { flex: 1 1 2rem; width: 0; min-width: 2rem; border: 0; background: none; color: var(--text); font: inherit; font-size: 1.35rem; padding: 0.2rem; outline: none; }
 .who-chip {
@@ -488,13 +495,13 @@ button.agenda-card-main:hover .agenda-cell-what { text-decoration: underline; te
 .who-chip .chip-number { background: var(--purple); color: #fff; }
 .who-chip-remove { border: 0; background: none; color: var(--muted); font-size: 1.05rem; cursor: pointer; padding: 0 0.2rem; line-height: 1; }
 .who-chip-remove:hover { color: var(--text); }
-.who-new { padding: 0.6rem; border-top: 1px solid #34363f; display: grid; gap: 0.45rem; }
+.who-new { margin-top: 0.5rem; padding: 0.6rem; border: 1px solid #34363f; border-radius: var(--radius-control); background: #16171d; display: grid; gap: 0.45rem; }
 .who-new-row { display: flex; gap: 0.5rem; }
 .who-new .agenda-input { font-size: 1rem; min-height: 2.5rem; }
 .who-error { padding: 0 0.6rem 0.4rem; }
 .person-tag { font-size: 0.7rem; font-weight: 700; padding: 0.1rem 0.45rem; border-radius: 999px; white-space: nowrap; }
 .tag-member { background: rgba(72, 176, 44, 0.18); color: #7ddc61; }
-.tag-invited { background: rgba(245, 179, 1, 0.16); color: var(--accent); }
+.tag-invited { background: rgba(245, 179, 1, 0.16); color: var(--warn); }
 .tag-not_invited, .tag-muted { background: rgba(255, 255, 255, 0.08); color: var(--muted); }
 .tag-warn { background: rgba(244, 67, 54, 0.16); color: #ff8a80; }
 .person-line { display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap; }
@@ -534,3 +541,72 @@ button.agenda-card-main:hover .agenda-cell-what { text-decoration: underline; te
   .agenda-save { justify-self: end; }
   .agenda-input, .who-box, .who-input { font-size: 1.1rem; }
 }
+
+/* ═════════ Design system (approved review, Nov 2026) ═════════
+   Later rules here refine the base styles above. */
+/* 2. Neutral greys and lifted inputs instead of black holes. */
+.field input, .field textarea, .field select, .team-switcher select, .row-actions select, .agenda-input, .link-box input {
+  background: var(--field); border-color: var(--field-line);
+}
+.field input:hover, .field textarea:hover, .field select:hover { border-color: #3d3f49; }
+.field input:focus, .field textarea:focus, .field select:focus { border-color: #a44be9; box-shadow: 0 0 0 3px rgba(164, 75, 233, 0.2); outline: none; }
+.field label { font-weight: 500; color: #c9c9cf; }
+.card-panel, .rows, .agenda-card { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04); }
+
+/* 3. A tighter type scale with Inter's tabular numbers for times. */
+h1 { font-size: 1.875rem; font-weight: 700; letter-spacing: -0.025em; }
+.event-title-row h1 { font-size: clamp(1.875rem, 3vw, 2.375rem); font-weight: 700; letter-spacing: -0.03em; }
+.section h2, .card-panel h2 { font-weight: 600; letter-spacing: -0.01em; }
+.event-when { font-size: 1.05rem; color: #c9c9cf; }
+.row-main strong, .row strong { font-weight: 600; }
+.row-main .small, .agenda-time, .agenda-cell-duration, .event-when, .stat strong, time { font-variant-numeric: tabular-nums; }
+.brand, .logo-word { font-weight: 700; }
+
+/* 4. One status badge everywhere: a soft pill with a coloured dot. */
+.status-badge, .status-pill {
+  display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.2rem 0.6rem 0.2rem 0.5rem;
+  border-radius: 999px; font-size: 0.75rem; font-weight: 600; letter-spacing: 0; text-transform: none;
+  background: rgba(255, 255, 255, 0.07); color: #c9c9cf; margin-top: 0.6rem;
+}
+.status-pill { margin-top: 0; }
+.status-badge::before, .status-pill::before { content: ""; width: 6px; height: 6px; border-radius: 999px; background: currentColor; }
+.status-badge-draft, .status-draft { background: rgba(255, 255, 255, 0.07); color: #c9c9cf; }
+.status-badge-review, .status-review { background: rgba(245, 179, 1, 0.14); color: #f5b301; }
+.status-badge-approved, .status-approved { background: rgba(72, 176, 44, 0.16); color: #6fd24f; }
+.status-badge-live, .status-live { background: rgba(244, 67, 54, 0.16); color: #ff7b70; }
+.status-past { background: rgba(255, 255, 255, 0.05); color: #8e8e96; }
+
+/* 5. Three corner radii (8 controls, 12 cards, round pills) and calmer rows. */
+.button, .field input, .field textarea, .field select, .agenda-input, .team-switcher select, .row-actions select { border-radius: var(--radius-control); }
+.rows, .card-panel, .agenda-card, .agenda-editor, .agenda-add, .auth-card, .review-panel, .stats, .alert { border-radius: var(--radius-card); }
+.row { transition: background-color 150ms ease-out; }
+.row:hover { background: #13141a; }
+.row-link:hover strong { color: inherit; }
+
+/* 6. Quiet motion: quick ease-out feedback, press scale, menus grow from their trigger. */
+.button, .sidenav a, a, .agenda-card, .link-button { transition: color 150ms ease-out, background-color 150ms ease-out, border-color 150ms ease-out, transform 120ms ease-out; }
+.button:active:not(:disabled), .agenda-add:active, .agenda-save:active { transform: scale(0.97); }
+.combo-list { transform-origin: var(--transform-origin); transition: opacity 140ms var(--ease-out), transform 140ms var(--ease-out); }
+.combo-list[data-starting-style], .combo-list[data-ending-style] { opacity: 0; transform: translateY(-4px) scale(0.98); }
+@media (prefers-reduced-motion: reduce) { .combo-list { transition: none; } .button:active { transform: none; } }
+
+/* Toasts (Sonner) */
+[data-sonner-toaster][data-sonner-theme="dark"], [data-sonner-toaster] {
+  --normal-bg: #16171d; --normal-border: #34363f; --normal-text: var(--text);
+  --success-bg: #16171d; --success-border: #34363f; --success-text: var(--text);
+  --border-radius: var(--radius-card); font-family: inherit;
+}
+[data-sonner-toast][data-type="success"] [data-icon] { color: #6fd24f; }
+
+/* Drag to reorder (dnd kit) */
+.agenda-grip {
+  flex-shrink: 0; width: 1.5rem; height: 2.25rem; display: grid; place-items: center; margin-left: -0.6rem;
+  border: 0; border-radius: 6px; background: none; color: #5d5e66; cursor: grab; touch-action: none;
+}
+.agenda-grip:hover { color: var(--text); background: rgba(255, 255, 255, 0.05); }
+.agenda-grip:active { cursor: grabbing; }
+.agenda-grip:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.agenda-grip-off { cursor: default; }
+.agenda-list > li { position: relative; }
+.agenda-list > li.is-dragging { z-index: 5; box-shadow: 0 14px 36px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(164, 75, 233, 0.45); }
+@media (max-width: 760px) { .agenda-grip { margin-left: -0.5rem; } }

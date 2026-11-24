@@ -3,6 +3,7 @@ import { ApiError, api, type EventDetail, type Participant, type Person } from "
 import { Alert } from "../../components/Form";
 import { StatusTag } from "./agenda/WhoPicker";
 import type { Mutate } from "./EventEditor";
+import { toast } from "sonner";
 
 /**
  * Everyone on this program (added through Who on the agenda): whether they've joined
@@ -74,6 +75,7 @@ export function PeopleSection({
                     await api(`/teams/${event.teamId}/people/${p.contactId}`, { method: "PATCH", body: { email } });
                     reloadPeople();
                     reloadEvent();
+                    toast.success(`Email added for ${p.name}`);
                   }}
                 />
               )}

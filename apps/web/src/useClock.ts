@@ -11,5 +11,5 @@ export function useClock(): Date {
 }
 
 export function formatClock(d: Date): string {
-  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", second: "2-digit" });
 }

@@ -6,6 +6,7 @@ import { AppShell } from "../../components/AppShell";
 import { Alert } from "../../components/Form";
 import { InviteByEmail } from "./InviteByEmail";
 import { InviteLink } from "./InviteLink";
+import { toast } from "sonner";
 
 interface MembersResponse {
   me: { membershipId: string; role: Role };
@@ -26,7 +27,6 @@ export function TeamPage() {
   const [data, setData] = useState<MembersResponse | null>(null);
   const [invites, setInvites] = useState<PendingInvite[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [confirmingRemove, setConfirmingRemove] = useState<string | null>(null);
 
@@ -54,11 +54,10 @@ export function TeamPage() {
   async function act(id: string, action: () => Promise<unknown>, success: string) {
     setBusyId(id);
     setError(null);
-    setNotice(null);
     try {
       await action();
       await load();
-      setNotice(success);
+      toast.success(success);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
     } finally {
@@ -94,7 +93,6 @@ export function TeamPage() {
     <AppShell>
       <h1>{currentTeam!.name}</h1>
       <Alert>{error}</Alert>
-      {notice && <Alert kind="success">{notice}</Alert>}
 
       {canManage && pending.length > 0 && (
         <section className="section" aria-labelledby="requests-heading">
@@ -225,7 +223,7 @@ export function TeamPage() {
             teamId={teamId}
             myRole={me.role}
             onInvited={async (email) => {
-              setNotice(`Invitation sent to ${email}.`);
+              toast.success(`Invitation sent to ${email}`);
               await load();
             }}
           />
