@@ -1,31 +1,54 @@
+import { Menu } from "@base-ui/react/menu";
+import { Tabs } from "@base-ui/react/tabs";
 import { useCallback, useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router";
+import { Link, useParams } from "react-router";
 import { ApiError, STATUS_LABEL, api, type EventDetail, type Person } from "../../api";
-import { useLiveEvent } from "../../useLiveEvent";
-import { AppShell } from "../../components/AppShell";
+import { AppShell, refreshComingUp } from "../../components/AppShell";
 import { Alert } from "../../components/Form";
-import { formatClockWithZone, formatDuration, formatLongDate, formatTime } from "../../time";
+import { HelpTip } from "../../components/HelpTip";
+import { Icon } from "../../components/Icon";
+import { StatCard } from "../../components/StatCard";
+import { formatClockLength, formatDuration, formatLongDate, formatTime, formatTimeRangeWithZone } from "../../time";
+import { useLiveEvent } from "../../useLiveEvent";
 import { AgendaSection } from "./AgendaSection";
-import { EventDetailsForm } from "./EventDetailsForm";
 import { BroadcastAlerts, BroadcastPanel, useBroadcastSignal } from "./Broadcasts";
+import { EventDetailsForm } from "./EventDetailsForm";
 import { LiveNow } from "./LiveNow";
 import { MyPart } from "./MyPart";
 import { PeopleSection } from "./PeopleSection";
-import { ReviewPanel } from "./ReviewPanel";
-import { toast } from "sonner";
+import { StatusRail } from "./StatusRail";
+import { TaskComments } from "./TaskComments";
 
 /** Runs an API call that returns the updated event, and reports errors. */
 export type Mutate = (path: string, method: string, body?: unknown) => Promise<EventDetail & { [k: string]: unknown }>;
 
-/** QR020 / QR021: build a draft event — details, agenda and people. Single-stage in v1. */
+type Tab = "agenda" | "people" | "broadcasts" | "comments";
+
+/** Every comment on the program, grouped under the item it's about. */
+function CommentsTab({ detail, mutate }: { detail: EventDetail; mutate: Mutate }) {
+  const withComments = detail.tasks.filter((t) => detail.comments.some((c) => c.taskId === t.id));
+  if (withComments.length === 0) {
+    return <p className="muted">No comments yet. Open an item's comment icon on the Agenda tab to start one.</p>;
+  }
+  return (
+    <div className="comment-groups">
+      {withComments.map((t) => (
+        <section key={t.id} className="comment-group">
+          <h3>{t.title}</h3>
+          <TaskComments detail={detail} task={t} mutate={mutate} />
+        </section>
+      ))}
+    </div>
+  );
+}
+
+/** QR020 / QR021: an event's program — summary, agenda, people — with its status in the rail. */
 export function EventEditor() {
   const { eventId = "" } = useParams();
-  const navigate = useNavigate();
   const [detail, setDetail] = useState<EventDetail | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [editingDetails, setEditingDetails] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [tab, setTab] = useState<Tab>("agenda");
 
   const load = useCallback(() => {
     api<EventDetail>(`/events/${eventId}`)
@@ -33,6 +56,7 @@ export function EventEditor() {
       .catch((err) => setLoadError(err instanceof ApiError ? err.message : "Couldn't load this event."));
   }, [eventId]);
   useEffect(load, [load]);
+  useEffect(() => setTab("agenda"), [eventId]);
 
   // The team's people list, for Who and for people's status (Approvers and Admins only).
   const [people, setPeople] = useState<Person[]>([]);
@@ -67,7 +91,9 @@ export function EventEditor() {
   if (loadError) {
     return (
       <AppShell>
-        <Link to="/admin" className="muted small">← Events</Link>
+        <Link to="/admin" className="back-link">
+          ← Events
+        </Link>
         <Alert>{loadError}</Alert>
       </AppShell>
     );
@@ -80,18 +106,25 @@ export function EventEditor() {
     );
   }
 
-  const { event, permissions, schedule } = detail;
+  const { event, permissions, schedule, tasks, participants, comments } = detail;
   const tz = event.timezone;
+  const eventMinutes = Math.round((Date.parse(event.endAt) - Date.parse(event.startAt)) / 60_000);
+  const agendaMinutes = tasks.reduce((n, t) => n + t.durationMinutes, 0);
+  const withEmail = participants.filter((p) => p.email).length;
+  const confirmed = participants.filter((p) => p.response === "acknowledged").length;
+  const published = event.status === "approved" || event.status === "live" || event.status === "past";
+  const showBroadcasts = (event.status === "approved" || event.status === "live") && permissions.canManage;
+  const showSummary = permissions.canEdit || permissions.canManage;
+
+  const rail = <StatusRail detail={detail} mutate={mutate} onEditDetails={() => setEditingDetails(true)} />;
 
   return (
-    <AppShell>
-      <Link to="/admin" className="muted small">
-        ← Events
-      </Link>
-
+    <AppShell rail={rail} railLined>
       {editingDetails ? (
-        <div className="card-panel">
-          <h2>Event details</h2>
+        <section className="settings-section">
+          <div className="section-head">
+            <h2>Event details</h2>
+          </div>
           <EventDetailsForm
             initial={event}
             startLocked={event.status === "live"}
@@ -99,108 +132,145 @@ export function EventEditor() {
             onCancel={() => setEditingDetails(false)}
             onSubmit={async (values) => {
               await mutate("", "PATCH", values);
+              refreshComingUp();
               setEditingDetails(false);
             }}
           />
-        </div>
+        </section>
       ) : (
-        <header className="event-header">
-          <div>
-            <div className="event-title-row">
-              <h1>{event.name}</h1>
-              <span className={`status-badge status-badge-${event.status}`}>{STATUS_LABEL[event.status]}</span>
+        <header className="event-head">
+          <div className="page-title-row">
+            <h1>
+              <span className="title-pre">Event:</span> {event.name}
+            </h1>
+            <div className="title-actions">
+              {(event.status === "approved" || event.status === "live") && permissions.canRunLive && (
+                <Link className="button button-secondary button-small" to={`/command/${event.id}`}>
+                  <Icon name="play" size={13} /> Open live view
+                </Link>
+              )}
+              {permissions.canEdit && (
+                <Menu.Root>
+                  <Menu.Trigger className="button button-secondary button-small button-icon" aria-label="More actions">
+                    <Icon name="dots" />
+                  </Menu.Trigger>
+                  <Menu.Portal>
+                    <Menu.Positioner sideOffset={6} align="end" className="popover-positioner">
+                      <Menu.Popup className="menu">
+                        <Menu.Item className="menu-item" onClick={() => setEditingDetails(true)}>
+                          <Icon name="pencil" /> Edit details
+                        </Menu.Item>
+                      </Menu.Popup>
+                    </Menu.Positioner>
+                  </Menu.Portal>
+                </Menu.Root>
+              )}
             </div>
-            <p className="event-when">
-              <span>{formatLongDate(event.startAt, tz)}</span>
-              <span className="event-when-divider" aria-hidden="true" />
-              <span>{formatClockWithZone(event.startAt, tz)}</span>
-            </p>
-            {event.description && <p className="event-description">{event.description}</p>}
           </div>
-          {permissions.canEdit && (
-            <div className="button-row">
-              <button type="button" className="button button-small" onClick={() => setEditingDetails(true)}>
-                Edit details
+          <p className="event-meta">
+            <span className={`status-pill status-${event.status}`}>{STATUS_LABEL[event.status]}</span>
+            <span>
+              {formatLongDate(event.startAt, tz)} · {formatTimeRangeWithZone(event.startAt, event.endAt, tz)}
+            </span>
+            {permissions.canEdit && (
+              <button type="button" className="edit-link" onClick={() => setEditingDetails(true)}>
+                <Icon name="pencil" size={13} /> Edit details
               </button>
-              {event.status === "draft" && (confirmDelete ? (
-                <>
-                  <button
-                    type="button"
-                    className="button button-small button-danger"
-                    onClick={async () => {
-                      try {
-                        await api(`/events/${eventId}`, { method: "DELETE" });
-                        toast.success("Draft deleted");
-                        navigate("/admin", { replace: true });
-                      } catch (err) {
-                        setError(err instanceof ApiError ? err.message : "Couldn't delete the event.");
-                      }
-                    }}
-                  >
-                    Yes, delete draft
-                  </button>
-                  <button type="button" className="button button-small" onClick={() => setConfirmDelete(false)}>
-                    Cancel
-                  </button>
-                </>
-              ) : (
-                <button type="button" className="button button-small" onClick={() => setConfirmDelete(true)}>
-                  Delete draft
-                </button>
-              ))}
-            </div>
-          )}
+            )}
+          </p>
+          {event.description && <p className="event-description">{event.description}</p>}
         </header>
       )}
 
-      <Alert>{error}</Alert>
-      <ReviewPanel detail={detail} mutate={mutate} />
       {event.status === "live" && detail.me.participant && <BroadcastAlerts eventId={event.id} version={broadcastSignal.version} />}
       <LiveNow detail={detail} live={live} onStatusChange={load} />
-      {event.status === "live" && permissions.canManage && <BroadcastPanel detail={detail} version={broadcastSignal.version} />}
+      <MyPart detail={detail} mutate={mutate} />
 
-      <div className="summary-strip">
-        <div>
-          <span className="muted small">Agenda</span>
-          <strong>
-            {detail.tasks.length} item{detail.tasks.length === 1 ? "" : "s"}
-          </strong>
-        </div>
-        <div>
-          <span className="muted small">Agenda ends</span>
-          <strong>{detail.tasks.length ? formatTime(schedule.endsAt, tz) : "—"}</strong>
-        </div>
-        <div>
-          <span className="muted small">People</span>
-          <strong>{detail.participants.length}</strong>
-        </div>
-        <div>
-          <span className="muted small">Moving to the next item</span>
-          {permissions.canEdit ? (
-            <select
-              aria-label="Moving to the next item"
-              value={event.progressionMode}
-              onChange={(e) => mutate("", "PATCH", { progressionMode: e.target.value }).catch(() => setError("Couldn't save that setting."))}
-            >
-              <option value="manual">Manually, by an Admin</option>
-              <option value="auto">Automatically, on time</option>
-            </select>
-          ) : (
-            <strong>{event.progressionMode === "auto" ? "Automatic" : "Manual"}</strong>
+      {showSummary && (
+        <section className="summary" aria-labelledby="summary-heading">
+          <h2 id="summary-heading">Summary</h2>
+          <div className="stat-grid">
+            <StatCard
+              title="Agenda length"
+              caption={`vs the event's ${formatDuration(eventMinutes)}`}
+              value={formatClockLength(agendaMinutes)}
+              total={formatClockLength(eventMinutes)}
+              ratio={eventMinutes ? agendaMinutes / eventMinutes : 0}
+              tone={agendaMinutes > eventMinutes ? "bad" : agendaMinutes === 0 ? "neutral" : "good"}
+              help={<HelpTip label="Agenda length">The items' durations added up, against the time between the event's start and end.</HelpTip>}
+            />
+            <StatCard
+              title="People"
+              caption="with an email"
+              value={withEmail}
+              total={participants.length}
+              ratio={participants.length ? withEmail / participants.length : 0}
+              tone={participants.length === 0 ? "neutral" : withEmail === participants.length ? "good" : "warn"}
+              help={<HelpTip label="People">Everyone chosen under Who needs an email before the program can go for review, so they can be sent their part.</HelpTip>}
+            />
+            <StatCard
+              title="Replies"
+              caption={published ? "confirmed they'll be there" : "after approval"}
+              value={confirmed}
+              total={participants.length}
+              ratio={participants.length ? confirmed / participants.length : 0}
+              tone={!published ? "neutral" : confirmed === participants.length && confirmed > 0 ? "good" : "warn"}
+              help={<HelpTip label="Replies">Once approved, each person is emailed their part and asked to confirm.</HelpTip>}
+            />
+          </div>
+          {schedule.overrunMinutes > 0 && (
+            <p className="summary-note">
+              The agenda runs {formatDuration(schedule.overrunMinutes)} past the end time ({formatTime(event.endAt, tz)}).{" "}
+              {permissions.canEdit && (
+                <>
+                  <button type="button" className="text-link" onClick={() => setTab("agenda")}>
+                    Shorten an item
+                  </button>{" "}
+                  or{" "}
+                  <button type="button" className="text-link" onClick={() => setEditingDetails(true)}>
+                    change the end time
+                  </button>
+                  .
+                </>
+              )}
+            </p>
           )}
-        </div>
-      </div>
-
-      {schedule.overrunMinutes > 0 && (
-        <Alert kind="error">
-          The agenda ends at {formatTime(schedule.endsAt, tz)}, {formatDuration(schedule.overrunMinutes)} after the event's end time (
-          {formatTime(event.endAt, tz)}). Shorten some tasks or change the end time.
-        </Alert>
+        </section>
       )}
 
-      <MyPart detail={detail} mutate={mutate} />
-      <AgendaSection detail={detail} mutate={mutate} people={people} reloadPeople={loadPeople} />
-      <PeopleSection detail={detail} mutate={mutate} people={people} reloadPeople={loadPeople} reloadEvent={load} />
+      <Tabs.Root value={tab} onValueChange={(v) => setTab(v as Tab)} className="tabs">
+        <Tabs.List className="tab-list" aria-label="Program">
+          <Tabs.Tab value="agenda" className="tab">
+            Agenda <span className="count">{tasks.length}</span>
+          </Tabs.Tab>
+          <Tabs.Tab value="people" className="tab">
+            People <span className="count">{participants.length}</span>
+          </Tabs.Tab>
+          {showBroadcasts && (
+            <Tabs.Tab value="broadcasts" className="tab">
+              Broadcasts
+            </Tabs.Tab>
+          )}
+          <Tabs.Tab value="comments" className="tab">
+            Comments {comments.length > 0 && <span className="count">{comments.length}</span>}
+          </Tabs.Tab>
+          <Tabs.Indicator className="tab-indicator" />
+        </Tabs.List>
+        <Tabs.Panel value="agenda" className="tab-panel">
+          <AgendaSection detail={detail} mutate={mutate} people={people} reloadPeople={loadPeople} />
+        </Tabs.Panel>
+        <Tabs.Panel value="people" className="tab-panel">
+          <PeopleSection detail={detail} mutate={mutate} people={people} reloadPeople={loadPeople} reloadEvent={load} />
+        </Tabs.Panel>
+        {showBroadcasts && (
+          <Tabs.Panel value="broadcasts" className="tab-panel">
+            <BroadcastPanel detail={detail} version={broadcastSignal.version} />
+          </Tabs.Panel>
+        )}
+        <Tabs.Panel value="comments" className="tab-panel">
+          <CommentsTab detail={detail} mutate={mutate} />
+        </Tabs.Panel>
+      </Tabs.Root>
     </AppShell>
   );
 }
