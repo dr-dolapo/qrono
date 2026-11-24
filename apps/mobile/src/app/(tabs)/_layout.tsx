@@ -8,6 +8,7 @@ import { backdrop, font } from "../../theme";
 
 const ACTIVE = "#b98af5"; // Qrono purple, lifted for the dark bar
 const INACTIVE = "#f4f5f7";
+const LIFT = 22; // raises the tabs off the bottom edge by about a label's height
 const CORNER = 34; // the page card's rounded bottom, like a phone's curved screen edge
 
 // TabTrigger (asChild) passes its ref through the spread props at runtime; its type for it is wrong.
@@ -32,14 +33,31 @@ function TabButton({ label, icon, badge, isFocused, ...props }: TabButtonProps) 
   );
 }
 
-function Bar() {
+/**
+ * Events, Inbox and Profile. The page sits on a card whose rounded bottom corners
+ * lift off a black-to-purple bar, like the curved edge of a modern phone.
+ */
+export default function TabsLayout() {
+  return (
+    <InboxProvider>
+      <TabsFrame />
+    </InboxProvider>
+  );
+}
+
+// The triggers must sit right here inside <Tabs>: it reads them from its own
+// children to know the routes, and can't see into another component.
+function TabsFrame() {
   const insets = useSafeAreaInsets();
   const { data } = useInbox();
   const unread = data?.unread ?? 0;
   return (
-    <TabList asChild>
-      <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom - 6, 10) }]}>
-        <TabTrigger name="events" href="/" asChild>
+    <Tabs style={styles.frame}>
+      <View style={styles.card}>
+        <TabSlot style={styles.slot} />
+      </View>
+      <TabList style={[styles.bar, { paddingBottom: Math.max(insets.bottom, 10) + LIFT }]}>
+        <TabTrigger name="index" href="/" asChild>
           <TabButton label="Events" icon={(c) => <CalendarIcon color={c} />} />
         </TabTrigger>
         <TabTrigger name="inbox" href="/inbox" asChild>
@@ -48,25 +66,8 @@ function Bar() {
         <TabTrigger name="profile" href="/profile" asChild>
           <TabButton label="Profile" icon={(c) => <ProfileIcon color={c} />} />
         </TabTrigger>
-      </View>
-    </TabList>
-  );
-}
-
-/**
- * Events, Inbox and Profile. The page sits on a card whose rounded bottom corners
- * lift off a black-to-purple bar, like the curved edge of a modern phone.
- */
-export default function TabsLayout() {
-  return (
-    <InboxProvider>
-      <Tabs style={styles.frame}>
-        <View style={styles.card}>
-          <TabSlot style={styles.slot} />
-        </View>
-        <Bar />
-      </Tabs>
-    </InboxProvider>
+      </TabList>
+    </Tabs>
   );
 }
 
@@ -88,7 +89,7 @@ const styles = StyleSheet.create({
     boxShadow: "0 10px 24px rgba(0,0,0,0.55)",
   },
   slot: { flex: 1 },
-  bar: { flexDirection: "row", paddingTop: 14, paddingHorizontal: 12 },
+  bar: { flexDirection: "row", paddingTop: 12, paddingHorizontal: 12, backgroundColor: "transparent" },
   tab: { flex: 1, alignItems: "center", gap: 5, paddingVertical: 2 },
   pressed: { opacity: 0.6 },
   label: { fontSize: 14, ...font("500") },
