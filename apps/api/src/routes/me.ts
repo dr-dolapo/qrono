@@ -6,6 +6,7 @@ import { nowIso, newId } from "../ids";
 import { buildInbox, markSeen } from "../inbox";
 import { EXPO_TOKEN_PATTERN } from "../push";
 import { acceptInvite, findInviteById } from "./invites";
+import { liveCards, saveLiveActivityToken } from "../live/cards";
 import { json } from "../validation";
 
 const deviceToken = z.string().regex(EXPO_TOKEN_PATTERN, { error: "That isn't a push token." });
@@ -119,6 +120,57 @@ export const me = new Hono<AppEnv>()
       .run();
     return c.json(await buildInbox(c.env.DB, { id: user.id, email: user.email }));
   })
+
+  /** Lock-screen cards for live events I'm on now: the app opens them itself when it can't be pushed. */
+  .get("/live-cards", async (c) => {
+    const user = currentUser(c);
+    const { results } = await c.env.DB.prepare(
+      `SELECT DISTINCT e.id FROM events e JOIN event_participants p ON p.event_id = e.id WHERE e.status = 'live' AND p.user_id = ?`,
+    )
+      .bind(user.id)
+      .all<{ id: string }>();
+    const cards = [];
+    for (const { id } of results) {
+      const card = (await liveCards(c.env.DB, id, user.id))?.cards.get(user.id);
+      if (card) cards.push(card);
+    }
+    return c.json({ cards });
+  })
+
+  /**
+   * iOS Live Activity tokens. kind "start": this phone's push-to-start token (iOS 17.2+).
+   * kind "activity": the token of an open card. The app knows the event for cards it opened
+   * itself; for cards the server opened, it's the live event this person's card is showing.
+   */
+  .post(
+    "/live-activity-tokens",
+    json(
+      z.object({
+        token: z.string().regex(/^[0-9a-fA-F]{32,400}$/, { error: "That isn't a Live Activity token." }),
+        kind: z.enum(["start", "activity"]),
+        eventId: z.string().max(64).optional(),
+      }),
+    ),
+    async (c) => {
+      const user = currentUser(c);
+      const { token, kind } = c.req.valid("json");
+      let eventId = kind === "activity" ? c.req.valid("json").eventId : undefined;
+      if (kind === "activity") {
+        if (eventId) {
+          const onIt = await c.env.DB.prepare("SELECT 1 FROM event_participants WHERE event_id = ? AND user_id = ?").bind(eventId, user.id).first();
+          if (!onIt) return c.json({ error: "You're not on this event." }, 404);
+        } else {
+          const open = await c.env.DB.prepare("SELECT event_id FROM live_cards WHERE user_id = ? AND ended_at IS NULL ORDER BY started_at DESC LIMIT 1")
+            .bind(user.id)
+            .first<{ event_id: string }>();
+          if (!open) return c.json({ error: "No live event for this card." }, 404);
+          eventId = open.event_id;
+        }
+      }
+      await saveLiveActivityToken(c.env.DB, user.id, token.toLowerCase(), eventId ?? null, newId());
+      return c.json({ ok: true, eventId: eventId ?? null });
+    },
+  )
 
   .post("/devices", json(z.object({ token: deviceToken, platform: z.enum(["ios", "android"]) })), async (c) => {
     const user = currentUser(c);

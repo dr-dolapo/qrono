@@ -64,6 +64,22 @@ jobs:
         working-directory: apps/api
         run: npx wrangler deploy
 
+      # iOS Live Activities are pushed to Apple directly, with the team's APNs key.
+      - name: Give the API the Apple push key
+        working-directory: apps/api
+        env:
+          APNS_KEY: ${{ secrets.APNS_KEY }}
+          APNS_KEY_ID: ${{ secrets.APNS_KEY_ID }}
+          APNS_TEAM_ID: ${{ secrets.APNS_TEAM_ID }}
+        run: |
+          if [ -z "$APNS_KEY" ] || [ -z "$APNS_KEY_ID" ] || [ -z "$APNS_TEAM_ID" ]; then
+            echo "::warning::APNS_KEY, APNS_KEY_ID or APNS_TEAM_ID is missing: iOS Live Activities won't update."
+            exit 0
+          fi
+          node -e 'require("fs").writeFileSync("apns.json", JSON.stringify({APNS_KEY: process.env.APNS_KEY, APNS_KEY_ID: process.env.APNS_KEY_ID.trim(), APNS_TEAM_ID: process.env.APNS_TEAM_ID.trim()}))'
+          npx wrangler secret bulk apns.json
+          rm -f apns.json
+
       - name: Build and deploy the web app
         run: |
           npm run build -w apps/web

@@ -5,6 +5,7 @@ import { sendEmail } from "./mail";
 import { pushBroadcasts } from "./push";
 import { snapshot } from "./live/engine";
 import { notifyNote } from "./inbox";
+import { syncLiveCards } from "./live/cards";
 
 /**
  * One instance per event (addressed by event ID): the live "room".
@@ -74,6 +75,11 @@ export class LiveEvent extends DurableObject<Env> {
     if (result.deliveries.length) {
       const eventId = await this.ctx.storage.get<string>("eventId");
       if (eventId) this.ctx.waitUntil(pushBroadcasts(this.env, eventId, result.deliveries).catch((err) => console.error("Push failed", err)));
+    }
+    // Lock-screen cards (iOS Live Activities, Android Live Updates): only changed ones are pushed.
+    const id = await this.ctx.storage.get<string>("eventId");
+    if (id && (result.snapshot?.event.status === "live" || result.snapshot?.event.status === "past")) {
+      this.ctx.waitUntil(syncLiveCards(this.env, id).catch((err) => console.error("Live card sync failed", err)));
     }
     if (result.broadcastsChanged) send(this.ctx.getWebSockets("manager"), JSON.stringify({ type: "broadcasts-changed" }));
     if (result.planChanged) send(this.ctx.getWebSockets(), JSON.stringify({ type: "plan-changed" }));

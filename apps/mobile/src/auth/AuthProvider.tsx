@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { ApiError, api, setAuthToken, setUnauthorizedHandler } from "../lib/api";
 import { clearSession, loadSession, saveSession } from "../lib/sessionStore";
 import { unregisterPush } from "../notifications/push";
+import { clearLiveCards } from "../live/liveCards";
 import type { User } from "./types";
 
 type Status = "loading" | "signedOut" | "signedIn";
@@ -83,6 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Stop broadcasts to this phone and end the session on the server too,
     // but never let a network problem keep someone logged in.
     await unregisterPush();
+    await clearLiveCards().catch(() => undefined);
     await api("/auth/logout", { method: "POST" }).catch(() => undefined);
     await signOutLocally();
   }, [signOutLocally]);

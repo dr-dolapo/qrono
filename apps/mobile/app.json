@@ -23,6 +23,9 @@
       "supportsTablet": false,
       "config": {
         "usesNonExemptEncryption": false
+      },
+      "infoPlist": {
+        "NSSupportsLiveActivities": true
       }
     },
     "android": {
@@ -45,6 +48,13 @@
         {
           "icon": "./assets/notification-icon.png",
           "color": "#A97BFF"
+        }
+      ],
+      [
+        "expo-widgets",
+        {
+          "enablePushNotifications": true,
+          "frequentUpdates": true
         }
       ]
     ],

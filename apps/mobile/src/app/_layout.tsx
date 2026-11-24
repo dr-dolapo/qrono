@@ -11,6 +11,8 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AuthProvider, useAuth } from "../auth/AuthProvider";
 import { UpdateBanner } from "../components/UpdateBanner";
 import { NotificationRouter } from "../notifications/NotificationRouter";
+// Registers the Live Activity layout and Android's background task as soon as the JS loads.
+import "../live/liveCards";
 import { backdrop, colors, font } from "../theme";
 
 /**

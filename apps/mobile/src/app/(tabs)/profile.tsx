@@ -4,6 +4,7 @@ import * as Updates from "expo-updates";
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Alert, AppState, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { LiveUpdates } from "../../../modules/qrono-live-updates/src";
 import { useAuth } from "../../auth/AuthProvider";
 import { Button } from "../../components/Button";
 import { ApiError, api } from "../../lib/api";
@@ -207,6 +208,14 @@ function PushStatus() {
         <Text style={[styles.state, on && styles.stateOn]}>{status === null ? "" : on ? "On" : "Off"}</Text>
       </View>
       <Button label="Open phone settings" variant="secondary" onPress={() => void Linking.openSettings()} />
+      {LiveUpdates.available && on && !LiveUpdates.canPromote() ? (
+        <View style={{ gap: space.sm }}>
+          <Text style={styles.hint}>
+            Live Updates are off, so the card for a live event stays in your notifications instead of the status bar and lock screen.
+          </Text>
+          <Button label="Turn on Live Updates" variant="secondary" onPress={() => LiveUpdates.openSettings()} />
+        </View>
+      ) : null}
     </View>
   );
 }

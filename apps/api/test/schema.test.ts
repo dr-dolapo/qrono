@@ -54,6 +54,8 @@ describe("schema", () => {
       "hidden_suggestions",
       "inbox_notes",
       "inbox_seen",
+      "live_activity_tokens",
+      "live_cards",
       "notifications",
       "pinned_templates",
       "plan_notices",

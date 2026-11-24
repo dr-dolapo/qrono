@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { useAuth } from "../auth/AuthProvider";
 import { replyToBroadcast, type BroadcastReply } from "../broadcasts/api";
 import { registerForPush } from "./push";
+import { startLiveCards } from "../live/liveCards";
 
 const REPLIES = new Set<string>(["acknowledged", "snoozed", "done"]);
 
@@ -19,7 +20,10 @@ export function NotificationRouter() {
 
   const verified = status === "signedIn" && !!user?.emailVerified;
   useEffect(() => {
-    if (verified) void registerForPush();
+    if (!verified) return;
+    void registerForPush();
+    // The lock-screen card during live events (iOS Live Activities, Android Live Updates).
+    return startLiveCards();
   }, [verified]);
 
   useEffect(() => {

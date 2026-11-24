@@ -1,0 +1,7 @@
+{
+  "name": "qrono-live-updates",
+  "version": "1.0.0",
+  "description": "Android Live Updates (promoted ongoing notifications) for Qrono's live events",
+  "main": "src/index.ts",
+  "private": true
+}
