@@ -8,6 +8,7 @@ import { newId, nowIso } from "../ids";
 import { sendEmail, teamInviteEmail } from "../mail";
 import { MANAGERS, assertCanManage, requireMembership, type Membership, type Role } from "../teams/permissions";
 import { emailField, json, timezoneField } from "../validation";
+import { notifyWaiting } from "../inbox";
 
 const EMAIL_INVITE_DAYS = 7;
 const LINK_INVITE_DAYS = 30;
@@ -208,6 +209,14 @@ export const teams = new Hono<AppEnv>()
       c,
       sendEmail(c.env, { to: email, ...teamInviteEmail(`${inviter.firstName} ${inviter.lastName}`, team!.name, role, link) }),
     );
+    // Someone who already uses Qrono also finds it in their phone's Inbox.
+    const invitee = await c.env.DB.prepare("SELECT id FROM users WHERE lower(email) = lower(?)").bind(email).first<{ id: string }>();
+    if (invitee) {
+      inBackground(
+        c,
+        notifyWaiting(c.env, [invitee.id], { key: `invite:${inviteId}`, title: `Join ${team!.name}`, body: `${inviter.firstName} ${inviter.lastName} invited you.` }),
+      );
+    }
     return c.json({ invite: { id: inviteId, channel: "email", email, role, expiresAt } }, 201);
   })
 

@@ -8,6 +8,7 @@ import { api } from "../lib/api";
 /** The Android channel and the action buttons the API's push messages refer to (apps/api/src/push.ts). */
 export const BROADCAST_CHANNEL = "broadcasts";
 export const BROADCAST_CATEGORY = "broadcast";
+export const INBOX_CHANNEL = "inbox";
 
 let registeredToken: string | null = null;
 
@@ -33,6 +34,13 @@ export async function registerForPush(): Promise<PushSetup> {
         description: "Messages from the organisers during a live event",
         importance: Notifications.AndroidImportance.MAX,
         vibrationPattern: [0, 400, 200, 400],
+        lightColor: "#A97BFF",
+        sound: "default",
+      });
+      await Notifications.setNotificationChannelAsync(INBOX_CHANNEL, {
+        name: "Inbox",
+        description: "Approvals, new parts, comments and invitations",
+        importance: Notifications.AndroidImportance.HIGH,
         lightColor: "#A97BFF",
         sound: "default",
       });

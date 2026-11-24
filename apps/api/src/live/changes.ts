@@ -26,10 +26,13 @@ export const NOTIFY_DELAY_MS = 2 * 60_000;
 export interface NotifyHooks {
   appOrigin: string;
   send: (email: OutgoingEmail) => Promise<unknown>;
+  /** Puts a note in team members' Inboxes (and pushes it). Optional: tests may leave it out. */
+  note?: (userIds: string[], note: { kind: "part_changed" | "part_removed"; teamId: string; eventId: string; title: string; body: string }) => Promise<unknown>;
 }
 
 interface Part {
   participantId: string;
+  userId: string | null;
   kind: "member" | "guest";
   name: string;
   firstName: string;
@@ -91,6 +94,7 @@ async function currentParts(db: D1Database, event: EventInfo): Promise<Part[]> {
     const member = p.user_id !== null;
     return {
       participantId: p.id,
+      userId: p.user_id,
       kind: member ? "member" : "guest",
       name: member ? `${p.first_name} ${p.last_name}` : p.guest_name!,
       firstName: member ? p.first_name! : p.guest_name!,
@@ -184,6 +188,8 @@ export async function flushChanges(db: D1Database, eventId: string, now: number,
   const eventLink = `${hooks.appOrigin}/admin/events/${event.id}`;
 
   const emails: OutgoingEmail[] = [];
+  // Team members also get a note in their Inbox: whose part changed, and whose was removed.
+  const changedMembers: string[] = [];
   for (const p of parts) {
     const previous = before.get(p.participantId);
     if (!previous) {
@@ -198,15 +204,38 @@ export async function flushChanges(db: D1Database, eventId: string, now: number,
       // Guests' links are stored only as hashes, so each change email carries a fresh one (replacing the old).
       const link = p.kind === "member" ? eventLink : `${hooks.appOrigin}/g/${await createGuestLink(db, p.participantId, event.end_at, now)}`;
       emails.push({ to: p.email, ...planChangedEmail(p.firstName, event.name, when, p.lines, JSON.parse(previous.lines) as string[], link) });
+      if (p.userId) changedMembers.push(p.userId);
     }
   }
   const current = new Set(parts.map((p) => p.participantId));
+  const removedEmails: string[] = [];
   for (const t of told) {
-    if (!current.has(t.participant_id)) emails.push({ to: t.email, ...removedFromProgramEmail(t.name, event.name, when) });
+    if (!current.has(t.participant_id)) {
+      emails.push({ to: t.email, ...removedFromProgramEmail(t.name, event.name, when) });
+      if (t.kind === "member") removedEmails.push(t.email);
+    }
   }
 
   await writeBaseline(db, eventId, now);
   for (const e of emails) await hooks.send(e).catch((err) => console.error("Change notice failed", err));
+  if (hooks.note) {
+    const base = { teamId: event.team_id, eventId: event.id };
+    await hooks
+      .note(changedMembers, { ...base, kind: "part_changed", title: `Your part in ${event.name} changed`, body: "Open the program to see the new times." })
+      .catch((err) => console.error("Inbox note failed", err));
+    if (removedEmails.length) {
+      const { results: removed } = await db
+        .prepare(`SELECT id FROM users WHERE lower(email) IN (${removedEmails.map(() => "lower(?)").join(",")})`)
+        .bind(...removedEmails)
+        .all<{ id: string }>();
+      await hooks
+        .note(
+          removed.map((r) => r.id),
+          { ...base, kind: "part_removed", title: `You're no longer on the program for ${event.name}`, body: "The plan changed and your part was taken off." },
+        )
+        .catch((err) => console.error("Inbox note failed", err));
+    }
+  }
   // People new to the team who were just added are invited to join it too.
   const creator = await db.prepare("SELECT created_by FROM events WHERE id = ?").bind(eventId).first<{ created_by: string }>();
   if (creator) await inviteContactsOnProgram(db, hooks, eventId, creator.created_by);

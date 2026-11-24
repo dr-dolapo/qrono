@@ -3,7 +3,9 @@ import { z } from "zod";
 import { currentUser, requireVerifiedUser } from "../auth/session";
 import type { AppEnv } from "../env";
 import { nowIso, newId } from "../ids";
+import { buildInbox, markSeen } from "../inbox";
 import { EXPO_TOKEN_PATTERN } from "../push";
+import { acceptInvite, findInviteById } from "./invites";
 import { json } from "../validation";
 
 const deviceToken = z.string().regex(EXPO_TOKEN_PATTERN, { error: "That isn't a push token." });
@@ -82,6 +84,42 @@ export const me = new Hono<AppEnv>()
    * The mobile app registers its push token after login so broadcasts reach this phone (QR040).
    * A token belongs to one phone: if someone else logs in on it, it moves to them.
    */
+  /** The Inbox: what's waiting for me and what's happened, across my teams (mobile). */
+  .get("/inbox", async (c) => {
+    const user = currentUser(c);
+    return c.json(await buildInbox(c.env.DB, { id: user.id, email: user.email }));
+  })
+
+  /** Mark items as seen, for the unread count. With no keys, everything in the Inbox now. */
+  .post("/inbox/read", json(z.object({ keys: z.array(z.string().max(200)).max(200).optional() })), async (c) => {
+    const user = currentUser(c);
+    const keys = c.req.valid("json").keys ?? (await buildInbox(c.env.DB, { id: user.id, email: user.email })).items.map((i) => i.key);
+    await markSeen(c.env.DB, user.id, keys);
+    return c.json(await buildInbox(c.env.DB, { id: user.id, email: user.email }));
+  })
+
+  /** A note has been opened or dismissed: it leaves the Inbox. */
+  .post("/inbox/notes/:noteId/done", async (c) => {
+    const user = currentUser(c);
+    await c.env.DB.prepare("UPDATE inbox_notes SET done_at = ? WHERE id = ? AND user_id = ? AND done_at IS NULL").bind(nowIso(), c.req.param("noteId"), user.id).run();
+    return c.json(await buildInbox(c.env.DB, { id: user.id, email: user.email }));
+  })
+
+  /** Join a team from an invitation sent to my email (the Inbox's Join button). */
+  .post("/invites/:inviteId/accept", async (c) => acceptInvite(c, await findInviteById(c, c.req.param("inviteId"))))
+
+  /** Turn down an invitation sent to my email. */
+  .post("/invites/:inviteId/decline", async (c) => {
+    const user = currentUser(c);
+    await c.env.DB.prepare(
+      `UPDATE team_invites SET status = 'revoked', updated_at = ?
+        WHERE id = ? AND channel = 'email' AND status = 'pending' AND lower(recipient) = lower(?)`,
+    )
+      .bind(nowIso(), c.req.param("inviteId"), user.email)
+      .run();
+    return c.json(await buildInbox(c.env.DB, { id: user.id, email: user.email }));
+  })
+
   .post("/devices", json(z.object({ token: deviceToken, platform: z.enum(["ios", "android"]) })), async (c) => {
     const user = currentUser(c);
     const { token, platform } = c.req.valid("json");

@@ -201,6 +201,14 @@ export const auth = new Hono<AppEnv>()
   })
 
   /** QR005: request a password reset link. Always succeeds, so it can't be used to find accounts. */
+  /** Change my name (Profile on the phone and web). Email and password changes have their own flows. */
+  .patch("/me", requireUser, json(z.object({ firstName: nameField("first name"), lastName: nameField("last name") })), async (c) => {
+    const user = currentUser(c);
+    const { firstName, lastName } = c.req.valid("json");
+    await c.env.DB.prepare("UPDATE users SET first_name = ?, last_name = ?, updated_at = ? WHERE id = ?").bind(firstName, lastName, nowIso(), user.id).run();
+    return c.json({ user: { ...user, firstName, lastName } });
+  })
+
   .post("/forgot-password", json(z.object({ email: emailField })), async (c) => {
     const email = c.req.valid("json").email;
     // Capped per address so this can't be used to flood someone's inbox.
