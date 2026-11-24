@@ -83,14 +83,29 @@ export const teamEvents = new Hono<AppEnv>()
     const { results } = await c.env.DB.prepare(
       `SELECT e.id, e.name, e.start_at, e.end_at, e.timezone, e.status,
               (SELECT COUNT(*) FROM tasks t WHERE t.event_id = e.id) AS task_count,
-              (SELECT COUNT(*) FROM event_participants p WHERE p.event_id = e.id) AS participant_count
+              (SELECT COUNT(*) FROM event_participants p WHERE p.event_id = e.id) AS participant_count,
+              (SELECT COUNT(*) FROM event_participants p
+                WHERE p.event_id = e.id AND p.user_id IS NULL AND (p.guest_email IS NULL OR p.guest_email = '')) AS missing_email_count,
+              (e.status = 'review' AND EXISTS (
+                SELECT 1 FROM event_approvers a WHERE a.event_id = e.id AND a.user_id = ? AND a.approved_at IS NULL)) AS awaiting_me
          FROM events e
         WHERE e.team_id = ?
           AND (? OR EXISTS (SELECT 1 FROM event_participants p WHERE p.event_id = e.id AND p.user_id = ?))
         ORDER BY e.start_at`,
     )
-      .bind(teamId, canManage ? 1 : 0, me.user_id)
-      .all<{ id: string; name: string; start_at: string; end_at: string; timezone: string; status: string; task_count: number; participant_count: number }>();
+      .bind(me.user_id, teamId, canManage ? 1 : 0, me.user_id)
+      .all<{
+        id: string;
+        name: string;
+        start_at: string;
+        end_at: string;
+        timezone: string;
+        status: string;
+        task_count: number;
+        participant_count: number;
+        missing_email_count: number;
+        awaiting_me: number;
+      }>();
     return c.json({
       canCreate: canManage,
       events: results.map((e) => ({
@@ -102,6 +117,9 @@ export const teamEvents = new Hono<AppEnv>()
         status: e.status,
         taskCount: e.task_count,
         participantCount: e.participant_count,
+        // Only managers see who's missing an email; everyone else gets 0.
+        missingEmailCount: canManage ? e.missing_email_count : 0,
+        awaitingMyApproval: e.awaiting_me === 1,
       })),
     });
   })

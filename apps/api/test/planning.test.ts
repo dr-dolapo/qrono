@@ -122,8 +122,16 @@ describe("Who on an agenda item", () => {
     expect(blocked.status).toBe(409);
     expect(blocked.json).toMatchObject({ code: "missing_emails", error: expect.stringContaining("Jack Sparrow") });
 
+    const listed = (await ada.get(`/api/teams/${teamId}/events`)).json.events[0];
+    expect(listed).toMatchObject({ missingEmailCount: 1, awaitingMyApproval: false });
+
     await ada.request("PATCH", `/api/teams/${teamId}/people/${jack.contactId}`, { email: "jack@example.com" });
     expect((await ada.get(`/api/events/${id}`)).json.participants[0].email).toBe("jack@example.com");
+
+    // Sent to Ada for review: the events list flags it as waiting for her.
+    await ada.post(`/api/events/${id}/submit`, { approverIds: [adaId] });
+    expect((await ada.get(`/api/teams/${teamId}/events`)).json.events[0]).toMatchObject({ missingEmailCount: 0, awaitingMyApproval: true });
+    await ada.post(`/api/events/${id}/withdraw`);
 
     t.emails.length = 0;
     expect((await approve(id)).status).toBe(200);

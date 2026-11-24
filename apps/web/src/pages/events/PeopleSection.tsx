@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { ApiError, api, type EventDetail, type Participant, type Person } from "../../api";
 import { Alert } from "../../components/Form";
-import { StatusTag } from "./agenda/WhoPicker";
+import { Avatar } from "../../components/Avatar";
+import { Icon } from "../../components/Icon";
+import { Notice } from "../../components/Notice";
 import type { Mutate } from "./EventEditor";
 import { toast } from "sonner";
 
@@ -35,71 +37,78 @@ export function PeopleSection({
     return listed ? { status: listed.status, email: listed.email } : { status: "guest" as const, email: p.email };
   };
 
-  if (participants.length === 0) return null;
+  if (participants.length === 0) return <p className="muted">Nobody yet. People are added when you choose them under Who on an agenda item.</p>;
+
+  /** Right-hand status: replies once approved, otherwise team status. */
+  const rightStatus = (p: Participant) => {
+    if (showResponses) {
+      if (p.response === "acknowledged") return { icon: "check" as const, tone: "good", label: "Confirmed" };
+      if (p.response === "declined") return { icon: "warn" as const, tone: "bad", label: "Can't make it" };
+      return { icon: "clock" as const, tone: "warn", label: "No reply yet" };
+    }
+    if (!p.email) return { icon: "warn" as const, tone: "bad", label: "Needs an email" };
+    const st = statusOf(p).status;
+    if (st === "member") return { icon: "check" as const, tone: "good", label: "Joined" };
+    if (st === "invited") return { icon: "clock" as const, tone: "warn", label: "Invited" };
+    return { icon: "clock" as const, tone: "muted", label: "Invited on approval" };
+  };
 
   return (
-    <section className="section" aria-labelledby="people-heading">
-      <h2 id="people-heading">
-        People <span className="count">{participants.length}</span>
-      </h2>
-      {showResponses ? (
-        <p className="muted small">
-          {confirmed} of {participants.length} confirmed.
-        </p>
-      ) : (
-        <p className="muted small">Everyone chosen under Who. When the program is approved, they're emailed their part, and anyone new is invited to join the team.</p>
-      )}
+    <section aria-label="People on this program">
+      <p className="tab-intro">
+        {showResponses
+          ? `${confirmed} of ${participants.length} confirmed they'll be there.`
+          : "Everyone chosen under Who. When the program is approved, they're emailed their part, and anyone new is invited to join the team."}
+      </p>
       {missingEmail.length > 0 && permissions.canEdit && (
-        <Alert kind="info">
-          Add an email for {missingEmail.map((p) => p.name).join(", ")} before sending this program for review.
-        </Alert>
+        <Notice kind="warn" title={`Add an email for ${missingEmail.map((p) => p.name).join(", ")}`}>
+          The program can't go for review until everyone on it has an email.
+        </Notice>
       )}
       <Alert>{error}</Alert>
 
-      <ul className="rows">
-        {participants.map((p) => (
-          <li key={p.id} className="row">
-            <div className="row-main">
-              <strong className="person-line">
-                {p.name}
-                {permissions.canEdit && <StatusTag person={statusOf(p)} />}
-              </strong>
-              <span className="muted small">
-                {p.email ?? "No email yet"} · {taskCount(p.id) ? `${taskCount(p.id)} item${taskCount(p.id) === 1 ? "" : "s"}` : "not on any item"}
-              </span>
-              {showResponses && p.response === "declined" && p.declineReason && <span className="small decline-reason">“{p.declineReason}”</span>}
-              {!p.email && p.contactId && permissions.canEdit && (
-                <AddEmail
-                  name={p.name}
-                  onSave={async (email) => {
-                    await api(`/teams/${event.teamId}/people/${p.contactId}`, { method: "PATCH", body: { email } });
-                    reloadPeople();
-                    reloadEvent();
-                    toast.success(`Email added for ${p.name}`);
-                  }}
-                />
-              )}
-            </div>
-            {showResponses && (
-              <div className="row-actions">
-                <span className={`response response-${p.response}`}>
-                  {p.response === "acknowledged" ? "Confirmed" : p.response === "declined" ? "Can't make it" : "No reply yet"}
+      <ul className="list list-ruled">
+        {participants.map((p) => {
+          const st = rightStatus(p);
+          const n = taskCount(p.id);
+          return (
+            <li key={p.id} className="list-row">
+              <Avatar name={p.name} size={34} />
+              <span className="list-main">
+                <span className="list-name">{p.name}</span>
+                <span className="list-sub">
+                  {p.email ?? "No email yet"} · {n ? `${n} item${n === 1 ? "" : "s"}` : "not on any item"}
                 </span>
-              </div>
-            )}
-            {permissions.canEdit && (
-              <div className="row-actions">
+                {showResponses && p.response === "declined" && p.declineReason && <span className="small decline-reason">“{p.declineReason}”</span>}
+                {!p.email && p.contactId && permissions.canEdit && (
+                  <AddEmail
+                    name={p.name}
+                    onSave={async (email) => {
+                      await api(`/teams/${event.teamId}/people/${p.contactId}`, { method: "PATCH", body: { email } });
+                      reloadPeople();
+                      reloadEvent();
+                      toast.success(`Email added for ${p.name}`);
+                    }}
+                  />
+                )}
+              </span>
+              <span className="list-meta">
+                <span className="list-status">
+                  <Icon name={st.icon} className={`tone-${st.tone}-text`} /> {st.label}
+                </span>
+              </span>
+              {permissions.canEdit && (
                 <button
                   type="button"
-                  className="button button-small"
+                  className="button button-secondary button-small"
                   onClick={() => mutate(`/participants/${p.id}`, "DELETE").catch(() => setError("Couldn't remove that person."))}
                 >
                   Remove
                 </button>
-              </div>
-            )}
-          </li>
-        ))}
+              )}
+            </li>
+          );
+        })}
       </ul>
     </section>
   );
@@ -131,7 +140,7 @@ function AddEmail({ name, onSave }: { name: string; onSave: (email: string) => P
         Email for {name}
       </label>
       <input id={`email-${name}`} type="email" inputMode="email" placeholder={`${name}'s email`} value={email} onChange={(e) => setEmail(e.target.value)} />
-      <button type="submit" className="button button-small" disabled={busy || !email.trim()}>
+      <button type="submit" className="button button-secondary button-small" disabled={busy || !email.trim()}>
         Add email
       </button>
       {error && <span className="field-error">{error}</span>}

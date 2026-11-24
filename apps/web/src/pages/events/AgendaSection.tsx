@@ -5,12 +5,14 @@ import clsx from "clsx";
 import { useMemo, useState, type ReactNode } from "react";
 import { api, type EventDetail, type Person, type Task } from "../../api";
 import { Alert } from "../../components/Form";
-import { durationLabel, formatShortClock, formatTime } from "../../time";
+import { formatDuration, formatShortClock, formatTime } from "../../time";
 import { AgendaItemEditor, type AgendaItemValues } from "./agenda/AgendaItemEditor";
 import { TemplatePicker } from "./agenda/TemplatePicker";
 import type { PickerPerson } from "./agenda/WhoPicker";
 import type { Mutate } from "./EventEditor";
 import { TaskComments } from "./TaskComments";
+import { AvatarStack } from "../../components/Avatar";
+import { Icon } from "../../components/Icon";
 
 /** Everyone "Who" can offer: the team's people list, plus anyone already on this event who isn't on it. */
 export function pickerPeople(detail: EventDetail, people: Person[]): PickerPerson[] {
@@ -85,7 +87,7 @@ function SortableRow({
 }
 
 export function AgendaSection({ detail, mutate, people, reloadPeople }: { detail: EventDetail; mutate: Mutate; people: Person[]; reloadPeople: () => void }) {
-  const { participants, permissions, event } = detail;
+  const { participants, permissions, event, schedule } = detail;
   // While a drag is being saved, show the new order straight away.
   const [pendingOrder, setPendingOrder] = useState<string[] | null>(null);
   const tasks = useMemo(
@@ -342,30 +344,33 @@ export function AgendaSection({ detail, mutate, people, reloadPeople }: { detail
             }}
           />
         ) : (
-          <>
+          <div className="agenda-add-row">
             <button
               type="button"
               className="agenda-add"
-              aria-label="Add an agenda item"
               onClick={() => {
                 setEditingId(null);
                 setAdding(true);
               }}
             >
-              <svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true">
-                <path d="M12 4v16M4 12h16" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" />
-              </svg>
+              <Icon name="plus" /> Add an item
             </button>
             {tasks.length === 0 && (
-              <p className="agenda-template-link">
-                or{" "}
-                <button type="button" className="link-button purple-link" onClick={() => setChoosingTemplate(true)}>
-                  add from a template
+              <>
+                <span className="muted">or</span>
+                <button type="button" className="text-link" onClick={() => setChoosingTemplate(true)}>
+                  start from a template
                 </button>
-              </p>
+              </>
             )}
-          </>
+          </div>
         ))}
+      {tasks.length > 0 && (
+        <p className="agenda-foot">
+          <span>{permissions.canEdit ? "Drag the dots to reorder" : ""}</span>
+          <span>Ends {formatTime(schedule.endsAt, event.timezone)}</span>
+        </p>
+      )}
     </section>
   );
 }
@@ -377,8 +382,17 @@ function CardCells({ task, who, tag }: { task: Task; who: string[]; tag?: string
         {task.title}
         {tag && <span className={`task-tag task-${task.status}`}>{tag}</span>}
       </span>
-      <span className="agenda-cell-duration">{durationLabel(task.durationMinutes)}</span>
-      <span className="agenda-cell-who">{who.length ? who.join(", ") : <span className="muted">Nobody yet</span>}</span>
+      <span className="agenda-cell-duration">{formatDuration(task.durationMinutes)}</span>
+      <span className="agenda-cell-who">
+        {who.length ? (
+          <>
+            <AvatarStack names={who} />
+            <span className="agenda-who-names">{who.join(", ")}</span>
+          </>
+        ) : (
+          <span className="muted">Nobody yet</span>
+        )}
+      </span>
     </>
   );
 }

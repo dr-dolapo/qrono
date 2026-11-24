@@ -121,3 +121,54 @@ export function formatShortClock(iso: string, timeZone: string): string {
 export function formatClockWithZone(iso: string, timeZone: string): string {
   return `${formatShortClock(iso, timeZone)} ${zoneAbbreviation(iso, timeZone)}`.trim();
 }
+
+/** "Mon 7 Dec" in the event's time zone. */
+export function formatDayMonth(iso: string, timeZone: string): string {
+  const parts = new Intl.DateTimeFormat("en-GB", { timeZone, weekday: "short", day: "numeric", month: "short" }).formatToParts(new Date(iso));
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+  return `${get("weekday")} ${get("day")} ${get("month")}`;
+}
+
+/** Day and short month for a date tile: { day: "7", month: "Dec" }. */
+export function dateTile(iso: string, timeZone: string): { day: string; month: string } {
+  const parts = new Intl.DateTimeFormat("en-GB", { timeZone, day: "numeric", month: "short" }).formatToParts(new Date(iso));
+  return { day: parts.find((p) => p.type === "day")?.value ?? "", month: parts.find((p) => p.type === "month")?.value ?? "" };
+}
+
+/** "6:00 – 8:00 PM", dropping the first AM/PM when both match. */
+export function formatTimeRange(startIso: string, endIso: string, timeZone: string): string {
+  const a = formatTime(startIso, timeZone);
+  const b = formatTime(endIso, timeZone);
+  const sameHalf = a.slice(-2) === b.slice(-2);
+  return `${sameHalf ? a.slice(0, -3) : a} – ${b}`;
+}
+
+/** Calendar days from today to the date, counted in the event's time zone. */
+function dayNumber(iso: string, timeZone: string): number {
+  const [y, m, d] = toZonedInput(iso, timeZone).slice(0, 10).split("-").map(Number);
+  return Date.UTC(y!, m! - 1, d!) / 86_400_000;
+}
+
+/** "today", "tomorrow", "in 13 days", "yesterday", "3 days ago", "2 months ago". */
+export function relativeDay(iso: string, timeZone: string, now = new Date()): string {
+  const diff = dayNumber(iso, timeZone) - dayNumber(now.toISOString(), timeZone);
+  if (diff === 0) return "today";
+  if (diff === 1) return "tomorrow";
+  if (diff === -1) return "yesterday";
+  const n = Math.abs(diff);
+  const unit = n >= 365 ? [Math.round(n / 365), "year"] : n >= 60 ? [Math.round(n / 30), "month"] : n >= 14 && n % 7 === 0 ? [n / 7, "week"] : [n, "day"];
+  const label = `${unit[0]} ${unit[1]}${unit[0] === 1 ? "" : "s"}`;
+  return diff > 0 ? `in ${label}` : `${label} ago`;
+}
+
+/** "2 hours", "1:05" style length for stat cards: hours and minutes as h:mm. */
+export function formatClockLength(minutes: number): string {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return `${h}:${String(m).padStart(2, "0")}`;
+}
+
+/** "6:00 – 8:00 PM WAT", in the event's time zone. */
+export function formatTimeRangeWithZone(startIso: string, endIso: string, timeZone: string): string {
+  return `${formatTimeRange(startIso, endIso, timeZone)} ${zoneAbbreviation(startIso, timeZone)}`.trim();
+}

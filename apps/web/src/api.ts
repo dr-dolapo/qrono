@@ -97,6 +97,10 @@ export interface EventSummary {
   status: EventStatus;
   taskCount: number;
   participantCount: number;
+  /** People on the program without an email yet (managers only; otherwise 0). */
+  missingEmailCount: number;
+  /** In review and waiting for me to approve it. */
+  awaitingMyApproval: boolean;
 }
 
 export interface Stage {
