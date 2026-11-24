@@ -76,9 +76,7 @@ export default function Events() {
             accessibilityLabel={`${monthLabel(fromKey(selected))}. Go to a date`}
           >
             <Text style={styles.monthText}>{monthLabel(fromKey(selected))}</Text>
-            <View style={styles.monthIcon}>
-              <CalendarIcon color={colors.text} />
-            </View>
+            <CalendarIcon color={colors.text} size={18} />
           </Pressable>
         </View>
       </View>
@@ -139,9 +137,8 @@ const styles = StyleSheet.create({
   headerActions: { flexDirection: "row", alignItems: "center", gap: space.sm },
   chip: { paddingHorizontal: space.md, paddingVertical: 6, borderRadius: 999, borderWidth: 1, borderColor: colors.border },
   chipText: { color: colors.text, fontSize: 13, ...font("600") },
-  monthButton: { flexDirection: "row", alignItems: "center", gap: 6, paddingLeft: space.md, paddingRight: 4, paddingVertical: 2, borderRadius: 999, backgroundColor: "rgba(255,255,255,0.07)" },
+  monthButton: { flexDirection: "row", alignItems: "center", gap: 6, paddingLeft: space.md, paddingRight: space.md, paddingVertical: 7, borderRadius: 999, backgroundColor: "rgba(255,255,255,0.07)" },
   monthText: { color: colors.text, fontSize: 13, ...font("600") },
-  monthIcon: { transform: [{ scale: 0.6 }], marginVertical: -6 },
   content: { paddingHorizontal: space.xl, paddingBottom: space.xxl, flexGrow: 1 },
   dayTitle: { color: colors.muted, fontSize: 13, ...font("700"), letterSpacing: 0.6, textTransform: "uppercase", marginTop: space.xl, marginBottom: space.md },
   empty: { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: radius.lg, padding: space.lg, gap: space.sm },

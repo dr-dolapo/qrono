@@ -1,6 +1,6 @@
 import { TabList, TabSlot, TabTrigger, Tabs, type TabTriggerSlotProps } from "expo-router/ui";
 import type { ReactNode } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CalendarIcon, InboxIcon, ProfileIcon } from "../../components/TabIcons";
 import { InboxProvider, useInbox } from "../../inbox/InboxProvider";
@@ -8,7 +8,14 @@ import { backdrop, font } from "../../theme";
 
 const ACTIVE = "#b98af5"; // Qrono purple, lifted for the dark bar
 const INACTIVE = "#f4f5f7";
-const LIFT = 22; // raises the tabs off the bottom edge by about a label's height
+/*
+ * Sized from a side-by-side with Chrome on iOS: the bar is 0.61x our first version's
+ * height and icon + label 0.73x. In points: 17 above, 38 of icon and label, 21 below (76 in all).
+ * Like Chrome, the labels sit just above the home indicator rather than clearing it.
+ */
+const BAR_TOP = 17;
+const BAR_BOTTOM = 21;
+const ICON = 24;
 const CORNER = 34; // the page card's rounded bottom, like a phone's curved screen edge
 
 // TabTrigger (asChild) passes its ref through the spread props at runtime; its type for it is wrong.
@@ -56,15 +63,15 @@ function TabsFrame() {
       <View style={styles.card}>
         <TabSlot style={styles.slot} />
       </View>
-      <TabList style={[styles.bar, { paddingBottom: Math.max(insets.bottom, 10) + LIFT }]}>
+      <TabList style={[styles.bar, { paddingBottom: Platform.OS === "ios" ? BAR_BOTTOM : Math.max(insets.bottom, BAR_BOTTOM) }]}>
         <TabTrigger name="index" href="/" asChild>
-          <TabButton label="Events" icon={(c) => <CalendarIcon color={c} />} />
+          <TabButton label="Events" icon={(c) => <CalendarIcon color={c} size={ICON} />} />
         </TabTrigger>
         <TabTrigger name="inbox" href="/inbox" asChild>
-          <TabButton label="Inbox" icon={(c) => <InboxIcon color={c} count={unread} />} badge={unread ? `${unread} unread` : undefined} />
+          <TabButton label="Inbox" icon={(c) => <InboxIcon color={c} count={unread} size={ICON} />} badge={unread ? `${unread} unread` : undefined} />
         </TabTrigger>
         <TabTrigger name="profile" href="/profile" asChild>
-          <TabButton label="Profile" icon={(c) => <ProfileIcon color={c} />} />
+          <TabButton label="Profile" icon={(c) => <ProfileIcon color={c} size={ICON} />} />
         </TabTrigger>
       </TabList>
     </Tabs>
@@ -89,8 +96,8 @@ const styles = StyleSheet.create({
     boxShadow: "0 10px 24px rgba(0,0,0,0.55)",
   },
   slot: { flex: 1 },
-  bar: { flexDirection: "row", paddingTop: 12, paddingHorizontal: 12, backgroundColor: "transparent" },
-  tab: { flex: 1, alignItems: "center", gap: 5, paddingVertical: 2 },
+  bar: { flexDirection: "row", paddingTop: BAR_TOP, paddingHorizontal: 12, backgroundColor: "transparent" },
+  tab: { flex: 1, alignItems: "center", gap: 2 },
   pressed: { opacity: 0.6 },
-  label: { fontSize: 14, ...font("500") },
+  label: { fontSize: 11, lineHeight: 12, ...font("500") },
 });
