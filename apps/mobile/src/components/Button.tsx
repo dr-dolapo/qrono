@@ -1,5 +1,5 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text } from "react-native";
-import { colors, radius, space } from "../theme";
+import { colors, font, radius, space } from "../theme";
 
 interface Props {
   label: string;
@@ -45,7 +45,7 @@ const styles = StyleSheet.create({
   secondary: { borderWidth: 1, borderColor: colors.border },
   link: { minHeight: 44, paddingHorizontal: 0 },
   dimmed: { opacity: 0.6 },
-  label: { color: colors.text, fontSize: 16, fontWeight: "600" },
+  label: { color: colors.text, fontSize: 16, ...font("600") },
   primaryLabel: { color: colors.onAccent },
   linkLabel: { color: colors.accent },
 });

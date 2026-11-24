@@ -9,7 +9,7 @@ import { formatTime, shortCountdown } from "../../../lib/time";
 import { useApi } from "../../../lib/useApi";
 import { useNow } from "../../../lib/useNow";
 import { formatClock, liveView, useLiveEvent, type LiveConnection, type LiveTask } from "../../../live/useLiveEvent";
-import { colors, radius, space } from "../../../theme";
+import { colors, font, radius, space } from "../../../theme";
 
 /**
  * The participant's live view: what's on now, what's next and when I'm up,
@@ -223,28 +223,28 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center", gap: space.md, backgroundColor: "transparent" },
   connection: { flexDirection: "row", alignItems: "center", gap: space.sm },
   dot: { width: 8, height: 8, borderRadius: 4 },
-  title: { color: colors.text, fontSize: 24, fontWeight: "800" },
-  muted: { color: colors.muted, fontSize: 14 },
-  body: { color: colors.text, fontSize: 15, lineHeight: 21 },
+  title: { color: colors.text, fontSize: 24, ...font("800") },
+  muted: { color: colors.muted, fontSize: 14 , ...font("400")},
+  body: { color: colors.text, fontSize: 15, ...font("400"), lineHeight: 21 },
   card: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: space.lg, gap: 4 },
   mineCard: { backgroundColor: colors.mineSurface },
-  cardTitle: { color: colors.text, fontSize: 18, fontWeight: "700" },
-  label: { color: colors.muted, fontSize: 13, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.6 },
-  taskTitle: { color: colors.text, fontSize: 22, fontWeight: "700" },
-  people: { color: colors.accent, fontSize: 14, fontWeight: "600" },
-  bigClock: { color: colors.text, fontSize: 56, fontWeight: "800", fontVariant: ["tabular-nums"], marginTop: space.sm },
+  cardTitle: { color: colors.text, fontSize: 18, ...font("700") },
+  label: { color: colors.muted, fontSize: 13, ...font("700"), textTransform: "uppercase", letterSpacing: 0.6 },
+  taskTitle: { color: colors.text, fontSize: 22, ...font("700") },
+  people: { color: colors.accent, fontSize: 14, ...font("600") },
+  bigClock: { color: colors.text, fontSize: 56, ...font("800"), fontVariant: ["tabular-nums"], marginTop: space.sm },
   over: { color: colors.danger },
-  overText: { color: colors.danger, fontWeight: "600" },
+  overText: { color: colors.danger, ...font("600") },
   bar: { height: 6, borderRadius: 3, backgroundColor: colors.border, overflow: "hidden", marginTop: space.sm },
   barFill: { height: 6, backgroundColor: colors.live },
   barOver: { backgroundColor: colors.danger },
   turn: { borderRadius: radius.lg, padding: space.lg, backgroundColor: colors.surface },
   turnLive: { backgroundColor: colors.liveSurface },
   turnWarning: { backgroundColor: colors.warningSurface },
-  turnText: { color: colors.text, fontSize: 17, fontWeight: "700", lineHeight: 23 },
+  turnText: { color: colors.text, fontSize: 17, ...font("700"), lineHeight: 23 },
   section: { gap: space.sm, marginTop: space.sm },
-  sectionTitle: { color: colors.text, fontSize: 18, fontWeight: "700" },
+  sectionTitle: { color: colors.text, fontSize: 18, ...font("700") },
   row: { flexDirection: "row", gap: space.md, padding: space.md, borderRadius: radius.md, backgroundColor: colors.surface },
-  rowTime: { color: colors.text, fontSize: 15, fontWeight: "700", width: 58, fontVariant: ["tabular-nums"] },
-  rowTitle: { color: colors.text, fontSize: 16, fontWeight: "600" },
+  rowTime: { color: colors.text, fontSize: 15, ...font("700"), width: 58, fontVariant: ["tabular-nums"] },
+  rowTitle: { color: colors.text, fontSize: 16, ...font("600") },
 });

@@ -4,6 +4,7 @@ import { ApiError, api, type EventDetail } from "../api";
 import { useClock } from "../useClock";
 import { formatCountdown, formatStartsIn, liveView, useLiveEvent, type LiveState } from "../useLiveEvent";
 import { formatTime } from "../time";
+import { Logo } from "../components/Logo";
 
 /**
  * The command centre: run full screen on a laptop connected to the HDMI
@@ -65,7 +66,7 @@ export function CommandCentre() {
   if (denied) {
     return (
       <main className="command command-message">
-        <p className="brand">Qrono</p>
+        <p className="brand"><Logo size={24} /></p>
         <p>{denied}</p>
         <Link to={`/admin/events/${eventId}`}>Back to the event</Link>
       </main>
@@ -74,7 +75,7 @@ export function CommandCentre() {
   if (!state) {
     return (
       <main className="command command-message" aria-busy="true">
-        <p className="brand">Qrono</p>
+        <p className="brand"><Logo size={24} /></p>
         <p className="muted">Connecting…</p>
       </main>
     );
@@ -90,7 +91,7 @@ export function CommandCentre() {
   return (
     <main className={`command ${overrun ? "command-overrun" : ""}`}>
       <header className="command-bar">
-        <span className="brand">Qrono</span>
+        <span className="brand"><Logo size={24} /></span>
         <span className="command-event">{event.name}</span>
         <span className={`status status-${connection}`}>{connection === "connected" ? "Connected" : connection === "connecting" ? "Connecting" : "Reconnecting…"}</span>
         <span className="command-bar-spacer" />

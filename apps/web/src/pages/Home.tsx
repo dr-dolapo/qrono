@@ -1,5 +1,6 @@
 import { Link, Navigate } from "react-router";
 import { useAuth } from "../auth/AuthContext";
+import { Logo } from "../components/Logo";
 
 export function Home() {
   const { user } = useAuth();
@@ -9,7 +10,7 @@ export function Home() {
   return (
     <main className="auth-shell">
       <div className="auth-card">
-        <p className="brand auth-brand">Qrono</p>
+        <p className="auth-brand"><Logo size={32} /></p>
         <h1>Run live events on time, with no dead air.</h1>
         <p className="muted auth-subtitle">
           Plan the program with your team, get it approved, and keep everyone in sync on the day.

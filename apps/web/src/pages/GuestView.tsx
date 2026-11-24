@@ -3,6 +3,7 @@ import { useParams } from "react-router";
 import { ApiError, api, type GuestProgram } from "../api";
 import { Alert } from "../components/Form";
 import { formatDate, formatDuration, formatTime } from "../time";
+import { Logo } from "../components/Logo";
 
 /**
  * QR044–QR046: the guest's personal page, opened from their emailed link on a
@@ -43,7 +44,7 @@ export function GuestView() {
   if (loadError) {
     return (
       <main className="page guest">
-        <p className="brand">Qrono</p>
+        <p className="brand"><Logo size={24} /></p>
         <Alert>{loadError}</Alert>
       </main>
     );
@@ -51,7 +52,7 @@ export function GuestView() {
   if (!data) {
     return (
       <main className="page guest" aria-busy="true">
-        <p className="brand">Qrono</p>
+        <p className="brand"><Logo size={24} /></p>
         <p className="muted">Loading your program…</p>
       </main>
     );
@@ -63,7 +64,7 @@ export function GuestView() {
 
   return (
     <main className="page guest">
-      <p className="brand">Qrono</p>
+      <p className="brand"><Logo size={24} /></p>
       <p className="muted small guest-from">{teamName}</p>
       <h1 className="guest-title">{event.name}</h1>
       <p className="event-when">{formatDate(event.startAt, tz)}</p>

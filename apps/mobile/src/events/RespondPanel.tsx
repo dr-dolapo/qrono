@@ -3,7 +3,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { Button } from "../components/Button";
 import { TextField } from "../components/TextField";
 import { ApiError, api } from "../lib/api";
-import { colors, radius, space } from "../theme";
+import { colors, font, radius, space } from "../theme";
 import type { EventDetail } from "./types";
 
 type Mode = "view" | "choose" | "declining";
@@ -98,11 +98,11 @@ export function RespondPanel({ data, myTaskCount, onUpdated }: { data: EventDeta
 
 const styles = StyleSheet.create({
   panel: { marginTop: space.md, backgroundColor: colors.surface, borderRadius: radius.lg, padding: space.lg, gap: 6 },
-  title: { color: colors.text, fontSize: 16, fontWeight: "700" },
-  body: { color: colors.text, fontSize: 15, lineHeight: 21 },
-  muted: { color: colors.muted, fontSize: 14, lineHeight: 20 },
-  attention: { color: colors.warningText, fontWeight: "600" },
-  error: { color: colors.danger, fontSize: 13 },
+  title: { color: colors.text, fontSize: 16, ...font("700") },
+  body: { color: colors.text, fontSize: 15, ...font("400"), lineHeight: 21 },
+  muted: { color: colors.muted, fontSize: 14, ...font("400"), lineHeight: 20 },
+  attention: { color: colors.warningText, ...font("600") },
+  error: { color: colors.danger, fontSize: 13 , ...font("400")},
   form: { gap: space.sm, marginTop: space.xs },
   reasonInput: { minHeight: 88, textAlignVertical: "top" },
 });

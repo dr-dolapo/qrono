@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from "react-native";
 import type { EventStatus } from "../events/types";
-import { colors, space } from "../theme";
+import { colors, font, space } from "../theme";
 
 const LABELS: Record<EventStatus, string> = {
   draft: "Draft",
@@ -33,6 +33,6 @@ const styles = StyleSheet.create({
   },
   live: { backgroundColor: colors.liveSurface },
   dot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.live },
-  text: { color: colors.muted, fontSize: 12, fontWeight: "600" },
+  text: { color: colors.muted, fontSize: 12, ...font("600") },
   liveText: { color: colors.live },
 });
