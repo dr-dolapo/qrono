@@ -103,8 +103,8 @@ describe("editing an approved event", () => {
     expect(sent.map((e) => e.to).sort()).toEqual(["dayo@example.com", "funmi@example.com"]);
     const dayoMail = emailsTo("dayo@example.com").at(-1)!;
     expect(dayoMail.subject).toBe("Changes to the program: AGM");
-    expect(dayoMail.text).toContain("10:50  Close"); // now
-    expect(dayoMail.text).toContain("Before the change: 10:40  Close");
+    expect(dayoMail.text).toContain("10:50 AM  Close"); // now
+    expect(dayoMail.text).toContain("Before the change: 10:40 AM  Close");
 
     // A guest's change email carries a fresh personal link that works; the old one is replaced.
     const link = emailsTo("funmi@example.com").at(-1)!.text.match(/\/g\/([A-Za-z0-9_-]+)/)![1];

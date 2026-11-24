@@ -85,7 +85,6 @@ export function AppShell({ children, rail, railLined = false }: { children: Reac
   const activeTeams = teams.filter((t) => t.status === "active");
   const onPeoplePage = pathname.startsWith("/admin/people");
   const onSettingsPage = pathname.startsWith("/admin/settings");
-  const isManager = currentTeam?.role === "approver" || currentTeam?.role === "admin";
   const comingUp = useComingUp(currentTeam?.id, !!currentTeam);
   const fullName = `${user?.firstName ?? ""} ${user?.lastName ?? ""}`.trim();
 
@@ -193,7 +192,7 @@ export function AppShell({ children, rail, railLined = false }: { children: Reac
             </>
           )}
 
-          {isManager && (
+          {currentTeam && (
             <div className="side-bottom">
               <NavLink to="/admin/settings" className={() => clsx("side-nav", onSettingsPage && "active")}>
                 <Icon name="settings" size={18} /> Settings

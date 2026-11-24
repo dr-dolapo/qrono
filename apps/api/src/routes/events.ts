@@ -129,7 +129,9 @@ export const teamEvents = new Hono<AppEnv>()
     const teamId = c.req.param("teamId");
     const me = await requireMembership(c, teamId, MANAGERS);
     const body = c.req.valid("json");
-    const team = await c.env.DB.prepare("SELECT timezone FROM teams WHERE id = ?").bind(teamId).first<{ timezone: string }>();
+    const team = await c.env.DB.prepare("SELECT timezone, default_progression FROM teams WHERE id = ?")
+      .bind(teamId)
+      .first<{ timezone: string; default_progression: "auto" | "manual" }>();
     const timeZone = body.timezone ?? team?.timezone ?? "UTC";
     checkStart(body.startAt, timeZone);
     // Until the agenda has items, the event "ends" a minute after it starts.
@@ -139,7 +141,7 @@ export const teamEvents = new Hono<AppEnv>()
       c.env.DB.prepare(
         `INSERT INTO events (id, team_id, name, description, start_at, end_at, timezone, progression_mode, created_by)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      ).bind(id, teamId, body.name, body.description || null, body.startAt, endAt, timeZone, body.progressionMode ?? "manual", me.user_id),
+      ).bind(id, teamId, body.name, body.description || null, body.startAt, endAt, timeZone, body.progressionMode ?? team?.default_progression ?? "manual", me.user_id),
       c.env.DB.prepare("INSERT INTO event_status_changes (id, event_id, from_status, to_status, changed_by) VALUES (?, ?, NULL, 'draft', ?)").bind(
         newId(),
         id,

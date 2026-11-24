@@ -55,7 +55,7 @@ describe("creating and editing events (QR019, QR020, QR022)", () => {
 
   it("lets only Approvers and Admins change team settings", async () => {
     const member = await joinTeam("Chi", "chi@example.com", "member");
-    expect((await member.browser.get(`/api/teams/${teamId}/settings`)).json).toMatchObject({ settings: { timezone: "UTC" }, canEdit: false });
+    expect((await member.browser.get(`/api/teams/${teamId}/settings`)).json).toMatchObject({ settings: null, canEdit: false });
     expect((await member.browser.request("PATCH", `/api/teams/${teamId}/settings`, { timezone: "Africa/Lagos" })).status).toBe(403);
     expect((await ada.request("PATCH", `/api/teams/${teamId}/settings`, { timezone: "Mars/Olympus" })).json.fields.timezone).toBe("Choose a valid time zone.");
     expect((await ada.request("PATCH", `/api/teams/${teamId}/settings`, { timezone: "Africa/Lagos" })).json.settings.timezone).toBe("Africa/Lagos");

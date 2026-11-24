@@ -25,11 +25,14 @@ export function CommandCentre() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmEnd, setConfirmEnd] = useState(false);
+  // The team's live-screen settings: when the countdown turns amber, and whether names show.
+  const [display, setDisplay] = useState({ warningMs: 60_000, showNames: true });
 
   // Only Approvers and Admins run the event.
   useEffect(() => {
     api<EventDetail>(`/events/${eventId}`)
       .then((d) => {
+        setDisplay({ warningMs: d.team.liveWarningMinutes * 60_000, showNames: d.team.liveShowNames });
         if (!d.permissions.canManage) setDenied("Only Approvers and Admins can open the command centre.");
         else if (d.event.status === "draft" || d.event.status === "review") setDenied("This event isn't approved yet.");
       })
@@ -128,8 +131,8 @@ export function CommandCentre() {
           {event.status === "live" && view.current ? (
             <>
               <p className="command-task">{view.current.title}</p>
-              {view.current.assignees.length > 0 && <p className="command-people">{view.current.assignees.join(" · ")}</p>}
-              <p className={clsx("command-countdown", overrun ? "over" : view.remainingMs! < 60_000 && "soon")}>
+              {display.showNames && view.current.assignees.length > 0 && <p className="command-people">{view.current.assignees.join(" · ")}</p>}
+              <p className={clsx("command-countdown", overrun ? "over" : view.remainingMs! < display.warningMs && "soon")}>
                 {overrun && "+"}
                 <Countdown ms={view.remainingMs!} /> {overrun ? "over" : "left"}
               </p>
@@ -140,7 +143,7 @@ export function CommandCentre() {
           ) : event.status === "approved" && view.next ? (
             <>
               <p className="command-task">{view.next.title}</p>
-              {view.next.assignees.length > 0 && <p className="command-people">{view.next.assignees.join(" · ")}</p>}
+              {display.showNames && view.next.assignees.length > 0 && <p className="command-people">{view.next.assignees.join(" · ")}</p>}
             </>
           ) : (
             <p className="command-task muted">{event.status === "past" ? "—" : "All tasks are done"}</p>
@@ -152,7 +155,7 @@ export function CommandCentre() {
           {event.status === "live" && view.next ? (
             <>
               <p className="command-next">{view.next.title}</p>
-              {view.next.assignees.length > 0 && <p className="command-people small-people">{view.next.assignees.join(" · ")}</p>}
+              {display.showNames && view.next.assignees.length > 0 && <p className="command-people small-people">{view.next.assignees.join(" · ")}</p>}
               {view.nextExpectedAt && <p className="muted">around {formatTime(new Date(view.nextExpectedAt).toISOString(), tz)}</p>}
             </>
           ) : (

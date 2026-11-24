@@ -36,7 +36,7 @@ describe("teams (QR006, QR010)", () => {
     expect(res.json.team).toMatchObject({ name: "Events Team", role: "approver", status: "active" });
 
     const me = await browser.get("/api/auth/me");
-    expect(me.json.teams).toEqual([{ id: res.json.team.id, name: "Events Team", timezone: "Africa/Lagos", role: "approver", status: "active" }]);
+    expect(me.json.teams).toEqual([{ id: res.json.team.id, name: "Events Team", timezone: "Africa/Lagos", clockFormat: "12h", weekStart: "monday", role: "approver", status: "active" }]);
   });
 
   it("lets a user belong to several teams", async () => {

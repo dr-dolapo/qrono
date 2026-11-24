@@ -10,6 +10,7 @@ import { invites } from "./routes/invites";
 import { live } from "./routes/live";
 import { me } from "./routes/me";
 import { planning } from "./routes/planning";
+import { settings } from "./routes/settings";
 import { review } from "./routes/review";
 import { teams } from "./routes/teams";
 import { sameOriginOnly, securityHeaders } from "./security";
@@ -30,6 +31,24 @@ app.get("/health", async (c) => {
   return c.json({ service: "qrono-api", env: c.env.APP_ENV, database }, status);
 });
 
+/**
+ * A team's logo, public so mail apps and guests' pages can show it. Only the image the
+ * team chose in Settings is served, as its own content type; nothing else is exposed.
+ */
+app.get("/teams/:teamId/logo", async (c) => {
+  const row = await c.env.DB.prepare("SELECT logo_data FROM teams WHERE id = ?").bind(c.req.param("teamId")).first<{ logo_data: string | null }>();
+  const match = row?.logo_data?.match(/^data:(image\/(?:png|jpeg|webp|svg\+xml));base64,(.+)$/);
+  if (!match) return c.json({ error: "Not found" }, 404);
+  const bytes = Uint8Array.from(atob(match[2]!), (ch) => ch.charCodeAt(0));
+  return c.body(bytes, 200, {
+    "Content-Type": match[1]!,
+    "Cache-Control": "public, max-age=86400",
+    // SVGs can carry scripts: never run them, and never let this be framed or sniffed.
+    "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; sandbox",
+    "X-Content-Type-Options": "nosniff",
+  });
+});
+
 app.use(sameOriginOnly);
 app.use(loadSession);
 
@@ -39,6 +58,7 @@ app.route("/teams", teams);
 app.route("/invites", invites);
 app.route("/teams", teamEvents);
 app.route("/teams", planning);
+app.route("/teams", settings);
 app.route("/events", events);
 app.route("/events", review);
 app.route("/events", live);

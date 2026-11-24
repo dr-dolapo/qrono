@@ -120,12 +120,12 @@ describe("approving (QR016–QR018, QR032, QR044)", () => {
     // QR018 / QR032: team members get their own tasks, in the event's time zone (Lagos = UTC+1)
     const chiEmail = emailsTo("chi@example.com").at(-1)!;
     expect(chiEmail.subject).toBe("You're on the program: AGM");
-    expect(chiEmail.text).toContain("10:00  Opening");
+    expect(chiEmail.text).toContain("10:00 AM  Opening");
     expect(chiEmail.text).not.toContain("Keynote");
 
     // QR044: guests get a personal link
     const guestEmail = emailsTo("funmi@example.com").at(-1)!;
-    expect(guestEmail.text).toContain("10:10  Keynote");
+    expect(guestEmail.text).toContain("10:10 AM  Keynote");
     expect(guestEmail.text).toMatch(/http:\/\/localhost:5173\/g\/[A-Za-z0-9_-]{40,}/);
 
     const notified = t.sqlite.prepare("SELECT COUNT(*) AS n FROM event_participants WHERE event_id = ? AND notified_at IS NOT NULL").get(eventId);

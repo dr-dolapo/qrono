@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router";
 import { ApiError, api, type GuestProgram } from "../api";
 import { Alert } from "../components/Form";
-import { formatDate, formatDuration, formatTime } from "../time";
+import { formatDate, formatDuration, formatTime, setClockFormat } from "../time";
 import { Logo } from "../components/Logo";
 import clsx from "clsx";
 
@@ -59,19 +59,31 @@ export function GuestView() {
     );
   }
 
-  const { event, me, program, teamName } = data;
+  const { event, me, program, teamName, teamLogoUrl, venue, clockFormat } = data;
   const tz = event.timezone;
+  // Guests aren't signed in, so their page follows the team's clock setting from here.
+  setClockFormat(clockFormat);
   const mine = program.filter((p) => p.mine);
 
   return (
     <main className="page guest">
-      <p className="brand"><Logo size={24} /></p>
-      <p className="muted small guest-from">{teamName}</p>
+      {teamLogoUrl ? (
+        <p className="guest-brand">
+          <img src={teamLogoUrl} alt="" className="guest-logo" />
+          <span>{teamName}</span>
+        </p>
+      ) : (
+        <>
+          <p className="brand"><Logo size={24} /></p>
+          <p className="muted small guest-from">{teamName}</p>
+        </>
+      )}
       <h1 className="guest-title">{event.name}</h1>
       <p className="event-when">{formatDate(event.startAt, tz)}</p>
       <p className="muted small">
         {formatTime(event.startAt, tz)} – {formatTime(event.endAt, tz)} · times in {tz.replace(/_/g, " ")}
       </p>
+      {venue && <p className="small guest-venue">Where: {venue}</p>}
 
       <section className="card-panel guest-mine" aria-labelledby="guest-mine">
         <h2 id="guest-mine">Hi {me.name}, your part</h2>

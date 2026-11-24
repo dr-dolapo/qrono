@@ -31,19 +31,31 @@ function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 }
 
-function layout(heading: string, body: string, buttonText: string, link: string, footer: string, details: string[] = []): string {
+/** A team's look on emails about its programs: its logo (a hosted URL) and usual venue. */
+export interface EmailBrand {
+  teamName: string;
+  logoUrl: string | null;
+  venue: string | null;
+}
+
+function layout(heading: string, body: string, buttonText: string, link: string, footer: string, details: string[] = [], brand?: EmailBrand): string {
+  const masthead = brand?.logoUrl
+    ? `<p style="margin:0 0 24px"><img src="${escapeHtml(brand.logoUrl)}" alt="${escapeHtml(brand.teamName)}" height="40" style="height:40px;max-width:200px;border-radius:6px"></p>`
+    : `<p style="font-weight:800;font-size:20px;margin:0 0 24px">${escapeHtml(brand?.teamName ?? "Qrono")}</p>`;
+  const where = brand?.venue ? `<p style="line-height:1.5;margin:-12px 0 24px;color:#444">Where: ${escapeHtml(brand.venue)}</p>` : "";
   const list = details.length
     ? `<ul style="margin:0 0 24px;padding-left:20px;line-height:1.7">${details.map((d) => `<li>${escapeHtml(d)}</li>`).join("")}</ul>`
     : "";
   return `<!doctype html><html><body style="margin:0;padding:24px;background:#f4f5f7;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#111">
 <table role="presentation" width="100%" style="max-width:520px;margin:0 auto;background:#fff;border-radius:12px;padding:32px">
 <tr><td>
-<p style="font-weight:800;font-size:20px;margin:0 0 24px">Qrono</p>
+${masthead}
 <h1 style="font-size:20px;margin:0 0 12px">${escapeHtml(heading)}</h1>
 <p style="line-height:1.5;margin:0 0 24px">${escapeHtml(body)}</p>
+${where}
 ${list}
-<p style="margin:0 0 24px"><a href="${escapeHtml(link)}" style="background:#f5b301;color:#111;text-decoration:none;font-weight:600;padding:12px 20px;border-radius:8px;display:inline-block">${escapeHtml(buttonText)}</a></p>
-<p style="font-size:13px;color:#666;line-height:1.5;margin:0">${escapeHtml(footer)}<br>If the button doesn't work, paste this link into your browser:<br><span style="word-break:break-all">${escapeHtml(link)}</span></p>
+${link ? `<p style="margin:0 0 24px"><a href="${escapeHtml(link)}" style="background:#7b2fd0;color:#fff;text-decoration:none;font-weight:600;padding:12px 20px;border-radius:8px;display:inline-block">${escapeHtml(buttonText)}</a></p>` : ""}
+<p style="font-size:13px;color:#666;line-height:1.5;margin:0">${escapeHtml(footer)}${link ? `<br>If the button doesn't work, paste this link into your browser:<br><span style="word-break:break-all">${escapeHtml(link)}</span>` : ""}</p>
 </td></tr></table></body></html>`;
 }
 
@@ -96,13 +108,19 @@ export function joinRequestEmail(requesterName: string, teamName: string, link: 
 
 // ───────────── Event review & approval ─────────────
 
-/** "Tuesday 1 December 2026, 09:00" in the event's own time zone. */
-export function formatEventTime(iso: string, timeZone: string): string {
-  return new Date(iso).toLocaleString("en-GB", { timeZone, weekday: "long", day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" });
+export type ClockFormat = "12h" | "24h";
+
+/** "Tuesday 1 December 2026, 6:00 PM" (or 18:00) in the event's own time zone. */
+export function formatEventTime(iso: string, timeZone: string, clock: ClockFormat = "24h"): string {
+  const date = new Date(iso).toLocaleDateString("en-GB", { timeZone, weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  return `${date}, ${formatClockTime(iso, timeZone, clock)}`;
 }
 
-export function formatClockTime(iso: string, timeZone: string): string {
-  return new Date(iso).toLocaleTimeString("en-GB", { timeZone, hour: "2-digit", minute: "2-digit" });
+/** "6:00 PM" or "18:00", following the team's clock setting. */
+export function formatClockTime(iso: string, timeZone: string, clock: ClockFormat = "24h"): string {
+  return clock === "12h"
+    ? new Date(iso).toLocaleTimeString("en-US", { timeZone, hour: "numeric", minute: "2-digit", hour12: true })
+    : new Date(iso).toLocaleTimeString("en-GB", { timeZone, hour: "2-digit", minute: "2-digit" });
 }
 
 const withText = (body: string, details: string[], link: string, footer: string) =>
@@ -128,23 +146,23 @@ export function eventApprovedEmail(approver: string, eventName: string, when: st
   };
 }
 
-export function assignedEmail(firstName: string, teamName: string, eventName: string, when: string, tasks: string[], link: string): Omit<OutgoingEmail, "to"> {
+export function assignedEmail(firstName: string, teamName: string, eventName: string, when: string, tasks: string[], link: string, brand?: EmailBrand): Omit<OutgoingEmail, "to"> {
   const body = `Hi ${firstName}, you're on the program for "${eventName}" (${when}) with ${teamName}. Your part:`;
   const footer = "Please confirm you can make it, or let the team know if you can't.";
   return {
     subject: `You're on the program: ${eventName}`,
     text: withText(body, tasks, link, footer),
-    html: layout(`You're on the program for ${eventName}`, body, "Confirm or decline", link, footer, tasks),
+    html: layout(`You're on the program for ${eventName}`, body, "Confirm or decline", link, footer, tasks, brand),
   };
 }
 
-export function guestInviteEmail(name: string, teamName: string, eventName: string, when: string, tasks: string[], link: string): Omit<OutgoingEmail, "to"> {
+export function guestInviteEmail(name: string, teamName: string, eventName: string, when: string, tasks: string[], link: string, brand?: EmailBrand): Omit<OutgoingEmail, "to"> {
   const body = `Hi ${name}, ${teamName} has put you on the program for "${eventName}" (${when}). Your part:`;
   const footer = "This link is just for you; please don't forward it. It stops working when the event ends. No app or account needed.";
   return {
     subject: `You're on the program: ${eventName}`,
     text: withText(body, tasks, link, footer),
-    html: layout(`You're on the program for ${eventName}`, body, "See the program and confirm", link, footer, tasks),
+    html: layout(`You're on the program for ${eventName}`, body, "See the program and confirm", link, footer, tasks, brand),
   };
 }
 
@@ -174,5 +192,29 @@ export function removedFromProgramEmail(name: string, eventName: string, when: s
     subject: `You're no longer on the program: ${eventName}`,
     text: `${body}\n\nIf you think this is a mistake, contact the event team.`,
     html: `<!doctype html><html><body style="margin:0;padding:24px;background:#f4f5f7;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#111"><table role="presentation" width="100%" style="max-width:520px;margin:0 auto;background:#fff;border-radius:12px;padding:32px"><tr><td><p style="font-weight:800;font-size:20px;margin:0 0 24px">Qrono</p><p style="line-height:1.5;margin:0 0 16px">${escapeHtml(body)}</p><p style="font-size:13px;color:#666;margin:0">If you think this is a mistake, contact the event team.</p></td></tr></table></body></html>`,
+  };
+}
+
+// ───────────── Reminders ─────────────
+
+export function reminderEmail(
+  name: string,
+  eventName: string,
+  when: string,
+  lead: string,
+  tasks: string[],
+  link: string | null,
+  brand: EmailBrand,
+  canTurnOff: boolean,
+): Omit<OutgoingEmail, "to"> {
+  const body = `Hi ${name}, a reminder that "${eventName}" is ${lead} (${when}). Your part:`;
+  const footer = canTurnOff
+    ? "You can turn off reminder emails in Qrono, under Settings."
+    : "You're getting this because you're on the program. Reply to the team if you can no longer make it.";
+  const target = link ?? "";
+  return {
+    subject: `Reminder: ${eventName} ${lead}`,
+    text: withText(body, tasks.length ? tasks : ["No tasks at the moment"], target || "Use the link in your earlier email to see the program.", footer),
+    html: layout(`${eventName} is ${lead}`, body, "See the program", target, footer, tasks.length ? tasks : ["No tasks at the moment"], brand),
   };
 }

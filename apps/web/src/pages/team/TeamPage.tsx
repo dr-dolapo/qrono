@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
-import { ApiError, ROLE_LABEL, api, type Member, type PendingInvite, type Person, type Role } from "../../api";
+import { ApiError, ROLE_LABEL, api, type Member, type PendingInvite, type Person, type Role, type TeamSettings } from "../../api";
 import { useAuth } from "../../auth/AuthContext";
 import { AppShell } from "../../components/AppShell";
 import { Avatar } from "../../components/Avatar";
@@ -33,6 +33,7 @@ export function TeamPage() {
   const [data, setData] = useState<MembersResponse | null>(null);
   const [invites, setInvites] = useState<PendingInvite[]>([]);
   const [contacts, setContacts] = useState<Extract<Person, { kind: "contact" }>[]>([]);
+  const [settings, setSettings] = useState<TeamSettings | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [confirmingRemove, setConfirmingRemove] = useState<string | null>(null);
@@ -44,10 +45,12 @@ export function TeamPage() {
       const members = await api<MembersResponse>(`/teams/${teamId}/members`);
       setData(members);
       if (members.me.role !== "member") {
-        const [inv, ppl] = await Promise.all([
+        const [inv, ppl, st] = await Promise.all([
           api<{ invites: PendingInvite[] }>(`/teams/${teamId}/invites`),
           api<{ people: Person[] }>(`/teams/${teamId}/people`),
+          api<{ settings: TeamSettings | null }>(`/teams/${teamId}/settings`),
         ]);
+        setSettings(st.settings);
         setInvites(inv.invites);
         setContacts(ppl.people.filter((p): p is Extract<Person, { kind: "contact" }> => p.kind === "contact"));
       } else {
@@ -110,6 +113,8 @@ export function TeamPage() {
     <>
       <InviteLink
         teamId={teamId}
+        enabled={settings?.inviteLinkEnabled ?? true}
+        needsLettingIn={settings?.linkRequiresApproval ?? true}
         activeLink={invites.find((i) => i.channel === "link") ?? null}
         onTurnOff={(id) => act(id, () => api(`/teams/${teamId}/invites/${id}`, { method: "DELETE" }), "The invite link has been turned off.")}
         onChanged={load}
@@ -181,6 +186,8 @@ export function TeamPage() {
         <InviteByEmail
           teamId={teamId}
           myRole={me.role}
+          defaultRole={settings?.inviteDefaultRole ?? "member"}
+          expiryDays={settings?.inviteExpiryDays ?? 7}
           onInvited={async (email) => {
             toast.success(`Invitation sent to ${email}`);
             await load();

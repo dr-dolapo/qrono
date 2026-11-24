@@ -42,7 +42,10 @@ export function TemplatePicker({ teamId, eventId, onUse, onClose }: { teamId: st
           {templates.map((t) => (
             <li key={t.eventId}>
               <button type="button" className="template-option" disabled={busy !== null} onClick={() => use(t.eventId)}>
-                <strong>{t.name}</strong>
+                <strong>
+                  {t.name}
+                  {t.pinned && <span className="pin-tag">Pinned</span>}
+                </strong>
                 <span className="muted small">
                   {formatLongDate(t.startAt, t.timezone)} · {t.items} item{t.items === 1 ? "" : "s"} · {durationLabel(t.minutes)}
                 </span>

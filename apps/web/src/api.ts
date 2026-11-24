@@ -46,6 +46,8 @@ export interface TeamSummary {
   name: string;
   /** Time zone new events use (a team setting). */
   timezone: string;
+  clockFormat: "12h" | "24h";
+  weekStart: "monday" | "sunday";
   role: Role;
   status: "pending_vetting" | "active" | "removed";
 }
@@ -162,6 +164,7 @@ export interface EventDetail {
     canEdit: boolean;
     canManage: boolean;
     canSubmit: boolean;
+    canPublish: boolean;
     canWithdraw: boolean;
     canApprove: boolean;
     canComment: boolean;
@@ -173,6 +176,7 @@ export interface EventDetail {
     participant: { id: string; response: Participant["response"]; declineReason: string | null } | null;
   };
   approvers: { userId: string; name: string; approvedAt: string | null }[];
+  team: EventTeamInfo;
   comments: TaskComment[];
   stages: Stage[];
   tasks: Task[];
@@ -182,6 +186,9 @@ export interface EventDetail {
 
 export interface GuestProgram {
   teamName: string;
+  teamLogoUrl: string | null;
+  venue: string | null;
+  clockFormat: "12h" | "24h";
   event: { name: string; description: string | null; startAt: string; endAt: string; timezone: string; status: EventStatus };
   me: { name: string; response: Participant["response"]; declineReason: string | null };
   program: { id: string; title: string; durationMinutes: number; startAt: string; endAt: string; mine: boolean }[];
@@ -206,6 +213,8 @@ export interface Template {
   timezone: string;
   items: number;
   minutes: number;
+  /** Pinned to the top in Settings → Agenda library. */
+  pinned?: boolean;
 }
 
 /**
@@ -220,3 +229,46 @@ export const AGENDA_DURATIONS: readonly number[] = [
   105,
   120,
 ];
+
+/** Team-wide settings (Settings page; Approvers and Admins). */
+export interface TeamSettings {
+  name: string;
+  logo: string | null;
+  defaultVenue: string | null;
+  timezone: string;
+  clockFormat: "12h" | "24h";
+  weekStart: "monday" | "sunday";
+  defaultStartTime: string | null;
+  defaultProgression: "auto" | "manual";
+  requireApproval: boolean;
+  allowSelfApproval: boolean;
+  defaultApproverIds: string[];
+  remindersEnabled: boolean;
+  reminderOffsets: number[];
+  inviteDefaultRole: "admin" | "member";
+  inviteExpiryDays: number;
+  inviteLinkEnabled: boolean;
+  linkRequiresApproval: boolean;
+  liveWarningMinutes: number;
+  liveShowNames: boolean;
+}
+
+export interface SettingsResponse {
+  canEdit: boolean;
+  canDeleteTeam: boolean;
+  me: { reminderEmails: boolean };
+  remindersEnabled: boolean;
+  settings: TeamSettings | null;
+}
+
+/** Team rules and display choices sent with each event. */
+export interface EventTeamInfo {
+  name: string;
+  clockFormat: "12h" | "24h";
+  venue: string | null;
+  requireApproval: boolean;
+  allowSelfApproval: boolean;
+  liveWarningMinutes: number;
+  liveShowNames: boolean;
+  submittedBy: string | null;
+}

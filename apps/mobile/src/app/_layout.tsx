@@ -62,6 +62,7 @@ function RootStack() {
           <Stack.Screen name="events/[id]/index" options={{ headerShown: true, title: "", headerBackTitle: "Events" }} />
           <Stack.Screen name="events/[id]/live" options={{ headerShown: true, title: "Live", headerBackTitle: "Program" }} />
           <Stack.Screen name="events/[id]/tasks/[taskId]" options={{ headerShown: true, title: "Task", headerBackTitle: "Program" }} />
+          <Stack.Screen name="settings" options={{ headerShown: true, title: "", headerBackTitle: "Events" }} />
         </Stack.Protected>
         <Stack.Protected guard={!signedIn}>
           <Stack.Screen name="login" />

@@ -43,11 +43,11 @@ function EventRow({ e }: { e: EventSummary }) {
   );
 }
 
-/** Start and end of this week (Monday to Sunday) in the viewer's time. */
-function thisWeek(now = new Date()) {
+/** Start and end of this week in the viewer's time, starting on the team's chosen day. */
+function thisWeek(weekStart: "monday" | "sunday", now = new Date()) {
   const start = new Date(now);
   start.setHours(0, 0, 0, 0);
-  start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
+  start.setDate(start.getDate() - (weekStart === "sunday" ? start.getDay() : (start.getDay() + 6) % 7));
   const end = new Date(start);
   end.setDate(end.getDate() + 7);
   return { start, end };
@@ -77,7 +77,7 @@ export function EventsList() {
   const upcoming = events.filter((e) => e.status !== "past");
   const past = events.filter((e) => e.status === "past").reverse();
   const waiting = events.filter((e) => e.awaitingMyApproval && !dismissed.includes(e.id));
-  const week = thisWeek();
+  const week = thisWeek(currentTeam!.weekStart ?? "monday");
   const thisWeeksEvents = upcoming.filter((e) => Date.parse(e.startAt) >= week.start.getTime() && Date.parse(e.startAt) < week.end.getTime());
   const missingEmails = upcoming.reduce((n, e) => n + e.missingEmailCount, 0);
   const inReview = upcoming.filter((e) => e.status === "review").length;

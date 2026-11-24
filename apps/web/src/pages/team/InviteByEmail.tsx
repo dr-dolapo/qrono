@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ROLE_LABEL, api, type Role } from "../../api";
 import { Alert } from "../../components/Form";
 import { useForm } from "../../useForm";
@@ -7,14 +7,19 @@ import { useForm } from "../../useForm";
 export function InviteByEmail({
   teamId,
   myRole,
+  defaultRole,
+  expiryDays,
   onInvited,
 }: {
   teamId: string;
   myRole: Role;
+  defaultRole: Role;
+  expiryDays: number;
   onInvited: (email: string) => Promise<void>;
 }) {
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState<Role>("member");
+  const [role, setRole] = useState<Role>(defaultRole);
+  useEffect(() => setRole(defaultRole), [defaultRole]);
   const form = useForm();
   const roles: Role[] = myRole === "approver" ? ["member", "admin", "approver"] : ["member", "admin"];
 
@@ -22,7 +27,7 @@ export function InviteByEmail({
     await api(`/teams/${teamId}/invites`, { body: { email, role } });
     const sentTo = email.trim().toLowerCase();
     setEmail("");
-    setRole("member");
+    setRole(defaultRole);
     await onInvited(sentTo);
   });
 
@@ -31,7 +36,7 @@ export function InviteByEmail({
       <div className="section-head">
         <h2 id="invite-heading">Invite by email</h2>
       </div>
-      <p>They'll get an email with a link to join. Invitations last 7 days.</p>
+      <p>They'll get an email with a link to join. Invitations last {expiryDays} days.</p>
       <form onSubmit={submit} noValidate className="invite-row">
         <label className="visually-hidden" htmlFor="invite-email">
           Email address

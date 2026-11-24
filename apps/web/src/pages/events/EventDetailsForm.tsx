@@ -26,6 +26,7 @@ function clockLabel(hhmm: string): string {
  */
 export function EventDetailsForm({
   initial,
+  defaultTime,
   timeZone,
   canChangeZone,
   submitLabel,
@@ -34,6 +35,8 @@ export function EventDetailsForm({
   startLocked = false,
 }: {
   initial?: EventDetailsValues;
+  /** The team's usual start time ("18:00"), filled in on new events. */
+  defaultTime?: string | null;
   /** The zone times are entered in: the team's for a new event, the event's own when editing. */
   timeZone: string;
   /** Show a link to Settings, where the team's time zone is changed. */
@@ -48,7 +51,7 @@ export function EventDetailsForm({
   const [name, setName] = useState(initial?.name ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
   const [day, setDay] = useState(initialWall.slice(0, 10));
-  const [time, setTime] = useState(initialWall.slice(11, 16));
+  const [time, setTime] = useState(initialWall.slice(11, 16) || defaultTime || "");
   const form = useForm();
 
   // "Now" in the event's time zone, to keep the day and time from being in the past.

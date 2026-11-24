@@ -52,7 +52,7 @@ export const teams = new Hono<AppEnv>()
   /** QR010: every team the user belongs to (including requests still waiting for approval). */
   .get("/", async (c) => {
     const { results } = await c.env.DB.prepare(
-      `SELECT t.id, t.name, t.timezone, m.role, m.status
+      `SELECT t.id, t.name, t.timezone, t.clock_format AS clockFormat, t.week_start AS weekStart, m.role, m.status
          FROM team_memberships m JOIN teams t ON t.id = m.team_id
         WHERE m.user_id = ? AND m.status <> 'removed'
         ORDER BY t.created_at`,
@@ -60,28 +60,6 @@ export const teams = new Hono<AppEnv>()
       .bind(currentUser(c).id)
       .all();
     return c.json({ teams: results });
-  })
-
-  // ───────────── Settings ─────────────
-
-  /** Team-wide settings. Everyone on the team can read them; Approvers and Admins change them. */
-  .get("/:teamId/settings", async (c) => {
-    const teamId = c.req.param("teamId");
-    const me = await requireMembership(c, teamId);
-    const team = await c.env.DB.prepare("SELECT name, timezone FROM teams WHERE id = ?").bind(teamId).first<{ name: string; timezone: string }>();
-    return c.json({ settings: { name: team!.name, timezone: team!.timezone }, canEdit: MANAGERS.includes(me.role) });
-  })
-
-  /** Change the team's time zone. New events use it; existing events keep the zone they were planned in. */
-  .patch("/:teamId/settings", json(z.object({ timezone: timezoneField.optional() })), async (c) => {
-    const teamId = c.req.param("teamId");
-    await requireMembership(c, teamId, MANAGERS);
-    const body = c.req.valid("json");
-    if (body.timezone) {
-      await c.env.DB.prepare("UPDATE teams SET timezone = ?, updated_at = ? WHERE id = ?").bind(body.timezone, nowIso(), teamId).run();
-    }
-    const team = await c.env.DB.prepare("SELECT name, timezone FROM teams WHERE id = ?").bind(teamId).first<{ name: string; timezone: string }>();
-    return c.json({ settings: { name: team!.name, timezone: team!.timezone }, canEdit: true });
   })
 
   // ───────────── Members ─────────────
@@ -210,7 +188,8 @@ export const teams = new Hono<AppEnv>()
 
     const token = newSecretToken();
     const inviteId = newId();
-    const expiresAt = days(EMAIL_INVITE_DAYS);
+    const rules = await c.env.DB.prepare("SELECT invite_expiry_days FROM teams WHERE id = ?").bind(teamId).first<{ invite_expiry_days: number }>();
+    const expiresAt = days(rules?.invite_expiry_days ?? EMAIL_INVITE_DAYS);
     await c.env.DB.batch([
       c.env.DB.prepare(
         "UPDATE team_invites SET status = 'revoked', updated_at = ? WHERE team_id = ? AND channel = 'email' AND recipient = ? AND status = 'pending'",
@@ -239,6 +218,8 @@ export const teams = new Hono<AppEnv>()
   .post("/:teamId/invite-link", async (c) => {
     const teamId = c.req.param("teamId");
     const me = await requireMembership(c, teamId, MANAGERS);
+    const rules = await c.env.DB.prepare("SELECT invite_link_enabled FROM teams WHERE id = ?").bind(teamId).first<{ invite_link_enabled: number }>();
+    if (rules?.invite_link_enabled === 0) fail(409, "The invite link is turned off for this team. Turn it on in Settings.", { code: "invite_link_disabled" });
     const token = newSecretToken();
     const expiresAt = days(LINK_INVITE_DAYS);
     await c.env.DB.batch([

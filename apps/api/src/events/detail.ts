@@ -1,6 +1,7 @@
 import type { Context } from "hono";
 import type { AppEnv } from "../env";
 import type { EventAccess } from "./access";
+import { loadTeam } from "../teams/settings";
 import { buildSchedule } from "./schedule";
 
 interface StageRow {
@@ -142,6 +143,19 @@ export async function eventDetail(c: Context<AppEnv>, access: EventAccess) {
   ]);
   const myParticipant = participants.results.find((p) => p.user_id === me.id) ?? null;
   const iAmChosenApprover = approvers.results.some((a) => a.user_id === me.id);
+  const team = (await loadTeam(db, event.team_id))!;
+  const requireApproval = team.require_approval === 1;
+  // Who sent it for review, for the "can't approve your own" rule.
+  const submittedBy =
+    event.status === "review"
+      ? ((
+          await db
+            .prepare("SELECT changed_by FROM event_status_changes WHERE event_id = ? AND to_status = 'review' ORDER BY changed_at DESC, rowid DESC LIMIT 1")
+            .bind(event.id)
+            .first<{ changed_by: string | null }>()
+        )?.changed_by ?? null)
+      : null;
+  const selfBlocked = team.allow_self_approval !== 1 && submittedBy === me.id;
 
   const schedule = buildSchedule(
     event.start_at,
@@ -168,12 +182,25 @@ export async function eventDetail(c: Context<AppEnv>, access: EventAccess) {
       createdAt: event.created_at,
       updatedAt: event.updated_at,
     },
+    /** Team settings that shape how this event is shown and run. */
+    team: {
+      name: team.name,
+      clockFormat: team.clock_format,
+      venue: team.default_venue,
+      requireApproval,
+      allowSelfApproval: team.allow_self_approval === 1,
+      liveWarningMinutes: team.live_warning_minutes,
+      liveShowNames: team.live_show_names === 1,
+      submittedBy,
+    },
     permissions: {
       canEdit: access.canManage && (event.status === "draft" || event.status === "approved" || event.status === "live"),
       canManage: access.canManage,
-      canSubmit: access.canManage && event.status === "draft" && tasks.length > 0,
+      canSubmit: requireApproval && access.canManage && event.status === "draft" && tasks.length > 0,
+      /** When the team doesn't require approval, Approvers and Admins publish drafts directly. */
+      canPublish: !requireApproval && access.canManage && event.status === "draft" && tasks.length > 0,
       canWithdraw: access.canManage && event.status === "review",
-      canApprove: event.status === "review" && iAmChosenApprover && access.role === "approver",
+      canApprove: event.status === "review" && iAmChosenApprover && access.role === "approver" && !selfBlocked,
       canComment: true,
       canRespond: myParticipant !== null && (event.status === "approved" || event.status === "live"),
       canRunLive: access.canManage && (event.status === "approved" || event.status === "live"),
