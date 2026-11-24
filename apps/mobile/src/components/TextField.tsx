@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { Ref } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import type { TextInputInstance, TextInputProps } from "react-native";
-import { colors, radius, space } from "../theme";
+import { colors, font, radius, space } from "../theme";
 
 interface Props extends Omit<TextInputProps, "ref"> {
   ref?: Ref<TextInputInstance>;
@@ -50,7 +50,7 @@ export function TextField({ ref, label, error, secret, style, ...input }: Props)
 
 const styles = StyleSheet.create({
   wrap: { gap: space.xs },
-  label: { color: colors.text, fontSize: 14, fontWeight: "600" },
+  label: { color: colors.text, fontSize: 14, ...font("600") },
   box: {
     flexDirection: "row",
     alignItems: "center",
@@ -61,8 +61,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   boxError: { borderColor: colors.danger },
-  input: { flex: 1, color: colors.text, fontSize: 16, paddingHorizontal: space.md, paddingVertical: space.md },
+  input: { flex: 1, color: colors.text, fontSize: 16, ...font("400"), paddingHorizontal: space.md, paddingVertical: space.md },
   toggle: { paddingHorizontal: space.md, minHeight: 44, justifyContent: "center" },
-  toggleText: { color: colors.accent, fontSize: 14, fontWeight: "600" },
-  error: { color: colors.danger, fontSize: 13 },
+  toggleText: { color: colors.accent, fontSize: 14, ...font("600") },
+  error: { color: colors.danger, fontSize: 13 , ...font("400")},
 });

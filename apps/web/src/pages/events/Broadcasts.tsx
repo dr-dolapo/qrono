@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { ApiError, api, type EventDetail } from "../../api";
 import { Alert } from "../../components/Form";
+import { toast } from "sonner";
+import clsx from "clsx";
 
 type Reply = "none" | "acknowledged" | "snoozed" | "done";
 
@@ -22,7 +24,7 @@ interface SentBroadcast {
   receipts: { userId: string; name: string; response: Reply; respondedAt: string | null; snoozeUntil: string | null; snoozeCount: number }[];
 }
 
-const time = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+const time = (iso: string) => new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 
 /** Reload signal: bump to refetch after a live message. */
 export function useBroadcastSignal() {
@@ -117,7 +119,6 @@ export function BroadcastPanel({ detail, version }: { detail: EventDetail; versi
   const [chosen, setChosen] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
   const [open, setOpen] = useState<string | null>(null);
 
   useEffect(() => {
@@ -132,12 +133,11 @@ export function BroadcastPanel({ detail, version }: { detail: EventDetail; versi
   async function send() {
     setBusy(true);
     setError(null);
-    setNotice(null);
     try {
       const res = await api<{ broadcast: { id: string; recipients: number } }>(`/events/${eventId}/broadcasts`, {
         body: audience === "everyone" ? { body, audience } : { body, audience, participantIds: chosen },
       });
-      setNotice(`Sent to ${res.broadcast.recipients} ${res.broadcast.recipients === 1 ? "person" : "people"}.`);
+      toast.success(`Broadcast sent to ${res.broadcast.recipients} ${res.broadcast.recipients === 1 ? "person" : "people"}`);
       setBody("");
       setChosen([]);
       const r = await api<{ broadcasts: SentBroadcast[] }>(`/events/${eventId}/broadcasts`);
@@ -156,7 +156,6 @@ export function BroadcastPanel({ detail, version }: { detail: EventDetail; versi
 
       <div className="card-panel broadcast-composer">
         <Alert>{error}</Alert>
-        {notice && <Alert kind="success">{notice}</Alert>}
         <div className="field">
           <label htmlFor="broadcast-body">Message</label>
           <textarea id="broadcast-body" rows={2} maxLength={280} value={body} onChange={(e) => setBody(e.target.value)} placeholder="e.g. Keynote speaker to the stage in 5 minutes" />
@@ -165,11 +164,11 @@ export function BroadcastPanel({ detail, version }: { detail: EventDetail; versi
         <fieldset className="assignee-picker">
           <legend>Send to</legend>
           <div className="chips">
-            <label className={`chip ${audience === "everyone" ? "chip-on" : ""}`}>
+            <label className={clsx("chip", audience === "everyone" && "chip-on")}>
               <input type="radio" name="audience" checked={audience === "everyone"} onChange={() => setAudience("everyone")} />
               Everyone on the event
             </label>
-            <label className={`chip ${audience === "participants" ? "chip-on" : ""}`}>
+            <label className={clsx("chip", audience === "participants" && "chip-on")}>
               <input type="radio" name="audience" checked={audience === "participants"} onChange={() => setAudience("participants")} />
               Choose people
             </label>
@@ -180,7 +179,7 @@ export function BroadcastPanel({ detail, version }: { detail: EventDetail; versi
               {people.map((p) => {
                 const on = chosen.includes(p.id);
                 return (
-                  <label key={p.id} className={`chip ${on ? "chip-on" : ""}`}>
+                  <label key={p.id} className={clsx("chip", on && "chip-on")}>
                     <input type="checkbox" checked={on} onChange={() => setChosen((c) => (on ? c.filter((x) => x !== p.id) : [...c, p.id]))} />
                     {p.name}
                   </label>

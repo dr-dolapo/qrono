@@ -2,7 +2,7 @@ import * as Updates from "expo-updates";
 import { useEffect } from "react";
 import { AppState, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { colors, radius, space } from "../theme";
+import { colors, font, radius, space } from "../theme";
 
 /**
  * Over-the-air updates for installed builds. The app checks on launch (built into
@@ -61,7 +61,7 @@ const styles = StyleSheet.create({
     paddingLeft: space.lg,
     paddingRight: space.sm,
   },
-  text: { color: colors.text, fontSize: 14, flex: 1 },
+  text: { color: colors.text, fontSize: 14, ...font("400"), flex: 1 },
   button: { backgroundColor: colors.accent, borderRadius: radius.md, minHeight: 44, paddingHorizontal: space.lg, justifyContent: "center" },
-  buttonText: { color: colors.onAccent, fontSize: 15, fontWeight: "700" },
+  buttonText: { color: colors.onAccent, fontSize: 15, ...font("700") },
 });

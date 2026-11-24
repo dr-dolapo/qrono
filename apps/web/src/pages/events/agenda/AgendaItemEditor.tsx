@@ -3,6 +3,7 @@ import { ApiError, type Task } from "../../../api";
 import { DurationSelect } from "./DurationSelect";
 import { WhatField } from "./WhatField";
 import { WhoPicker, type PickerPerson, type WhoRef } from "./WhoPicker";
+import clsx from "clsx";
 
 export interface AgendaItemValues {
   title: string;
@@ -84,7 +85,7 @@ export function AgendaItemEditor({
         </div>
         <button
           type="submit"
-          className={`agenda-save ${complete ? "is-ready" : ""}`}
+          className={clsx("agenda-save", complete && "is-ready")}
           aria-label={complete ? "Save item" : "Save item (fill in What, Duration and Who first)"}
           aria-disabled={!complete || busy}
         >

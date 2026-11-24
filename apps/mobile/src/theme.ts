@@ -27,3 +27,19 @@ export const backdrop = {
   backgroundColor: colors.background,
   experimental_backgroundImage: "linear-gradient(180deg, #000000 0%, #020003 30%, #040106 60%, #050108 100%)",
 } as const;
+
+const INTER = {
+  "400": "Inter_400Regular",
+  "500": "Inter_500Medium",
+  "600": "Inter_600SemiBold",
+  "700": "Inter_700Bold",
+  "800": "Inter_800ExtraBold",
+} as const;
+
+/**
+ * Inter at a given weight. Custom fonts ignore fontWeight on Android, so each weight is its own family.
+ * Spread it into a text style: `{ fontSize: 16, ...font("600") }`.
+ */
+export function font(weight: keyof typeof INTER = "400") {
+  return { fontFamily: INTER[weight] };
+}

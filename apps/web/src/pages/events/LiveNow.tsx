@@ -1,7 +1,9 @@
 import { useEffect } from "react";
 import type { EventDetail } from "../../api";
 import { useClock } from "../../useClock";
-import { formatCountdown, formatStartsIn, liveView, type LiveConnection, type LiveState } from "../../useLiveEvent";
+import { formatStartsIn, liveView, type LiveConnection, type LiveState } from "../../useLiveEvent";
+import { Countdown } from "../../components/Countdown";
+import clsx from "clsx";
 
 /**
  * QR023–QR025 on the web: while an event is approved or live, everyone on it
@@ -53,8 +55,8 @@ export function LiveNow({
           {view.current && mineIds.has(view.current.id) && <span className="badge"> You</span>}
         </strong>
         {view.current && (
-          <span className={`small ${overrun ? "live-over" : "muted"}`}>
-            {overrun ? `${formatCountdown(view.remainingMs!)} over time` : `${formatCountdown(view.remainingMs!)} left`}
+          <span className={clsx("small", overrun ? "live-over" : "muted")}>
+            <Countdown ms={view.remainingMs!} /> {overrun ? "over time" : "left"}
           </span>
         )}
       </div>

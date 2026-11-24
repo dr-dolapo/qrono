@@ -12,6 +12,7 @@ import { LiveNow } from "./LiveNow";
 import { MyPart } from "./MyPart";
 import { PeopleSection } from "./PeopleSection";
 import { ReviewPanel } from "./ReviewPanel";
+import { toast } from "sonner";
 
 /** Runs an API call that returns the updated event, and reports errors. */
 export type Mutate = (path: string, method: string, body?: unknown) => Promise<EventDetail & { [k: string]: unknown }>;
@@ -129,6 +130,7 @@ export function EventEditor() {
                     onClick={async () => {
                       try {
                         await api(`/events/${eventId}`, { method: "DELETE" });
+                        toast.success("Draft deleted");
                         navigate("/admin", { replace: true });
                       } catch (err) {
                         setError(err instanceof ApiError ? err.message : "Couldn't delete the event.");

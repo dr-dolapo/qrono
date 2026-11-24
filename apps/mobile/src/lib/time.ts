@@ -3,17 +3,19 @@
  * whatever time zone the phone is in, matching the web app.
  */
 
-function format(iso: string, timeZone: string, options: Intl.DateTimeFormatOptions): string {
+function format(iso: string, timeZone: string, options: Intl.DateTimeFormatOptions, locale?: string): string {
   const date = new Date(iso);
   try {
-    return new Intl.DateTimeFormat(undefined, { ...options, timeZone }).format(date);
+    return new Intl.DateTimeFormat(locale, { ...options, timeZone }).format(date);
   } catch {
     // An unknown time zone shouldn't break the screen: fall back to the phone's own.
-    return new Intl.DateTimeFormat(undefined, options).format(date);
+    return new Intl.DateTimeFormat(locale, options).format(date);
   }
 }
 
-export const formatTime = (iso: string, tz: string) => format(iso, tz, { hour: "2-digit", minute: "2-digit" });
+/** "6:00 PM", the same format as the web app. */
+export const formatTime = (iso: string, tz: string) =>
+  format(iso, tz, { hour: "numeric", minute: "2-digit", hour12: true }, "en-US");
 export const formatDate = (iso: string, tz: string) =>
   format(iso, tz, { weekday: "short", day: "numeric", month: "short", year: "numeric" });
 const dayKey = (iso: string, tz: string) => format(iso, tz, { year: "numeric", month: "2-digit", day: "2-digit" });

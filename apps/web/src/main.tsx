@@ -1,3 +1,4 @@
+import "@fontsource-variable/inter";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { Outlet, RouterProvider, createBrowserRouter } from "react-router";
@@ -21,6 +22,7 @@ import { InvitePage } from "./pages/team/InvitePage";
 import { TeamPage } from "./pages/team/TeamPage";
 import { WaitingPage } from "./pages/team/WaitingPage";
 import "./styles.css";
+import { Toaster } from "sonner";
 
 function Root() {
   return (
@@ -67,5 +69,6 @@ const router = createBrowserRouter([
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <RouterProvider router={router} />
+    <Toaster theme="dark" position="bottom-right" toastOptions={{ className: "qrono-toast" }} />
   </StrictMode>,
 );

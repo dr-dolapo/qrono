@@ -5,7 +5,7 @@ import { Button } from "../components/Button";
 import { Screen } from "../components/Screen";
 import { TextField } from "../components/TextField";
 import { ApiError, api } from "../lib/api";
-import { colors, space } from "../theme";
+import { colors, font, space } from "../theme";
 
 /** QR005: ask for a reset link. The link opens the web page where the new password is set. */
 export default function ForgotPassword() {
@@ -72,7 +72,7 @@ export default function ForgotPassword() {
 }
 
 const styles = StyleSheet.create({
-  title: { color: colors.text, fontSize: 24, fontWeight: "700" },
-  body: { color: colors.muted, fontSize: 16, lineHeight: 23 },
+  title: { color: colors.text, fontSize: 24, ...font("700") },
+  body: { color: colors.muted, fontSize: 16, ...font("400"), lineHeight: 23 },
   actions: { marginTop: space.sm },
 });

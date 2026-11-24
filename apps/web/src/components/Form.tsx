@@ -1,4 +1,5 @@
 import { Children, useId, type InputHTMLAttributes, type ReactNode } from "react";
+import { Logo } from "./Logo";
 
 interface TextFieldProps extends Omit<InputHTMLAttributes<HTMLInputElement>, "onChange"> {
   label: string;
@@ -59,7 +60,7 @@ export function AuthLayout({ title, subtitle, children }: { title: string; subti
   return (
     <main className="auth-shell">
       <div className="auth-card">
-        <p className="brand auth-brand">Qrono</p>
+        <p className="auth-brand"><Logo size={32} /></p>
         <h1>{title}</h1>
         {subtitle && <p className="muted auth-subtitle">{subtitle}</p>}
         {children}

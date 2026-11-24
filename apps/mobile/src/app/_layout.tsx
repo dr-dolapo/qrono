@@ -1,3 +1,9 @@
+import { useFonts } from "expo-font";
+import { Inter_400Regular } from "@expo-google-fonts/inter/400Regular";
+import { Inter_500Medium } from "@expo-google-fonts/inter/500Medium";
+import { Inter_600SemiBold } from "@expo-google-fonts/inter/600SemiBold";
+import { Inter_700Bold } from "@expo-google-fonts/inter/700Bold";
+import { Inter_800ExtraBold } from "@expo-google-fonts/inter/800ExtraBold";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { View } from "react-native";
@@ -5,9 +11,19 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AuthProvider, useAuth } from "../auth/AuthProvider";
 import { UpdateBanner } from "../components/UpdateBanner";
 import { NotificationRouter } from "../notifications/NotificationRouter";
-import { backdrop, colors } from "../theme";
+import { backdrop, colors, font } from "../theme";
 
 export default function RootLayout() {
+  // Inter ships inside the app bundle, so this resolves almost instantly and works offline.
+  const [fontsLoaded, fontError] = useFonts({
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_600SemiBold,
+    Inter_700Bold,
+    Inter_800ExtraBold,
+  });
+  if (!fontsLoaded && !fontError) return <View style={backdrop} />;
+
   return (
     <SafeAreaProvider>
       <AuthProvider>
@@ -36,6 +52,8 @@ function RootStack() {
           contentStyle: { backgroundColor: "transparent" },
           headerStyle: { backgroundColor: colors.background },
           headerTintColor: colors.text,
+          headerTitleStyle: { ...font("600"), fontSize: 17 },
+          headerBackTitleStyle: { ...font("400") },
           headerShadowVisible: false,
         }}
       >

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Alert, StyleSheet, Text, View } from "react-native";
 import { Button } from "../components/Button";
 import { ApiError, api } from "../lib/api";
-import { colors, radius, space } from "../theme";
+import { colors, font, radius, space } from "../theme";
 import type { EventDetail } from "./types";
 
 /**
@@ -80,9 +80,9 @@ export function ApprovalPanel({ data, onApproved }: { data: EventDetail; onAppro
 const styles = StyleSheet.create({
   panel: { marginTop: space.md, backgroundColor: colors.warningSurface, borderRadius: radius.lg, padding: space.lg, gap: space.sm },
   done: { backgroundColor: colors.liveSurface },
-  title: { color: colors.warningText, fontSize: 17, fontWeight: "700" },
-  body: { color: colors.text, fontSize: 15, lineHeight: 21 },
-  muted: { color: colors.muted, fontSize: 14, lineHeight: 20 },
-  warning: { color: colors.warningText, fontSize: 14, fontWeight: "600" },
-  error: { color: colors.danger, fontSize: 14 },
+  title: { color: colors.warningText, fontSize: 17, ...font("700") },
+  body: { color: colors.text, fontSize: 15, ...font("400"), lineHeight: 21 },
+  muted: { color: colors.muted, fontSize: 14, ...font("400"), lineHeight: 20 },
+  warning: { color: colors.warningText, fontSize: 14, ...font("600") },
+  error: { color: colors.danger, fontSize: 14 , ...font("400")},
 });

@@ -38,8 +38,9 @@ export function toZonedInput(iso: string, timeZone: string): string {
   return local.toISOString().slice(0, 16);
 }
 
+/** "6:00 PM", in the event's time zone. One format everywhere in the app. */
 export function formatTime(iso: string, timeZone: string): string {
-  return new Date(iso).toLocaleTimeString([], { timeZone, hour: "2-digit", minute: "2-digit" });
+  return new Intl.DateTimeFormat("en-US", { timeZone, hour: "numeric", minute: "2-digit", hour12: true }).format(new Date(iso));
 }
 
 export function formatDate(iso: string, timeZone: string): string {
@@ -111,12 +112,12 @@ function zoneAbbreviation(iso: string, timeZone: string): string {
   return fallback;
 }
 
-/** "6:00PM", in the event's time zone. */
+/** "6:00 PM", in the event's time zone. */
 export function formatShortClock(iso: string, timeZone: string): string {
-  return new Intl.DateTimeFormat("en-US", { timeZone, hour: "numeric", minute: "2-digit", hour12: true }).format(new Date(iso)).replace(/\s/g, "");
+  return formatTime(iso, timeZone);
 }
 
-/** "6:00PM WAT", in the event's time zone. */
+/** "6:00 PM WAT", in the event's time zone. */
 export function formatClockWithZone(iso: string, timeZone: string): string {
   return `${formatShortClock(iso, timeZone)} ${zoneAbbreviation(iso, timeZone)}`.trim();
 }

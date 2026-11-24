@@ -8,7 +8,7 @@ import type { EventDetail } from "../../../../events/types";
 import { ApiError, api } from "../../../../lib/api";
 import { formatDate, formatDuration, formatTime } from "../../../../lib/time";
 import { useApi } from "../../../../lib/useApi";
-import { colors, radius, space } from "../../../../theme";
+import { colors, font, radius, space } from "../../../../theme";
 
 /** One task with its comments (QR013, QR026, QR031). Comments are private to the event's team and participants. */
 export default function TaskScreen() {
@@ -138,19 +138,19 @@ export default function TaskScreen() {
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "transparent" },
   header: { gap: 6, marginBottom: space.sm },
-  title: { color: colors.text, fontSize: 24, fontWeight: "800" },
-  when: { color: colors.text, fontSize: 16, fontVariant: ["tabular-nums"] },
-  muted: { color: colors.muted, fontSize: 13, lineHeight: 18 },
-  people: { color: colors.accent, fontSize: 14, fontWeight: "600" },
-  description: { color: colors.text, fontSize: 15, lineHeight: 22, marginTop: space.xs },
-  heading: { color: colors.text, fontSize: 20, fontWeight: "700", marginTop: space.md },
-  empty: { color: colors.muted, fontSize: 15 },
+  title: { color: colors.text, fontSize: 24, ...font("800") },
+  when: { color: colors.text, fontSize: 16, ...font("400"), fontVariant: ["tabular-nums"] },
+  muted: { color: colors.muted, fontSize: 13, ...font("400"), lineHeight: 18 },
+  people: { color: colors.accent, fontSize: 14, ...font("600") },
+  description: { color: colors.text, fontSize: 15, ...font("400"), lineHeight: 22, marginTop: space.xs },
+  heading: { color: colors.text, fontSize: 20, ...font("700"), marginTop: space.md },
+  empty: { color: colors.muted, fontSize: 15 , ...font("400")},
   comment: { backgroundColor: colors.surface, borderRadius: radius.md, padding: space.md, gap: 4 },
   commentMine: { backgroundColor: colors.mineSurface },
   commentTop: { flexDirection: "row", justifyContent: "space-between", gap: space.sm },
-  author: { color: colors.text, fontSize: 14, fontWeight: "700", flexShrink: 1 },
-  stamp: { color: colors.muted, fontSize: 12 },
-  body: { color: colors.text, fontSize: 15, lineHeight: 21 },
+  author: { color: colors.text, fontSize: 14, ...font("700"), flexShrink: 1 },
+  stamp: { color: colors.muted, fontSize: 12 , ...font("400")},
+  body: { color: colors.text, fontSize: 15, ...font("400"), lineHeight: 21 },
   composer: { gap: space.sm, marginTop: space.md },
   input: { minHeight: 88, textAlignVertical: "top" },
 });

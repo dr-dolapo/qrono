@@ -9,7 +9,7 @@ import { Screen } from "../components/Screen";
 import { TextField } from "../components/TextField";
 import { webUrl } from "../config";
 import { ApiError } from "../lib/api";
-import { colors, space } from "../theme";
+import { colors, font, space } from "../theme";
 
 /** QR004 log in, with links to reset a password (QR005) and to sign up on the web (QR043). */
 export default function LogIn() {
@@ -107,8 +107,8 @@ export default function LogIn() {
 const styles = StyleSheet.create({
   brand: { alignItems: "center", gap: space.md, marginBottom: space.md },
   mark: { width: 96, height: 96 },
-  title: { color: colors.text, fontSize: 26, fontWeight: "700" },
-  formError: { color: colors.danger, fontSize: 14 },
+  title: { color: colors.text, fontSize: 26, ...font("700") },
+  formError: { color: colors.danger, fontSize: 14 , ...font("400")},
   signup: { marginTop: space.xl, gap: space.sm, alignItems: "stretch" },
-  muted: { color: colors.muted, fontSize: 14, textAlign: "center" },
+  muted: { color: colors.muted, fontSize: 14, ...font("400"), textAlign: "center" },
 });

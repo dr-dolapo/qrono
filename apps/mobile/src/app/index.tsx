@@ -8,7 +8,7 @@ import type { MyEvent } from "../events/types";
 import { ApiError, api } from "../lib/api";
 import { useApi } from "../lib/useApi";
 import { useNow } from "../lib/useNow";
-import { colors, radius, space } from "../theme";
+import { colors, font, radius, space } from "../theme";
 
 const PAST_SHOWN = 10;
 
@@ -150,9 +150,9 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "transparent" },
   content: { padding: space.xl, paddingBottom: space.xxl, flexGrow: 1 },
   header: { gap: space.lg, marginBottom: space.sm },
-  brand: { color: colors.text, fontSize: 30, fontWeight: "800" },
-  sectionTitle: { color: colors.muted, fontSize: 13, fontWeight: "700", letterSpacing: 0.6, textTransform: "uppercase", marginTop: space.xl, marginBottom: space.md },
-  muted: { color: colors.muted, fontSize: 13 },
+  brand: { color: colors.text, fontSize: 30, ...font("800") },
+  sectionTitle: { color: colors.muted, fontSize: 13, ...font("700"), letterSpacing: 0.6, textTransform: "uppercase", marginTop: space.xl, marginBottom: space.md },
+  muted: { color: colors.muted, fontSize: 13 , ...font("400")},
   card: {
     backgroundColor: colors.surface,
     borderColor: colors.border,
@@ -162,11 +162,11 @@ const styles = StyleSheet.create({
     gap: space.sm,
     marginTop: space.lg,
   },
-  cardTitle: { color: colors.text, fontSize: 16, fontWeight: "600" },
-  cardBody: { color: colors.muted, fontSize: 14, lineHeight: 20 },
+  cardTitle: { color: colors.text, fontSize: 16, ...font("600") },
+  cardBody: { color: colors.muted, fontSize: 14, ...font("400"), lineHeight: 20 },
   banner: { backgroundColor: colors.warningSurface, borderRadius: radius.lg, padding: space.lg, gap: space.sm },
-  bannerTitle: { color: colors.warningText, fontSize: 16, fontWeight: "700" },
-  bannerBody: { color: colors.text, fontSize: 14, lineHeight: 20 },
+  bannerTitle: { color: colors.warningText, fontSize: 16, ...font("700") },
+  bannerBody: { color: colors.text, fontSize: 14, ...font("400"), lineHeight: 20 },
   bannerActions: { gap: space.xs, marginTop: space.xs },
   footer: { marginTop: space.xxl, gap: space.md },
 });

@@ -3,7 +3,7 @@ import { Modal, StyleSheet, Text, Vibration, View } from "react-native";
 import { Button } from "../components/Button";
 import { ApiError } from "../lib/api";
 import { formatTime } from "../lib/time";
-import { colors, radius, space } from "../theme";
+import { colors, font, radius, space } from "../theme";
 import { loadMyBroadcasts, replyToBroadcast, type BroadcastReply, type IncomingBroadcast, type MyBroadcast } from "./api";
 
 /**
@@ -135,14 +135,14 @@ export function BroadcastHistory({ items, timezone }: { items: MyBroadcast[]; ti
 const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.7)", justifyContent: "center", padding: space.xl },
   card: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: space.xl, gap: space.sm, borderWidth: 1, borderColor: colors.accent },
-  label: { color: colors.accent, fontSize: 13, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.6 },
-  body: { color: colors.text, fontSize: 22, fontWeight: "700", lineHeight: 29 },
-  meta: { color: colors.muted, fontSize: 13 },
-  error: { color: colors.danger, fontSize: 14 },
+  label: { color: colors.accent, fontSize: 13, ...font("700"), textTransform: "uppercase", letterSpacing: 0.6 },
+  body: { color: colors.text, fontSize: 22, ...font("700"), lineHeight: 29 },
+  meta: { color: colors.muted, fontSize: 13 , ...font("400")},
+  error: { color: colors.danger, fontSize: 14 , ...font("400")},
   actions: { gap: space.sm, marginTop: space.md },
   history: { gap: space.sm, marginTop: space.md },
-  historyTitle: { color: colors.text, fontSize: 18, fontWeight: "700" },
+  historyTitle: { color: colors.text, fontSize: 18, ...font("700") },
   historyItem: { backgroundColor: colors.surface, borderRadius: radius.md, padding: space.md, gap: 4 },
-  historyBody: { color: colors.text, fontSize: 15, lineHeight: 21 },
-  waiting: { color: colors.warningText, fontWeight: "600" },
+  historyBody: { color: colors.text, fontSize: 15, ...font("400"), lineHeight: 21 },
+  waiting: { color: colors.warningText, ...font("600") },
 });

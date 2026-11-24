@@ -2,8 +2,11 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router";
 import { ApiError, api, type EventDetail } from "../api";
 import { useClock } from "../useClock";
-import { formatCountdown, formatStartsIn, liveView, useLiveEvent, type LiveState } from "../useLiveEvent";
+import { formatStartsIn, liveView, useLiveEvent, type LiveState } from "../useLiveEvent";
 import { formatTime } from "../time";
+import { Logo } from "../components/Logo";
+import { Countdown } from "../components/Countdown";
+import clsx from "clsx";
 
 /**
  * The command centre: run full screen on a laptop connected to the HDMI
@@ -65,7 +68,7 @@ export function CommandCentre() {
   if (denied) {
     return (
       <main className="command command-message">
-        <p className="brand">Qrono</p>
+        <p className="brand"><Logo size={24} /></p>
         <p>{denied}</p>
         <Link to={`/admin/events/${eventId}`}>Back to the event</Link>
       </main>
@@ -74,7 +77,7 @@ export function CommandCentre() {
   if (!state) {
     return (
       <main className="command command-message" aria-busy="true">
-        <p className="brand">Qrono</p>
+        <p className="brand"><Logo size={24} /></p>
         <p className="muted">Connecting…</p>
       </main>
     );
@@ -88,9 +91,9 @@ export function CommandCentre() {
   const isLastTask = event.status === "live" && view.current && !view.next;
 
   return (
-    <main className={`command ${overrun ? "command-overrun" : ""}`}>
+    <main className={clsx("command", overrun && "command-overrun")}>
       <header className="command-bar">
-        <span className="brand">Qrono</span>
+        <span className="brand"><Logo size={24} /></span>
         <span className="command-event">{event.name}</span>
         <span className={`status status-${connection}`}>{connection === "connected" ? "Connected" : connection === "connecting" ? "Connecting" : "Reconnecting…"}</span>
         <span className="command-bar-spacer" />
@@ -103,7 +106,7 @@ export function CommandCentre() {
       </header>
 
       <section className="command-clock" aria-label="Current time">
-        {new Date(now).toLocaleTimeString([], { timeZone: tz, hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+        {new Date(now).toLocaleTimeString("en-US", { timeZone: tz, hour: "numeric", minute: "2-digit", second: "2-digit" })}
       </section>
 
       {event.status === "approved" && (
@@ -120,14 +123,15 @@ export function CommandCentre() {
       {event.status === "past" && <section className="command-status">The event has ended.</section>}
 
       <section className="command-grid">
-        <div className={`command-panel command-now ${overrun ? "is-overrun" : ""}`}>
+        <div className={clsx("command-panel command-now", overrun && "is-overrun")}>
           <h2>{event.status === "approved" ? "First up" : "Now"}</h2>
           {event.status === "live" && view.current ? (
             <>
               <p className="command-task">{view.current.title}</p>
               {view.current.assignees.length > 0 && <p className="command-people">{view.current.assignees.join(" · ")}</p>}
-              <p className={`command-countdown ${overrun ? "over" : view.remainingMs! < 60_000 ? "soon" : ""}`}>
-                {overrun ? `+${formatCountdown(view.remainingMs!)} over` : `${formatCountdown(view.remainingMs!)} left`}
+              <p className={clsx("command-countdown", overrun ? "over" : view.remainingMs! < 60_000 && "soon")}>
+                {overrun && "+"}
+                <Countdown ms={view.remainingMs!} /> {overrun ? "over" : "left"}
               </p>
               <div className="command-progress" aria-hidden="true" key={view.current.id}>
                 <div style={{ width: `${Math.round(view.progress * 100)}%` }} />

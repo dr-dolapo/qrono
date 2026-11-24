@@ -3,6 +3,8 @@ import { Link } from "react-router";
 import { ApiError, api, type EventDetail, type Member } from "../../api";
 import { Alert } from "../../components/Form";
 import type { Mutate } from "./EventEditor";
+import { toast } from "sonner";
+import clsx from "clsx";
 
 /**
  * The event's place in the lifecycle (PRD §7) and the next step:
@@ -34,6 +36,12 @@ export function ReviewPanel({ detail, mutate }: { detail: EventDetail; mutate: M
     try {
       await mutate(path, "POST", body);
       setChoosing(false);
+      const done: Record<string, string> = {
+        "/submit": "Sent for review",
+        "/approve": "Approved. Everyone is being emailed their part.",
+        "/withdraw": "Taken back to draft",
+      };
+      if (done[path]) toast.success(done[path]);
     } catch (err) {
       setError(err instanceof ApiError ? (Object.values(err.fields)[0] ?? err.message) : "Something went wrong. Please try again.");
     } finally {
@@ -67,7 +75,7 @@ export function ReviewPanel({ detail, mutate }: { detail: EventDetail; mutate: M
                 {teamApprovers.map((m) => {
                   const on = selected.includes(m.user.id);
                   return (
-                    <label key={m.id} className={`chip ${on ? "chip-on" : ""}`}>
+                    <label key={m.id} className={clsx("chip", on && "chip-on")}>
                       <input
                         type="checkbox"
                         checked={on}
