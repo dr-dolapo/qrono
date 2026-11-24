@@ -169,3 +169,15 @@ eas update --channel production    # a JavaScript-only fix to installed store bu
 ## App icon
 
 The icons in `assets/` are exported from the masters in [`docs/brand/icon`](../../docs/brand/icon).
+
+### When the iPhone app gains an extension (e.g. the Live Activity widget)
+
+Store builds can reuse signing credentials but not create them. After adding an extension,
+or changing an App ID's capabilities:
+
+1. Apple Developer → Certificates, IDs & Profiles → Identifiers. App Groups can't be set
+   with the API key, so do it by hand: create the App Group `group.uk.co.qrono.app`, then
+   on both `uk.co.qrono.app` and `uk.co.qrono.app.ExpoWidgetsTarget` tick **App Groups**,
+   choose that group and save.
+2. GitHub → Actions → **iOS credentials** → Run workflow.
+3. Run **Mobile build** again.
