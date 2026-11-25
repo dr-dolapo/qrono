@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { archive } from "../inboxArchive";
 import type { Context } from "hono";
 import { z } from "zod";
 import { currentUser, inBackground, requireVerifiedUser } from "../auth/session";
@@ -164,6 +165,7 @@ export const review = new Hono<AppEnv>()
       await logStatus(c, event.id, "review", "approved", me.id),
     ]);
     await notifyOnApproval(c, event, `${me.firstName} ${me.lastName}`, me.id);
+    await archive(c.env.DB, { userId: me.id, key: `approve:${event.id}`, teamId: event.team_id, eventId: event.id, outcome: "approved", title: event.name, detail: "Programme approved" });
     // Wake the live room at the start time.
     await liveCommand(c, event.id, "arm", me.id);
     return c.json(await eventDetail(c, await loadEvent(c, event.id)));
@@ -256,6 +258,19 @@ export const review = new Hono<AppEnv>()
       .bind(body.response, body.response === "declined" ? body.reason! : null, nowIso(), nowIso(), event.id, currentUser(c).id)
       .run();
     if (!res.meta.changes) fail(403, "You're not on this event's program.");
+    const me = currentUser(c);
+    const part = await c.env.DB.prepare("SELECT id FROM event_participants WHERE event_id = ? AND user_id = ?").bind(event.id, me.id).first<{ id: string }>();
+    if (part) {
+      await archive(c.env.DB, {
+        userId: me.id,
+        key: `confirm:${part.id}`,
+        teamId: event.team_id,
+        eventId: event.id,
+        outcome: body.response === "declined" ? "declined_part" : "confirmed",
+        title: event.name,
+        detail: body.response === "declined" ? body.reason ?? null : null,
+      });
+    }
     return c.json(await eventDetail(c, await loadEvent(c, event.id)));
   });
 

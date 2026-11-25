@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { archive } from "../inboxArchive";
 import { z } from "zod";
 import { newSecretToken, sha256Hex } from "../auth/crypto";
 import { currentUser, inBackground, requireVerifiedUser } from "../auth/session";
@@ -119,6 +120,7 @@ export const teams = new Hono<AppEnv>()
     await c.env.DB.prepare("UPDATE team_memberships SET status = 'active', approved_by = ?, updated_at = ? WHERE id = ?")
       .bind(me.user_id, nowIso(), target.id)
       .run();
+    await archive(c.env.DB, { userId: me.user_id, key: `join:${target.id}`, teamId, outcome: "let_in", title: `${await personName(c.env.DB, target.user_id)} joined` });
     return c.json({ member: { id: target.id, status: "active" } });
   })
 
@@ -139,6 +141,9 @@ export const teams = new Hono<AppEnv>()
     await c.env.DB.prepare("UPDATE team_memberships SET status = 'removed', updated_at = ? WHERE id = ?")
       .bind(nowIso(), target.id)
       .run();
+    if (!self && target.status === "pending_vetting") {
+      await archive(c.env.DB, { userId: me.user_id, key: `join:${target.id}`, teamId, outcome: "declined_join", title: `${await personName(c.env.DB, target.user_id)}’s request declined` });
+    }
     return c.json({ member: { id: target.id, status: "removed" } });
   })
 
@@ -265,4 +270,10 @@ async function getMembership(c: Parameters<typeof requireMembership>[0], teamId:
     .first<Membership>();
   if (!m) fail(404, "Member not found.");
   return m;
+}
+
+/** "Ada Obi", for the Archived list. */
+async function personName(db: D1Database, userId: string): Promise<string> {
+  const u = await db.prepare("SELECT first_name, last_name FROM users WHERE id = ?").bind(userId).first<{ first_name: string; last_name: string }>();
+  return u ? `${u.first_name} ${u.last_name}` : "Someone";
 }
