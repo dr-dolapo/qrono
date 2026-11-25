@@ -19,3 +19,25 @@ export interface InboxData {
   items: InboxItem[];
   unread: number;
 }
+
+export type ArchiveOutcome =
+  | "approved"
+  | "confirmed"
+  | "declined_part"
+  | "let_in"
+  | "declined_join"
+  | "joined_team"
+  | "declined_invite"
+  | "opened"
+  | "dismissed";
+
+/** One row of GET /api/me/inbox/archive: something you dealt with in the last 60 days. */
+export interface ArchivedItem {
+  key: string;
+  outcome: ArchiveOutcome;
+  title: string;
+  detail: string | null;
+  teamName: string | null;
+  eventId: string | null;
+  at: string;
+}

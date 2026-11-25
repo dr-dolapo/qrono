@@ -9,6 +9,9 @@ const SOURCES = {
   calendar: require("../../assets/tab-icons/calendar.png") as ImageSourcePropType,
   inbox: require("../../assets/tab-icons/inbox.png") as ImageSourcePropType,
   profile: require("../../assets/tab-icons/profile.png") as ImageSourcePropType,
+  archive: require("../../assets/tab-icons/archive.png") as ImageSourcePropType,
+  sparkle: require("../../assets/tab-icons/sparkle.png") as ImageSourcePropType,
+  inboxLarge: require("../../assets/tab-icons/inbox-large.png") as ImageSourcePropType,
 };
 
 type IconProps = { color: string; size?: number };
@@ -27,6 +30,10 @@ function Icon({ name, color, size = 24 }: IconProps & { name: keyof typeof SOURC
 
 export const CalendarIcon = (p: IconProps) => <Icon name="calendar" {...p} />;
 export const ProfileIcon = (p: IconProps) => <Icon name="profile" {...p} />;
+export const ArchiveIcon = (p: IconProps) => <Icon name="archive" {...p} />;
+export const SparkleIcon = (p: IconProps) => <Icon name="sparkle" {...p} />;
+/** The tray drawn large and crisp, for the empty Inbox. */
+export const InboxLargeIcon = (p: IconProps) => <Icon name="inboxLarge" size={104} {...p} />;
 
 /** The tray, with the unread count in a small purple badge on its corner. */
 export function InboxIcon({ color, count, size = 24 }: IconProps & { count: number }) {

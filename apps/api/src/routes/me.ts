@@ -7,6 +7,7 @@ import { buildInbox, markSeen } from "../inbox";
 import { EXPO_TOKEN_PATTERN } from "../push";
 import { acceptInvite, findInviteById } from "./invites";
 import { liveCards, saveLiveActivityToken } from "../live/cards";
+import { ARCHIVE_DAYS, archive, listArchive } from "../inboxArchive";
 import { json } from "../validation";
 
 const deviceToken = z.string().regex(EXPO_TOKEN_PATTERN, { error: "That isn't a push token." });
@@ -99,15 +100,38 @@ export const me = new Hono<AppEnv>()
     return c.json(await buildInbox(c.env.DB, { id: user.id, email: user.email }));
   })
 
-  /** A note has been opened or dismissed: it leaves the Inbox. */
-  .post("/inbox/notes/:noteId/done", async (c) => {
+  /** A note has been opened or dismissed: it leaves the Inbox for Archived. */
+  .post("/inbox/notes/:noteId/done", json(z.object({ action: z.enum(["open", "dismiss"]).optional() }).optional()), async (c) => {
     const user = currentUser(c);
-    await c.env.DB.prepare("UPDATE inbox_notes SET done_at = ? WHERE id = ? AND user_id = ? AND done_at IS NULL").bind(nowIso(), c.req.param("noteId"), user.id).run();
+    const id = c.req.param("noteId");
+    const res = await c.env.DB.prepare("UPDATE inbox_notes SET done_at = ? WHERE id = ? AND user_id = ? AND done_at IS NULL").bind(nowIso(), id, user.id).run();
+    if (res.meta.changes) {
+      const note = await c.env.DB.prepare("SELECT team_id, event_id, title, body FROM inbox_notes WHERE id = ?")
+        .bind(id)
+        .first<{ team_id: string; event_id: string | null; title: string; body: string }>();
+      if (note) {
+        const opened = c.req.valid("json")?.action === "open";
+        await archive(c.env.DB, { userId: user.id, key: `note:${id}`, teamId: note.team_id, eventId: note.event_id, outcome: opened ? "opened" : "dismissed", title: note.title, detail: note.body });
+      }
+    }
     return c.json(await buildInbox(c.env.DB, { id: user.id, email: user.email }));
   })
 
+  /** Archived: what I've done with Inbox items in the last 60 days. */
+  .get("/inbox/archive", async (c) => {
+    const user = currentUser(c);
+    return c.json({ items: await listArchive(c.env.DB, user.id), keepDays: ARCHIVE_DAYS });
+  })
+
   /** Join a team from an invitation sent to my email (the Inbox's Join button). */
-  .post("/invites/:inviteId/accept", async (c) => acceptInvite(c, await findInviteById(c, c.req.param("inviteId"))))
+  .post("/invites/:inviteId/accept", async (c) => {
+    const invite = await findInviteById(c, c.req.param("inviteId"));
+    const res = await acceptInvite(c, invite);
+    if (res.ok) {
+      await archive(c.env.DB, { userId: currentUser(c).id, key: `invite:${invite.id}`, teamId: invite.team_id, outcome: "joined_team", title: `Joined ${invite.team_name}` });
+    }
+    return res;
+  })
 
   /** Turn down an invitation sent to my email. */
   .post("/invites/:inviteId/decline", async (c) => {
@@ -118,6 +142,14 @@ export const me = new Hono<AppEnv>()
     )
       .bind(nowIso(), c.req.param("inviteId"), user.email)
       .run();
+    const invite = await c.env.DB.prepare(
+      "SELECT i.team_id, t.name FROM team_invites i JOIN teams t ON t.id = i.team_id WHERE i.id = ? AND lower(i.recipient) = lower(?)",
+    )
+      .bind(c.req.param("inviteId"), user.email)
+      .first<{ team_id: string; name: string }>();
+    if (invite) {
+      await archive(c.env.DB, { userId: user.id, key: `invite:${c.req.param("inviteId")}`, teamId: invite.team_id, outcome: "declined_invite", title: `Declined the invitation to ${invite.name}` });
+    }
     return c.json(await buildInbox(c.env.DB, { id: user.id, email: user.email }));
   })
 

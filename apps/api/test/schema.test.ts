@@ -52,6 +52,7 @@ describe("schema", () => {
       "events",
       "guest_access_links",
       "hidden_suggestions",
+      "inbox_archive",
       "inbox_notes",
       "inbox_seen",
       "live_activity_tokens",
