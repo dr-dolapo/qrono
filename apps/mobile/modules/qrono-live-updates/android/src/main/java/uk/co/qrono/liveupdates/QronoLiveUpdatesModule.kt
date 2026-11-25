@@ -60,7 +60,7 @@ class QronoLiveUpdatesModule : Module() {
     /** Opens the system setting for Live Updates (Android 16+), else the app's notification settings. */
     Function("openSettings") {
       val intent = if (Build.VERSION.SDK_INT >= 36) {
-        Intent(Settings.ACTION_MANAGE_APP_PROMOTED_NOTIFICATIONS)
+        Intent(PROMOTION_SETTINGS)
       } else {
         Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
       }.putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -124,5 +124,8 @@ class QronoLiveUpdatesModule : Module() {
     private const val CHANNEL = "live"
     private const val TAG = "qrono-live"
     private const val EXTRA_EVENT = "uk.co.qrono.eventId"
+    // Settings.ACTION_APP_NOTIFICATION_PROMOTION_SETTINGS (Android 16), spelled out so it
+    // compiles whatever SDK stubs the build has.
+    private const val PROMOTION_SETTINGS = "android.settings.APP_NOTIFICATION_PROMOTION_SETTINGS"
   }
 }
