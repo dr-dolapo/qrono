@@ -118,7 +118,11 @@ describe("lock-screen cards during a live event", () => {
     await ada.post(`/api/events/${eventId}/live/end`);
     r = recorder();
     await sync(r.fetcher);
-    expect((r.apple()[0]!.body as { aps: Record<string, unknown> }).aps).toMatchObject({ event: "end" });
+    const endAps = (r.apple()[0]!.body as { aps: Record<string, number> }).aps;
+    expect(endAps).toMatchObject({ event: "end" });
+    // Off the Lock Screen at once, not left showing "Ended".
+    expect(endAps["dismissal-date"]).toBe(endAps.timestamp);
+    expect(r.apple()[0]!.headers["apns-priority"]).toBe("10");
     expect(contentProps(r.apple()[0]!).headline).toBe("Ended");
     expect((r.expo()[0]!.body as { data: Record<string, string> }[])[0]!.data).toEqual({ type: "live-end", eventId });
     r = recorder();

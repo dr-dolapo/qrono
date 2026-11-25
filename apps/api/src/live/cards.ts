@@ -189,10 +189,11 @@ export async function syncLiveCards(env: CardEnv, eventId: string, now = Date.no
       );
     }
   } else {
-    // Not live (ended, or moved back): close any open cards.
+    // Not live (ended, or moved back): close any open cards, and take them off the Lock Screen
+    // straight away (a dismissal date of now; later would leave an "Ended" card showing until then).
     const open = rows.filter((r) => !r.ended_at).map((r) => r.user_id);
     for (const t of await tokens(open, "activity"))
-      ios.push({ token: t.token, priority: 10, aps: { timestamp: ts, event: "end", "content-state": { name: ACTIVITY_NAME, props: endProps(sent.get(t.user_id)!.state) }, "dismissal-date": ts + 15 * 60 } });
+      ios.push({ token: t.token, priority: 10, aps: { timestamp: ts, event: "end", "content-state": { name: ACTIVITY_NAME, props: endProps(sent.get(t.user_id)!.state) }, "dismissal-date": ts } });
     for (const userId of open) {
       android.push({ userId, data: { type: "live-end", eventId } });
       writes.push(db.prepare("UPDATE live_cards SET ended_at = ? WHERE event_id = ? AND user_id = ?").bind(at, eventId, userId));
