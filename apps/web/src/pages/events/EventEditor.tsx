@@ -146,7 +146,7 @@ export function EventEditor() {
             </h1>
             <div className="title-actions">
               {(event.status === "approved" || event.status === "live") && permissions.canRunLive && (
-                <Link className="button button-secondary button-small" to={`/command/${event.id}`}>
+                <Link className="button button-secondary button-small" to={`/command/${event.id}`} target="_blank" rel="noopener">
                   <Icon name="play" size={13} /> Open live view
                 </Link>
               )}
