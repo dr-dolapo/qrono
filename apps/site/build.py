@@ -40,7 +40,7 @@ def page(path,title,desc,body):
 </main>
 <footer>
   <div class="wrap">
-    <p>© 2026 Tend Technologies Limited. Qrono is a product of Tend Technologies Limited, a company registered in Nigeria.</p>
+    <p>© 2026 Tend Technologies Limited. Qrono is a product of Tend Technologies Limited.</p>
     <nav aria-label="Legal">
       <a href="/terms">Terms</a>
       <a href="/privacy">Privacy Policy</a>

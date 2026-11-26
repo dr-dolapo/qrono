@@ -6,7 +6,7 @@ page("terms/index.html", "Terms of Use · Qrono",
     <h1>Terms of Use</h1>
     <p class="meta">Effective 26 November 2026</p>
 
-    <p>These terms are an agreement between you and <strong>Tend Technologies Limited</strong> (“we”, “us”), a company registered in Nigeria. They cover your use of Qrono: the website at qrono.co.uk, the web app at app.qrono.co.uk and the Qrono apps for iPhone and Android. By creating an account or using Qrono, you agree to them. Our <a href="/privacy">Privacy Policy</a> explains how we handle personal data.</p>
+    <p>These terms are an agreement between you and <strong>Tend Technologies Limited</strong> (“we”, “us”). They cover your use of Qrono: the website at qrono.co.uk, the web app at app.qrono.co.uk and the Qrono apps for iPhone and Android. By creating an account or using Qrono, you agree to them. Our <a href="/privacy">Privacy Policy</a> explains how we handle personal data.</p>
 
     <h2>1. Your account</h2>
     <ul>
@@ -73,7 +73,7 @@ page("terms/index.html", "Terms of Use · Qrono",
     <p>We may update these terms. We’ll change the date at the top and, for significant changes, tell you by email or in the app before they take effect. If you keep using Qrono afterwards, the new terms apply.</p>
 
     <h2>12. Contact</h2>
-    <p>Tend Technologies Limited, Nigeria. Email <a href="mailto:support@qrono.co.uk">support@qrono.co.uk</a>.</p>
+    <p>Tend Technologies Limited. Email <a href="mailto:support@qrono.co.uk">support@qrono.co.uk</a>.</p>
   </div>
 </article>
 ''')
