@@ -8,5 +8,4 @@ The app itself is at app.qrono.co.uk (`apps/web`).
 - The Worker attaches itself to `qrono.co.uk` and `www.qrono.co.uk` (see `wrangler.jsonc`). That needs the
   `qrono.co.uk` zone on the same Cloudflare account, with no other DNS record on the apex or `www`.
 
-Before publishing, replace the placeholders in the Terms and Privacy Policy:
-`[RC NUMBER]`, `[REGISTERED ADDRESS]` and `[LIABILITY CAP, e.g. ₦100,000]`. Have a lawyer review both.
+Have a lawyer review the Terms and Privacy Policy before relying on them.
