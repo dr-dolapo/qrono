@@ -7,6 +7,7 @@ import { currentUser, endSession, inBackground, isMobileClient, requireUser, sta
 import type { AppEnv } from "../env";
 import { newId, nowIso } from "../ids";
 import { passwordResetEmail, sendEmail, verificationEmail } from "../mail";
+import { deleteAccount, deletionBlockers } from "../accountDeletion";
 import { emailField, json, nameField, newPasswordField, tokenField } from "../validation";
 
 type Purpose = "email_verification" | "password_reset";
@@ -207,6 +208,29 @@ export const auth = new Hono<AppEnv>()
     const { firstName, lastName } = c.req.valid("json");
     await c.env.DB.prepare("UPDATE users SET first_name = ?, last_name = ?, updated_at = ? WHERE id = ?").bind(firstName, lastName, nowIso(), user.id).run();
     return c.json({ user: { ...user, firstName, lastName } });
+  })
+
+  /**
+   * Delete my account, after re-entering my password. Refused while I'm the last Admin of a team
+   * that has other people (they'd be left without one); the error names those teams.
+   */
+  .post("/me/delete", requireUser, json(z.object({ password: z.string().min(1, { error: "Enter your password." }).max(200) })), async (c) => {
+    const user = currentUser(c);
+    const row = await c.env.DB.prepare("SELECT password_hash FROM users WHERE id = ?").bind(user.id).first<{ password_hash: string }>();
+    if (!row || !(await verifyPassword(c.req.valid("json").password, row.password_hash))) {
+      return c.json({ error: "That password isn't right.", code: "wrong_password" }, 403);
+    }
+    const blockers = await deletionBlockers(c.env.DB, user.id);
+    if (blockers.length) {
+      const names = blockers.map((b) => b.teamName).join(", ");
+      return c.json(
+        { error: `You're the only Admin of ${names}. Make someone else an Admin first, or remove the other members.`, code: "last_admin", teams: blockers },
+        409,
+      );
+    }
+    const { teamsDeleted } = await deleteAccount(c.env.DB, user.id, nowIso());
+    await endSession(c);
+    return c.json({ ok: true, teamsDeleted });
   })
 
   .post("/forgot-password", json(z.object({ email: emailField })), async (c) => {

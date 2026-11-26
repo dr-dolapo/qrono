@@ -85,6 +85,20 @@ jobs:
           npm run build -w apps/web
           cd apps/web && npx wrangler deploy
 
+      # qrono.co.uk: landing page, Terms, Privacy Policy, Support. Static files only.
+      # Kept apart from the app: if the domain isn't set up yet, the app still deploys.
+      - name: Deploy the public site (qrono.co.uk)
+        id: site
+        continue-on-error: true
+        working-directory: apps/site
+        run: |
+          python3 build.py
+          ../../node_modules/.bin/wrangler deploy
+
+      - name: Warn if the public site didn't deploy
+        if: steps.site.outcome == 'failure'
+        run: echo "::warning title=qrono.co.uk not deployed::The app deployed, but the public site didn't. Check that qrono.co.uk is a zone on this Cloudflare account with no other DNS record on the apex or www (see the log above)."
+
       - name: Health check
         env:
           APP_ORIGIN: ${{ steps.prepare.outputs.app_origin }}

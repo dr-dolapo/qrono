@@ -1,0 +1,9 @@
+{
+  "name": "@qrono/site",
+  "private": true,
+  "description": "qrono.co.uk: the public landing page, Terms, Privacy Policy and Support",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  }
+}
