@@ -1,13 +1,14 @@
 import { useEffect } from "react";
 import type { EventDetail } from "../../api";
+import { CountdownHero } from "../../components/CountdownHero";
+import { countdown } from "../../countdown";
 import { useClock } from "../../useClock";
-import { formatStartsIn, liveView, type LiveConnection, type LiveState } from "../../useLiveEvent";
-import { Countdown } from "../../components/Countdown";
-import clsx from "clsx";
+import type { LiveConnection, LiveState } from "../../useLiveEvent";
 
 /**
- * QR023–QR025 on the web: while an event is approved or live, everyone on it
- * sees what's happening now and what's next, updated live.
+ * Top of the event page once it's approved or live: the countdown to the start, or what's on now
+ * and how long it has left, as the biggest thing on the page. People on the program also see the
+ * countdown to their own part, in purple, when that's a different moment.
  */
 export function LiveNow({
   detail,
@@ -28,48 +29,25 @@ export function LiveNow({
     if (liveStatus && liveStatus !== detail.event.status) onStatusChange();
   }, [liveStatus, detail.event.status, onStatusChange]);
 
-  if (!active || !state) return null;
-  const view = liveView(state, now);
-  const mineIds = new Set(detail.me.participant ? detail.tasks.filter((t) => t.assigneeIds.includes(detail.me.participant!.id)).map((t) => t.id) : []);
-
-  if (state.event.status === "approved") {
-    const startsIn = Date.parse(state.event.startAt) - now;
-    return (
-      <section className="live-now" aria-live="polite">
-        <span className="live-label">Starts in</span>
-        <strong className="live-countdown">{startsIn > 0 ? formatStartsIn(startsIn) : "a moment"}</strong>
-        {connection !== "connected" && <span className="muted small"> · reconnecting…</span>}
-      </section>
-    );
-  }
-
-  const overrun = view.remainingMs !== null && view.remainingMs < 0;
-  return (
-    <section className="live-now is-live" aria-live="polite">
-      <div>
-        <span className="live-label">
-          <span className="live-dot" /> Live now
-        </span>
-        <strong className="live-title">
-          {view.current ? view.current.title : "All tasks are done"}
-          {view.current && mineIds.has(view.current.id) && <span className="badge"> You</span>}
-        </strong>
-        {view.current && (
-          <span className={clsx("small", overrun ? "live-over" : "muted")}>
-            <Countdown ms={view.remainingMs!} /> {overrun ? "over time" : "left"}
-          </span>
-        )}
-      </div>
-      {view.next && (
-        <div>
-          <span className="live-label">Up next</span>
-          <strong>
-            {view.next.title}
-            {mineIds.has(view.next.id) && <span className="badge"> You</span>}
-          </strong>
-        </div>
-      )}
-      {connection !== "connected" && <span className="muted small">Reconnecting…</span>}
-    </section>
-  );
+  if (!active) return null;
+  const me = detail.me.participant;
+  const mine = new Set(me ? detail.tasks.filter((t) => t.assigneeIds.includes(me.id)).map((t) => t.id) : []);
+  const liveTasks = new Map((state?.tasks ?? []).map((t) => [t.id, t]));
+  const { hero, myPart } = countdown({
+    status: state?.event.status ?? detail.event.status,
+    startAt: detail.event.startAt,
+    currentTaskId: state?.currentTaskId ?? null,
+    mine,
+    now,
+    tasks: detail.tasks.map((t) => ({
+      id: t.id,
+      title: t.title,
+      durationMinutes: t.durationMinutes,
+      startAt: t.startAt,
+      status: liveTasks.get(t.id)?.status,
+      actualStartAt: liveTasks.get(t.id)?.actualStartAt,
+    })),
+  });
+  // Someone who declined doesn't get a countdown to a part they won't do.
+  return <CountdownHero hero={hero} myPart={me?.response === "declined" ? null : myPart} reconnecting={!!state && connection !== "connected"} />;
 }

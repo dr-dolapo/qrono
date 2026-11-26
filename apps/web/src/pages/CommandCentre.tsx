@@ -100,6 +100,9 @@ export function CommandCentre() {
         <span className="command-event">{event.name}</span>
         <span className={`status status-${connection}`}>{connection === "connected" ? "Connected" : connection === "connecting" ? "Connecting" : "Reconnecting…"}</span>
         <span className="command-bar-spacer" />
+        <span className="command-time" aria-label="Current time">
+          {new Date(now).toLocaleTimeString("en-US", { timeZone: tz, hour: "numeric", minute: "2-digit", second: "2-digit" })}
+        </span>
         <button type="button" className="command-small" onClick={() => (document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen()).catch(() => undefined)}>
           Full screen
         </button>
@@ -108,19 +111,21 @@ export function CommandCentre() {
         </Link>
       </header>
 
-      <section className="command-clock" aria-label="Current time">
-        {new Date(now).toLocaleTimeString("en-US", { timeZone: tz, hour: "numeric", minute: "2-digit", second: "2-digit" })}
-      </section>
-
+      {/* The countdown is the biggest thing on the screen: to the start, then what's left of the item on now. */}
       {event.status === "approved" && (
-        <section className="command-status">
-          {startsIn > 0 ? (
-            <>
-              Starts in <strong>{formatStartsIn(startsIn)}</strong> at {formatTime(event.startAt, tz)}
-            </>
-          ) : (
-            "Starting…"
-          )}
+        <section className="command-hero" aria-live="polite">
+          <span className="command-hero-label">Starts in</span>
+          <strong className="command-hero-time">{startsIn > 0 ? startsIn >= 3_600_000 ? formatStartsIn(startsIn) : <Countdown ms={startsIn} /> : "Starting…"}</strong>
+          <span className="command-hero-sub">at {formatTime(event.startAt, tz)}</span>
+        </section>
+      )}
+      {event.status === "live" && view.current && (
+        <section className={clsx("command-hero", overrun ? "over" : view.remainingMs! < display.warningMs && "soon")} aria-live="off">
+          <span className="command-hero-label">{overrun ? "Over time" : "Time left"}</span>
+          <strong className="command-hero-time">
+            {overrun && "+"}
+            <Countdown ms={view.remainingMs!} />
+          </strong>
         </section>
       )}
       {event.status === "past" && <section className="command-status">The event has ended.</section>}
@@ -132,10 +137,6 @@ export function CommandCentre() {
             <>
               <p className="command-task">{view.current.title}</p>
               {display.showNames && view.current.assignees.length > 0 && <p className="command-people">{view.current.assignees.join(" · ")}</p>}
-              <p className={clsx("command-countdown", overrun ? "over" : view.remainingMs! < display.warningMs && "soon")}>
-                {overrun && "+"}
-                <Countdown ms={view.remainingMs!} /> {overrun ? "over" : "left"}
-              </p>
               <div className="command-progress" aria-hidden="true" key={view.current.id}>
                 <div style={{ width: `${Math.round(view.progress * 100)}%` }} />
               </div>

@@ -4,7 +4,10 @@ import { Alert } from "../../components/Form";
 import { formatTime } from "../../time";
 import type { Mutate } from "./EventEditor";
 
-/** QR033–QR035: a participant sees their tasks and confirms or declines (with a reason). */
+/**
+ * QR033–QR035: a participant's tasks. They're attending by default; they can say they can't make
+ * it (with a reason), and change their mind.
+ */
 export function MyPart({ detail, mutate }: { detail: EventDetail; mutate: Mutate }) {
   const mine = detail.me.participant;
   const [declining, setDeclining] = useState(false);
@@ -43,12 +46,13 @@ export function MyPart({ detail, mutate }: { detail: EventDetail; mutate: Mutate
         <p className="muted small">You're in this event but not on a task yet.</p>
       )}
 
-      {!detail.permissions.canRespond ? (
-        <p className="muted small">You can confirm once the event is approved.</p>
-      ) : (
+      {detail.permissions.canRespond && (
         <>
-          {mine.response === "acknowledged" && <Alert kind="success">You've confirmed you'll be there.</Alert>}
-          {mine.response === "declined" && <Alert kind="info">You've said you can't take part: “{mine.declineReason}”.</Alert>}
+          {mine.response === "declined" ? (
+            <Alert kind="info">You've told the team you can't take part: “{mine.declineReason}”.</Alert>
+          ) : (
+            <p className="muted small">You're down as attending.</p>
+          )}
           <Alert>{error}</Alert>
           {declining ? (
             <div className="field">
@@ -56,25 +60,24 @@ export function MyPart({ detail, mutate }: { detail: EventDetail; mutate: Mutate
               <textarea id="decline-reason" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} />
               <div className="button-row">
                 <button type="button" className="button button-small button-danger" disabled={busy} onClick={() => respond("declined")}>
-                  Send
+                  Send to the team
                 </button>
                 <button type="button" className="button button-small" onClick={() => setDeclining(false)}>
                   Cancel
                 </button>
               </div>
             </div>
+          ) : mine.response === "declined" ? (
+            <div className="button-row">
+              <button type="button" className="button button-small button-primary" disabled={busy} onClick={() => respond("acknowledged")}>
+                I can make it after all
+              </button>
+            </div>
           ) : (
             <div className="button-row">
-              {mine.response !== "acknowledged" && (
-                <button type="button" className="button button-small button-primary" disabled={busy} onClick={() => respond("acknowledged")}>
-                  I'll be there
-                </button>
-              )}
-              {mine.response !== "declined" && (
-                <button type="button" className="button button-small" disabled={busy} onClick={() => setDeclining(true)}>
-                  I can't make it
-                </button>
-              )}
+              <button type="button" className="button button-small" disabled={busy} onClick={() => setDeclining(true)}>
+                I can't make it
+              </button>
             </div>
           )}
         </>

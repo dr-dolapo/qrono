@@ -256,7 +256,7 @@ describe("participants and assignments (QR021)", () => {
     const detail = (await ada.post(`/api/events/${id}/tasks`, { title: "Keynote", durationMinutes: 30, assigneeIds: [guest, member] })).json;
     expect(detail.tasks[0].assigneeIds).toEqual([guest, member]);
     expect(detail.participants).toEqual([
-      expect.objectContaining({ id: member, kind: "member", name: "Chi Test", email: "chi@example.com", response: "pending" }),
+      expect.objectContaining({ id: member, kind: "member", name: "Chi Test", email: "chi@example.com", response: "acknowledged" }),
       expect.objectContaining({ id: guest, kind: "guest", name: "Dr. Funmi Ade", email: "funmi@example.com" }),
     ]);
   });

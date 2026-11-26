@@ -281,7 +281,14 @@ h1 { font-size: 1.75rem; margin: 0.5rem 0 1rem; }
 .command-event { font-weight: 600; color: var(--muted); }
 .command-bar-spacer { flex: 1; }
 .command-small { background: none; border: 1px solid var(--line); color: var(--muted); border-radius: 8px; padding: 0.3em 0.8em; font: inherit; font-size: 0.85em; cursor: pointer; }
-.command-clock { font-size: clamp(3rem, 9vw, 12rem); font-weight: 700; font-variant-numeric: tabular-nums; text-align: center; line-height: 1; letter-spacing: -0.02em; }
+.command-time { font-size: clamp(1rem, 1.6vw, 1.6rem); font-weight: 600; font-variant-numeric: tabular-nums; color: var(--muted); }
+/* The countdown is the biggest number on the screen; the clock is small, in the bar. */
+.command-hero { display: flex; flex-direction: column; align-items: center; gap: 0.25rem; text-align: center; }
+.command-hero-label { font-size: clamp(1rem, 1.8vw, 2rem); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.command-hero-time { font-size: clamp(4.5rem, 15vw, 18rem); font-weight: 800; line-height: 0.95; letter-spacing: -0.04em; font-variant-numeric: tabular-nums; }
+.command-hero-sub { font-size: clamp(1rem, 2vw, 2.25rem); color: var(--muted); }
+.command-hero.soon .command-hero-time { color: var(--warn); }
+.command-hero.over .command-hero-time { color: #ff6b6b; }
 .command-status { text-align: center; font-size: clamp(1rem, 2vw, 2.5rem); color: var(--muted); }
 .command-status strong { color: var(--accent); font-variant-numeric: tabular-nums; }
 .command-grid { display: grid; grid-template-columns: 1.6fr 1fr; gap: 1.5vw; flex: 1; min-height: 0; }
@@ -1044,3 +1051,20 @@ html { scroll-padding-top: 72px; }
 }
 
 @media (max-width: 760px) { .app-shell { align-content: start; } }
+
+/* ───────────── Countdown first (event page, guest page) ─────────────
+   The event's countdown (or what's on now) is the biggest thing; the participant's own part
+   sits under it in purple, so the two are never confused. */
+.cd { display: grid; gap: 0.75rem; margin: 1rem 0 1.5rem; }
+.cd-hero, .cd-mine { border-radius: 16px; padding: 1.25rem 1.4rem; display: flex; flex-direction: column; gap: 0.35rem; }
+.cd-hero { background: var(--panel); border: 1px solid var(--line); }
+.cd-hero.is-live { border-color: rgba(72, 176, 44, 0.45); }
+.cd-hero.is-mine { border-color: var(--purple); background: #1d1030; }
+.cd-mine { background: #1d1030; border: 1px solid #4a2a78; }
+.cd-label { color: var(--muted); font-size: 0.8rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; display: flex; align-items: center; gap: 0.4rem; }
+.cd-mine .cd-label, .cd-hero.is-mine .cd-label { color: #d3b6fa; }
+.cd-big { font-size: clamp(3.5rem, 15vw, 6.5rem); line-height: 1; font-weight: 800; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+.cd-big.is-over { color: var(--danger); }
+.cd-mid { font-size: clamp(2rem, 8vw, 2.75rem); line-height: 1.05; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; color: #e9dbff; }
+.cd-title { font-size: 1.1rem; font-weight: 600; }
+.cd-sub { color: var(--muted); font-size: 0.95rem; }

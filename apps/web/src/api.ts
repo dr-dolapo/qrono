@@ -192,6 +192,12 @@ export interface GuestProgram {
   event: { name: string; description: string | null; startAt: string; endAt: string; timezone: string; status: EventStatus };
   me: { name: string; response: Participant["response"]; declineReason: string | null };
   program: { id: string; title: string; durationMinutes: number; startAt: string; endAt: string; mine: boolean }[];
+  /** While live: what's on now (guests poll for it). */
+  live: {
+    serverTime: string;
+    currentTaskId: string | null;
+    tasks: { id: string; status: "upcoming" | "in_progress" | "done" | "skipped"; actualStartAt: string | null }[];
+  } | null;
 }
 
 /** Someone on the team's people list (GET /teams/:teamId/people). */

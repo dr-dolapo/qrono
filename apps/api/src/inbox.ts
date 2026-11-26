@@ -17,7 +17,7 @@ export type InboxAction = "approve" | "open" | "let_in" | "decline_join" | "conf
 
 export interface InboxItem {
   key: string;
-  kind: "approve" | "join" | "confirm" | "invite" | "part_changed" | "part_removed" | "program_approved" | "program_returned" | "comment";
+  kind: "approve" | "join" | "confirm" | "invite" | "part_added" | "part_changed" | "part_removed" | "program_approved" | "program_returned" | "comment";
   teamId: string;
   teamName: string;
   eventId: string | null;
@@ -30,7 +30,7 @@ export interface InboxItem {
   ref: { membershipId?: string; participantId?: string; inviteId?: string; noteId?: string; taskId?: string };
 }
 
-export type NoteKind = "part_changed" | "part_removed" | "program_approved" | "program_returned" | "comment";
+export type NoteKind = "part_added" | "part_changed" | "part_removed" | "program_approved" | "program_returned" | "comment";
 
 /** Everything in someone's Inbox, newest first, with how many they haven't seen. */
 export async function buildInbox(db: D1Database, user: { id: string; email: string }): Promise<{ items: InboxItem[]; unread: number }> {
