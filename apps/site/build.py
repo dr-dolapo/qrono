@@ -49,6 +49,7 @@ def page(path,title,desc,body):
     </nav>
   </div>
 </footer>
+<script src="/typed.js" defer></script>
 </body>
 </html>
 '''
