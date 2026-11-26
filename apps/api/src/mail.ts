@@ -148,21 +148,22 @@ export function eventApprovedEmail(approver: string, eventName: string, when: st
 
 export function assignedEmail(firstName: string, teamName: string, eventName: string, when: string, tasks: string[], link: string, brand?: EmailBrand): Omit<OutgoingEmail, "to"> {
   const body = `Hi ${firstName}, you're on the program for "${eventName}" (${when}) with ${teamName}. Your part:`;
-  const footer = "Please confirm you can make it, or let the team know if you can't.";
+  const footer = "You're down as attending. If you can't make it, let the team know from the event page.";
   return {
     subject: `You're on the program: ${eventName}`,
     text: withText(body, tasks, link, footer),
-    html: layout(`You're on the program for ${eventName}`, body, "Confirm or decline", link, footer, tasks, brand),
+    html: layout(`You're on the program for ${eventName}`, body, "See your part", link, footer, tasks, brand),
   };
 }
 
 export function guestInviteEmail(name: string, teamName: string, eventName: string, when: string, tasks: string[], link: string, brand?: EmailBrand): Omit<OutgoingEmail, "to"> {
   const body = `Hi ${name}, ${teamName} has put you on the program for "${eventName}" (${when}). Your part:`;
-  const footer = "This link is just for you; please don't forward it. It stops working when the event ends. No app or account needed.";
+  const footer =
+    "You're down as attending. If you can't make it, let the team know from your page. This link is just for you; please don't forward it. It stops working when the event ends. No app or account needed.";
   return {
     subject: `You're on the program: ${eventName}`,
     text: withText(body, tasks, link, footer),
-    html: layout(`You're on the program for ${eventName}`, body, "See the program and confirm", link, footer, tasks, brand),
+    html: layout(`You're on the program for ${eventName}`, body, "See your part", link, footer, tasks, brand),
   };
 }
 

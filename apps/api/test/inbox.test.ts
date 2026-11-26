@@ -34,7 +34,7 @@ beforeEach(async () => {
 });
 
 describe("the Inbox", () => {
-  it("shows approvals to the chosen Admin, then parts to confirm once approved, and clears them when handled", async () => {
+  it("shows approvals to the chosen Admin, then tells people on the program they're attending", async () => {
     const bola = await join("Bola", "bola@example.com", "admin"); // a Planner
     const chi = await join("Chi", "chi@example.com");
     const id = (await bola.browser.post(`/api/teams/${teamId}/events`, { name: "Monday Meeting", startAt: START })).json.event.id;
@@ -51,12 +51,11 @@ describe("the Inbox", () => {
     await settle();
     expect((await inbox(ada)).items).toEqual([]);
 
-    // Bola hears it was approved; Chi has a part to confirm.
+    // Bola hears it was approved; Chi is attending by default and just hears she's on it.
     expect((await inbox(bola.browser)).items[0]).toMatchObject({ kind: "program_approved", actions: ["open", "dismiss"] });
     const chis = await inbox(chi.browser);
-    expect(chis.items[0]).toMatchObject({ kind: "confirm", actions: ["confirm", "decline_part", "open"] });
-    await chi.browser.post(`/api/events/${id}/response`, { response: "acknowledged" });
-    expect((await inbox(chi.browser)).items).toEqual([]);
+    expect(chis.items).toEqual([expect.objectContaining({ kind: "part_added", title: "You're on the program for Monday Meeting", actions: ["open", "dismiss"] })]);
+    expect((await chi.browser.get(`/api/events/${id}`)).json.me.participant).toMatchObject({ response: "acknowledged" });
   });
 
   it("keeps the unread count separate from the items, and lets notes be dismissed", async () => {

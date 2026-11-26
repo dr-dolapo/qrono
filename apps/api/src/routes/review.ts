@@ -326,10 +326,17 @@ async function notifyOnApproval(c: Ctx, event: EventRow, approverName: string, a
   for (const p of participants) {
     if (p.user_id) {
       inBackground(c, sendEmail(c.env, { to: p.email!, ...assignedEmail(p.first_name!, team.name, event.name, when, tasksFor(p.id), eventLink, brand) }));
-      // Their part waits in the Inbox to be confirmed.
+      // They're attending by default: the Inbox tells them, and they can decline from the event.
       inBackground(
         c,
-        notifyWaiting(c.env, [p.user_id], { key: `confirm:${p.id}`, title: `You're on the program for ${event.name}`, body: tasksFor(p.id)[0] ?? when }),
+        notifyNote(c.env, [p.user_id], {
+          kind: "part_added",
+          teamId: event.team_id,
+          eventId: event.id,
+          taskId: null,
+          title: `You're on the program for ${event.name}`,
+          body: tasksFor(p.id)[0] ?? when,
+        }),
       );
     } else {
       const token = await createGuestLink(db, p.id, event.end_at);

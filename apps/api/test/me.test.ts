@@ -58,7 +58,7 @@ describe("GET /api/me/events", () => {
       team: { id: teamId, name: "Events Team" },
       status: "draft",
       timezone: "Africa/Lagos",
-      myResponse: "pending",
+      myResponse: "acknowledged",
       myTaskCount: 2,
       myNextTask: { title: "Keynote", startAt: "2026-12-01T09:10:00.000Z" },
       awaitingMyApproval: false,

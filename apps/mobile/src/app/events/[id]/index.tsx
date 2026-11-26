@@ -4,6 +4,7 @@ import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Tex
 import { Button } from "../../../components/Button";
 import { StatusPill } from "../../../components/StatusPill";
 import { ApprovalPanel } from "../../../events/ApprovalPanel";
+import { CountdownPanel } from "../../../events/CountdownPanel";
 import { RespondPanel } from "../../../events/RespondPanel";
 import type { EventDetail } from "../../../events/types";
 import { countdownTo, deviceTimeZone, formatDuration, formatRange, formatTime, zoneCity } from "../../../lib/time";
@@ -75,10 +76,16 @@ export default function EventScreen() {
             {event.timezone !== deviceTimeZone() ? (
               <Text style={styles.muted}>Times are in {zoneCity(event.timezone)} time.</Text>
             ) : null}
+
+            {/* The countdown comes first: to the start, or what's on now and how long is left. */}
+            {event.status === "approved" || event.status === "live" ? (
+              <CountdownPanel data={data} />
+            ) : (
+              <StartPanel status={event.status} startAt={event.startAt} />
+            )}
             {event.description ? <Text style={styles.description}>{event.description}</Text> : null}
 
             <ApprovalPanel data={data} onApproved={setData} />
-            <StartPanel status={event.status} startAt={event.startAt} />
             {event.status === "live" || event.status === "approved" ? (
               <Button
                 label={event.status === "live" ? "Follow live" : "Open the live view"}

@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { snapshot } from "../live/engine";
 import type { Context } from "hono";
 import { sha256Hex } from "../auth/crypto";
 import type { AppEnv } from "../env";
@@ -76,6 +77,8 @@ export const guest = new Hono<AppEnv>()
     );
     const times = new Map(schedule.tasks.map((t) => [t.id, t]));
     await db.prepare("UPDATE guest_access_links SET last_opened_at = ? WHERE id = ?").bind(nowIso(), link.link_id).run();
+    // While it's live, what's on now and how long is left (guests poll; they have no live connection).
+    const live = link.status === "live" ? await snapshot(db, link.event_id, Date.now()) : null;
 
     return c.json({
       teamName: link.team_name,
@@ -99,6 +102,12 @@ export const guest = new Hono<AppEnv>()
         endAt: times.get(t.id)!.endAt,
         mine: myTasks.has(t.id),
       })),
+      // Names left out: guests see titles and timings only.
+      live: live && {
+        serverTime: live.serverTime,
+        currentTaskId: live.currentTaskId,
+        tasks: live.tasks.map(({ assignees: _names, ...t }) => t),
+      },
     });
   })
 

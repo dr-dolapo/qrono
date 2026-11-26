@@ -204,11 +204,21 @@ describe("guest links (QR044–QR046)", () => {
   it("shows the program and the guest's own tasks without an account", async () => {
     const res = await new Browser(t.env).get(`/api/guest/${guestToken()}`);
     expect(res.status).toBe(200);
-    expect(res.json).toMatchObject({ teamName: "Events Team", event: { name: "AGM", timezone: "Africa/Lagos" }, me: { name: "Dr. Funmi Ade", response: "pending" } });
+    expect(res.json).toMatchObject({ teamName: "Events Team", event: { name: "AGM", timezone: "Africa/Lagos" }, me: { name: "Dr. Funmi Ade", response: "acknowledged" }, live: null });
     expect(res.json.program.map((p: { title: string; mine: boolean }) => [p.title, p.mine])).toEqual([
       ["Opening", false],
       ["Keynote", true],
     ]);
+  });
+
+  it("shows guests what's on now while the event is live, without other people's names", async () => {
+    const start = await bola.post(`/api/events/${eventId}/live/start`);
+    expect(start.status).toBe(200);
+    const res = await new Browser(t.env).get(`/api/guest/${guestToken()}`);
+    expect(res.json.event.status).toBe("live");
+    const opening = res.json.program[0].id;
+    expect(res.json.live).toMatchObject({ currentTaskId: opening, tasks: [expect.objectContaining({ id: opening, status: "in_progress" }), expect.anything()] });
+    expect(res.json.live.tasks[0]).not.toHaveProperty("assignees");
   });
 
   it("lets the guest decline with a reason, and the team sees it", async () => {

@@ -263,7 +263,7 @@ export const events = new Hono<AppEnv>()
         if (!member) fail(400, "That person isn't on this team.");
         const exists = await c.env.DB.prepare("SELECT 1 FROM event_participants WHERE event_id = ? AND user_id = ?").bind(event.id, body.userId).first();
         if (exists) fail(409, "This person is already in the event.");
-        await c.env.DB.prepare("INSERT INTO event_participants (id, event_id, user_id) VALUES (?, ?, ?)").bind(id, event.id, body.userId).run();
+        await c.env.DB.prepare("INSERT INTO event_participants (id, event_id, user_id, response) VALUES (?, ?, ?, 'acknowledged')").bind(id, event.id, body.userId).run();
       } else {
         // A guest who already has an account on this team should be added as that member instead.
         const onTeam = await c.env.DB.prepare(
@@ -275,7 +275,7 @@ export const events = new Hono<AppEnv>()
         if (onTeam) fail(409, "This person is on your team. Add them as a team member instead.", { fields: { guestEmail: "This person is on your team. Add them from the team list." } });
         const exists = await c.env.DB.prepare("SELECT 1 FROM event_participants WHERE event_id = ? AND guest_email = ?").bind(event.id, body.guestEmail).first();
         if (exists) fail(409, "This guest is already in the event.", { fields: { guestEmail: "This guest is already in the event." } });
-        await c.env.DB.prepare("INSERT INTO event_participants (id, event_id, guest_name, guest_email) VALUES (?, ?, ?, ?)")
+        await c.env.DB.prepare("INSERT INTO event_participants (id, event_id, guest_name, guest_email, response) VALUES (?, ?, ?, ?, 'acknowledged')")
           .bind(id, event.id, body.guestName, body.guestEmail)
           .run();
       }
@@ -473,7 +473,7 @@ async function resolveWho(c: Ctx, event: EventRow, who: WhoRef[]): Promise<strin
     const existing = await db.prepare("SELECT id FROM event_participants WHERE event_id = ? AND user_id = ?").bind(event.id, userId).first<{ id: string }>();
     if (existing) return existing.id;
     const id = newId();
-    await db.prepare("INSERT INTO event_participants (id, event_id, user_id) VALUES (?, ?, ?)").bind(id, event.id, userId).run();
+    await db.prepare("INSERT INTO event_participants (id, event_id, user_id, response) VALUES (?, ?, ?, 'acknowledged')").bind(id, event.id, userId).run();
     return id;
   };
 
@@ -516,7 +516,7 @@ async function resolveWho(c: Ctx, event: EventRow, who: WhoRef[]): Promise<strin
       }
       const id = newId();
       await db
-        .prepare("INSERT INTO event_participants (id, event_id, guest_name, guest_email, contact_id) VALUES (?, ?, ?, ?, ?)")
+        .prepare("INSERT INTO event_participants (id, event_id, guest_name, guest_email, contact_id, response) VALUES (?, ?, ?, ?, ?, 'acknowledged')")
         .bind(id, event.id, contact!.name, contact!.email ?? "", contact!.id)
         .run();
       ids.push(id);

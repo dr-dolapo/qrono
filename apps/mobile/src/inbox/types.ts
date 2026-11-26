@@ -3,7 +3,7 @@ export type InboxAction = "approve" | "open" | "let_in" | "decline_join" | "conf
 /** One row of GET /api/me/inbox. */
 export interface InboxItem {
   key: string;
-  kind: "approve" | "join" | "confirm" | "invite" | "part_changed" | "part_removed" | "program_approved" | "program_returned" | "comment";
+  kind: "approve" | "join" | "confirm" | "invite" | "part_added" | "part_changed" | "part_removed" | "program_approved" | "program_returned" | "comment";
   teamId: string;
   teamName: string;
   eventId: string | null;

@@ -6,19 +6,19 @@ import { ApiError, api } from "../lib/api";
 import { colors, font, radius, space } from "../theme";
 import type { EventDetail } from "./types";
 
-type Mode = "view" | "choose" | "declining";
-
-/** QR033–QR035: confirm my part in an approved event, or decline it with a reason. */
+/**
+ * QR033–QR035: my part. People on a program are attending by default; they can say they can't
+ * make it (with a reason for the team), and change their mind.
+ */
 export function RespondPanel({ data, myTaskCount, onUpdated }: { data: EventDetail; myTaskCount: number; onUpdated(d: EventDetail): void }) {
   const participant = data.me.participant;
-  const [mode, setMode] = useState<Mode>("view");
+  const [declining, setDeclining] = useState(false);
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState<"acknowledged" | "declined" | null>(null);
 
   if (!participant) return null;
-  const { response } = participant;
-  const choosing = data.permissions.canRespond && (mode !== "view" || response === "pending");
+  const declined = participant.response === "declined";
 
   async function send(next: "acknowledged" | "declined") {
     if (next === "declined" && reason.trim().length < 3) {
@@ -32,7 +32,7 @@ export function RespondPanel({ data, myTaskCount, onUpdated }: { data: EventDeta
         body: next === "declined" ? { response: next, reason: reason.trim() } : { response: next },
       });
       onUpdated(detail);
-      setMode("view");
+      setDeclining(false);
       setReason("");
     } catch (err) {
       setError(err instanceof ApiError ? (err.fields.reason ?? err.message) : "Something went wrong. Please try again.");
@@ -50,12 +50,10 @@ export function RespondPanel({ data, myTaskCount, onUpdated }: { data: EventDeta
       <Text style={styles.body}>{tasks}</Text>
 
       {!data.permissions.canRespond ? (
-        data.event.status === "draft" || data.event.status === "review" ? (
-          <Text style={styles.muted}>You'll be asked to confirm once the event is approved.</Text>
-        ) : response !== "pending" ? (
-          <Text style={styles.body}>{response === "acknowledged" ? "You confirmed you took part." : "You said you couldn't take part."}</Text>
+        data.event.status === "past" ? (
+          <Text style={styles.muted}>{declined ? "You said you couldn't take part." : "You were on the program."}</Text>
         ) : null
-      ) : mode === "declining" ? (
+      ) : declining ? (
         <View style={styles.form}>
           <TextField
             label="Why can't you take part?"
@@ -68,28 +66,20 @@ export function RespondPanel({ data, myTaskCount, onUpdated }: { data: EventDeta
             style={styles.reasonInput}
             autoFocus
           />
-          <Button label="Send" onPress={() => send("declined")} busy={busy === "declined"} />
-          <Button label="Cancel" variant="link" onPress={() => { setMode(response === "pending" ? "view" : "choose"); setError(undefined); }} />
+          <Button label="Send to the team" onPress={() => send("declined")} busy={busy === "declined"} />
+          <Button label="Cancel" variant="link" onPress={() => { setDeclining(false); setError(undefined); }} />
         </View>
-      ) : choosing ? (
+      ) : declined ? (
         <View style={styles.form}>
-          <Text style={[styles.body, response === "pending" && styles.attention]}>
-            {response === "pending" ? "The organisers are waiting for you. Can you take part?" : "Change your answer:"}
-          </Text>
-          <Button label="Yes, I'll be there" onPress={() => send("acknowledged")} busy={busy === "acknowledged"} disabled={busy !== null} />
-          <Button label="I can't take part" variant="secondary" onPress={() => setMode("declining")} disabled={busy !== null} />
+          <Text style={styles.body}>You've told the team you can't take part.</Text>
+          {participant.declineReason ? <Text style={styles.muted}>Your reason: {participant.declineReason}</Text> : null}
+          <Button label="I can make it after all" variant="secondary" onPress={() => send("acknowledged")} busy={busy === "acknowledged"} />
           {error ? <Text style={styles.error}>{error}</Text> : null}
-          {response !== "pending" ? <Button label="Keep my answer" variant="link" onPress={() => setMode("view")} /> : null}
         </View>
       ) : (
         <View style={styles.form}>
-          <Text style={styles.body}>
-            {response === "acknowledged" ? "You've confirmed you're taking part." : "You said you can't take part."}
-          </Text>
-          {response === "declined" && participant.declineReason ? (
-            <Text style={styles.muted}>Your reason: {participant.declineReason}</Text>
-          ) : null}
-          <Button label="Change my answer" variant="link" onPress={() => setMode("choose")} />
+          <Text style={styles.body}>You're down as attending.</Text>
+          <Button label="I can't make it" variant="link" onPress={() => setDeclining(true)} />
         </View>
       )}
     </View>
@@ -101,8 +91,7 @@ const styles = StyleSheet.create({
   title: { color: colors.text, fontSize: 16, ...font("700") },
   body: { color: colors.text, fontSize: 15, ...font("400"), lineHeight: 21 },
   muted: { color: colors.muted, fontSize: 14, ...font("400"), lineHeight: 20 },
-  attention: { color: colors.warningText, ...font("600") },
-  error: { color: colors.danger, fontSize: 13 , ...font("400")},
+  error: { color: colors.danger, fontSize: 13, ...font("400") },
   form: { gap: space.sm, marginTop: space.xs },
   reasonInput: { minHeight: 88, textAlignVertical: "top" },
 });
