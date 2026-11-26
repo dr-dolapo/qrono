@@ -69,26 +69,4 @@ f'''
     </div>
   </div>
 </section>
-
-<section aria-labelledby="roles-title">
-  <div class="wrap">
-    <div class="section-head">
-      <h2 id="roles-title">Built for teams</h2>
-      <p>People join a team by invitation, and each person’s role decides what they can do.</p>
-    </div>
-    <div class="roles">
-      <div><h3>Admins</h3><p>Own the team, approve programs and decide who does what.</p></div>
-      <div><h3>Planners</h3><p>Create programs, invite people and send drafts for approval.</p></div>
-      <div><h3>Members</h3><p>See the programs they’re on, confirm their parts and follow along live.</p></div>
-    </div>
-  </div>
-</section>
-
-<section class="cta" aria-labelledby="cta-title">
-  <div class="wrap">
-    <h2 id="cta-title">What do you want people to say after your event?</h2>
-    <p>Start a team, invite the people who make your events happen, and plan your next one in Qrono.</p>
-    <a class="btn btn-primary" href="{APP}/signup">Get started</a>
-  </div>
-</section>
 ''')
