@@ -72,6 +72,8 @@ function RootStack() {
       >
         <Stack.Protected guard={signedIn}>
           <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="archived" />
+          <Stack.Screen name="delete-account" />
           <Stack.Screen name="events/[id]/index" options={{ headerShown: true, title: "", headerBackTitle: "Back" }} />
           <Stack.Screen name="events/[id]/live" options={{ headerShown: true, title: "Live", headerBackTitle: "Program" }} />
           <Stack.Screen name="events/[id]/tasks/[taskId]" options={{ headerShown: true, title: "Task", headerBackTitle: "Program" }} />
