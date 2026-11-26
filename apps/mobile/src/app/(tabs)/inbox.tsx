@@ -31,8 +31,10 @@ const DONE: Partial<Record<InboxAction, string>> = {
 };
 const Handled = createContext<(message: string) => void>(() => undefined);
 
-/** Inbox Zero's text and tray: dark on purpose, so the empty Inbox reads as empty. */
+/** Inbox Zero's tray: dark on purpose, so the empty Inbox reads as empty. */
 const ZERO = "#3a3550";
+/** Its words: still a soft, dim lavender, but readable (5:1 on black). */
+const ZERO_TEXT = "#7d7896";
 
 /** Things waiting on you, across your teams. Items move to Archived once handled. */
 export default function Inbox() {
@@ -309,8 +311,8 @@ const styles = StyleSheet.create({
   // Above the words, not part of the centring (as designed): the tray's bottom edge sits just over the heading.
   zeroTray: { position: "absolute", top: -98, width: 104, height: 104 },
   sparkle: { position: "absolute", top: -6, right: -14 },
-  zeroTitle: { color: ZERO, fontSize: 22, letterSpacing: -0.2, ...font("700") },
-  zeroBody: { color: ZERO, fontSize: 15, lineHeight: 22, maxWidth: 290, textAlign: "center", ...font("400") },
+  zeroTitle: { color: ZERO_TEXT, fontSize: 22, letterSpacing: -0.2, ...font("700") },
+  zeroBody: { color: ZERO_TEXT, fontSize: 15, lineHeight: 22, maxWidth: 290, textAlign: "center", ...font("400") },
   toast: {
     position: "absolute",
     left: space.lg,
