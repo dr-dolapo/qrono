@@ -1,6 +1,8 @@
 import Constants from "expo-constants";
 import * as Notifications from "expo-notifications";
+import { router } from "expo-router";
 import * as Updates from "expo-updates";
+import * as WebBrowser from "expo-web-browser";
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Alert, AppState, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -21,6 +23,8 @@ interface MySettings {
   me: { reminderEmails: boolean };
   remindersEnabled: boolean;
 }
+/** The public site: Terms, Privacy Policy and Support. */
+const SITE = "https://qrono.co.uk";
 const ROLE_LABEL: Record<Role, string> = { approver: "Admin", admin: "Planner", member: "Member" };
 
 /** You: your name, your teams and roles, notifications, and the app itself. */
@@ -127,9 +131,26 @@ export default function Profile() {
         <Text style={styles.section}>App</Text>
         <AppInfo />
 
+        <View style={styles.legal}>
+          <Pressable onPress={() => void WebBrowser.openBrowserAsync(`${SITE}/privacy`)} hitSlop={8} accessibilityRole="link">
+            <Text style={styles.link}>Privacy Policy</Text>
+          </Pressable>
+          <Text style={styles.muted}>·</Text>
+          <Pressable onPress={() => void WebBrowser.openBrowserAsync(`${SITE}/terms`)} hitSlop={8} accessibilityRole="link">
+            <Text style={styles.link}>Terms</Text>
+          </Pressable>
+          <Text style={styles.muted}>·</Text>
+          <Pressable onPress={() => void WebBrowser.openBrowserAsync(`${SITE}/support`)} hitSlop={8} accessibilityRole="link">
+            <Text style={styles.link}>Support</Text>
+          </Pressable>
+        </View>
+
         <View style={{ marginTop: space.lg }}>
           <Button label="Log out" variant="secondary" onPress={confirmLogOut} />
         </View>
+        <Pressable onPress={() => router.push("/delete-account")} style={styles.deleteLink} accessibilityRole="button">
+          <Text style={styles.deleteText}>Delete account</Text>
+        </Pressable>
       </ScrollView>
     </SafeAreaView>
   );
@@ -278,5 +299,8 @@ const styles = StyleSheet.create({
   pillText: { color: "#d8c2fb", fontSize: 12, ...font("600") },
   input: { minHeight: 44, borderRadius: radius.md, backgroundColor: "#17181d", color: colors.text, paddingHorizontal: space.md, fontSize: 15, ...font("400") },
   state: { color: colors.muted, fontSize: 14, ...font("600") },
+  legal: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: space.sm, marginTop: space.md },
+  deleteLink: { alignSelf: "center", minHeight: 44, justifyContent: "center", paddingHorizontal: space.md },
+  deleteText: { color: colors.danger, fontSize: 15, ...font("600") },
   stateOn: { color: "#7ee2a8" },
 });

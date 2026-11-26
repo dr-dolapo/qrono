@@ -1,0 +1,18 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  // qrono.co.uk: static pages only (landing, Terms, Privacy Policy, Support, account deletion).
+  // The app itself stays at app.qrono.co.uk.
+  "name": "qrono-site",
+  "compatibility_date": "2026-11-01",
+  "assets": {
+    "directory": "./public",
+    "html_handling": "drop-trailing-slash",
+    "not_found_handling": "404-page"
+  },
+  // Attaches the domain to this Worker. qrono.co.uk must be a zone on the same Cloudflare
+  // account, with no other DNS record already on the apex or www.
+  "routes": [
+    { "pattern": "qrono.co.uk", "custom_domain": true },
+    { "pattern": "www.qrono.co.uk", "custom_domain": true }
+  ]
+}

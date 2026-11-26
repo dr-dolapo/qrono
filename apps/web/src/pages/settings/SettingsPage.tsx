@@ -11,6 +11,7 @@ import { HelpTip } from "../../components/HelpTip";
 import { allTimeZones, formatTime, zoneLongName } from "../../time";
 import { AgendaLibrary } from "./AgendaLibrary";
 import { DangerZone } from "./DangerZone";
+import { DeleteAccount } from "./DeleteAccount";
 import { LogoField } from "./LogoField";
 
 const REMINDER_CHOICES = [
@@ -263,6 +264,8 @@ export function SettingsPage() {
                   checked={data.me.reminderEmails}
                   onChange={saveMine}
                 />
+                <h3 className="sub-head">Your account</h3>
+                <DeleteAccount />
               </Section>
             )}
 
