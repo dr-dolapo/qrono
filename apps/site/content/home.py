@@ -1,17 +1,17 @@
-page("index.html", "Qrono: run live events without dead air",
-     "Qrono is a collaborative program manager for live events. Plan the agenda together, get it approved, then run it live with everyone in step.",
+page("index.html", "Qrono: run live events on time. Every time.",
+     "Plan, approve and run your event programme in one place.",
 f'''
 <section class="hero" aria-labelledby="hero-title">
   <div class="wrap">
     <div>
-      <p class="eyebrow">For live events with many people</p>
-      <h1 id="hero-title">Run live events without dead air.</h1>
-      <p class="lede">Qrono is a collaborative program manager for live events. Plan the agenda with your team, get it approved, then run it live, with everyone on the program knowing what’s on now, what’s next and when it’s their turn.</p>
+      <h1 id="hero-title" aria-label="Run live events on time. Every time.">
+        <span aria-hidden="true">Run <span class="typed" data-words="live events|church services|conferences|award ceremonies|corporate meetings">live events</span><br>on time. <span class="nw">Every time.</span></span>
+      </h1>
+      <p class="lede">Plan, approve and run your event programme in one place.</p>
       <div class="actions">
         <a class="btn btn-primary" href="{APP}/signup">Get started</a>
         <a class="btn btn-ghost" href="#how">See how it works</a>
       </div>
-      <p class="small">Plan on the web. Follow along on iPhone and Android.</p>
     </div>
     <div class="phone" role="img" aria-label="A phone lock screen showing Qrono's live card: You're up next, Opening remarks, with the latest message from the organisers.">
       <div class="screen" aria-hidden="true">
