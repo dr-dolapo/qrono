@@ -127,7 +127,7 @@ export function StatusRail({ detail, mutate, onEditDetails }: { detail: EventDet
     );
   } else if ((event.status === "approved" || event.status === "live") && permissions.canRunLive) {
     primary = (
-      <Link className="button button-primary button-pill" to={`/command/${event.id}`}>
+      <Link className="button button-primary button-pill" to={`/command/${event.id}`} target="_blank" rel="noopener">
         <Icon name="play" size={14} /> Open command centre
       </Link>
     );
