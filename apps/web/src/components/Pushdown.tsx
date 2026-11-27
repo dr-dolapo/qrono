@@ -52,7 +52,6 @@ export function Pushdown(props: {
   // Offline: assume each item runs to its planned length, from the last state we heard.
   const heard = { ...props.input, now };
   const full = offline ? followPlan(heard) : heard;
-  const input = full;
   const me = meFace(full);
   const all = allFace(full);
   const [tab, setTab] = useState<Tab>(me ? "me" : "all");
