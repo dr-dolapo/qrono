@@ -82,7 +82,7 @@ export function StatusRail({ detail, mutate, onEditDetails }: { detail: EventDet
     draft: team.requireApproval
       ? "Only Planners and Admins can see it. Send it to an Admin when it's ready."
       : "Only Planners and Admins can see it. Publish it when it's ready; your team doesn't need approval.",
-    review: `Waiting for ${names(approvers) || "an Admin"}. The plan is locked while it's in review; comment on any item.`,
+    review: `Waiting for ${names(approvers) || "an Admin"}. The plan is locked while it's in review.`,
     approved: `${approvedBy.length ? `Approved by ${names(approvedBy)}. ` : ""}Everyone on the program has been emailed their part.`,
     live: "The event is running. Changes to what hasn't happened yet are emailed 2 minutes after your last edit.",
     past: "This event is over.",
@@ -264,7 +264,7 @@ export function StatusRail({ detail, mutate, onEditDetails }: { detail: EventDet
             <div className="accordion-body">
               <p className="rail-text">
                 {past
-                  ? "Deleting takes this event off everyone's list, with its agenda, messages and comments. Nobody is notified."
+                  ? "Deleting takes this event off everyone's list, with its agenda and messages. Nobody is notified."
                   : "Deleting removes the event and its agenda. Nobody has been emailed about it yet."}
               </p>
               {confirmDelete ? (

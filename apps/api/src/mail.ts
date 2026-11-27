@@ -127,7 +127,7 @@ const withText = (body: string, details: string[], link: string, footer: string)
   [body, ...(details.length ? ["", ...details.map((d) => `- ${d}`)] : []), "", link, "", footer].join("\n");
 
 export function reviewRequestedEmail(submitter: string, eventName: string, when: string, link: string): Omit<OutgoingEmail, "to"> {
-  const body = `${submitter} has sent "${eventName}" (${when}) for your approval. Review the agenda, leave comments on any task, and approve it when it's ready.`;
+  const body = `${submitter} has sent "${eventName}" (${when}) for your approval. Review the program and approve it when it's ready.`;
   const footer = "You're getting this because you were chosen as an Admin for this event.";
   return {
     subject: `Please review: ${eventName}`,

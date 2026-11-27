@@ -47,7 +47,7 @@ export const responseBody = z
     }
   });
 
-/** Review, approval, comments and participant responses for one event. */
+/** Review, approval and participant responses for one event. */
 export const review = new Hono<AppEnv>()
   .use(requireVerifiedUser)
 
@@ -195,56 +195,6 @@ export const review = new Hono<AppEnv>()
     ]);
     await notifyOnApproval(c, event, `${me.firstName} ${me.lastName}`, me.id);
     await liveCommand(c, event.id, "arm", me.id);
-    return c.json(await eventDetail(c, await loadEvent(c, event.id)));
-  })
-
-  // ── Comments (QR012–QR015, QR026, QR031) ──
-
-  /** Anyone who can see the event can comment on its tasks, at any stage. */
-  .post("/:eventId/tasks/:taskId/comments", json(z.object({ body: z.string().trim().min(1, { error: "Write a comment." }).max(2000) })), async (c) => {
-    const { event } = await loadEvent(c, c.req.param("eventId"));
-    const task = await c.env.DB.prepare("SELECT 1 FROM tasks WHERE id = ? AND event_id = ?").bind(c.req.param("taskId"), event.id).first();
-    if (!task) fail(404, "Task not found.");
-    const author = currentUser(c);
-    const body = c.req.valid("json").body;
-    await c.env.DB.prepare("INSERT INTO comments (id, task_id, author_id, body, event_status_at_post) VALUES (?, ?, ?, ?, ?)")
-      .bind(newId(), c.req.param("taskId"), author.id, body, event.status)
-      .run();
-    // The people on that item hear about it, and so does whoever sent the program for review.
-    const { results: onItem } = await c.env.DB.prepare(
-      `SELECT p.user_id, t.title FROM task_assignments a JOIN event_participants p ON p.id = a.participant_id JOIN tasks t ON t.id = a.task_id
-        WHERE a.task_id = ? AND p.user_id IS NOT NULL`,
-    )
-      .bind(c.req.param("taskId"))
-      .all<{ user_id: string; title: string }>();
-    const taskTitle = (await c.env.DB.prepare("SELECT title FROM tasks WHERE id = ?").bind(c.req.param("taskId")).first<{ title: string }>())?.title ?? "an item";
-    const sender = event.status === "review" ? await lastSubmitter(c.env.DB, event.id) : null;
-    const recipients = [...onItem.map((r) => r.user_id), ...(sender ? [sender] : [])].filter((id) => id !== author.id);
-    inBackground(
-      c,
-      notifyNote(c.env, recipients, {
-        kind: "comment",
-        teamId: event.team_id,
-        eventId: event.id,
-        taskId: c.req.param("taskId"),
-        title: `${author.firstName} commented on “${taskTitle}”`,
-        body: body.length > 140 ? `${body.slice(0, 137)}…` : body,
-      }),
-    );
-    return c.json(await eventDetail(c, await loadEvent(c, event.id)), 201);
-  })
-
-  /** Delete your own comment. It's kept in the history as deleted (QR015). */
-  .delete("/:eventId/comments/:commentId", async (c) => {
-    const { event } = await loadEvent(c, c.req.param("eventId"));
-    const res = await c.env.DB.prepare(
-      `UPDATE comments SET deleted_at = ?, updated_at = ?
-        WHERE id = ? AND author_id = ? AND deleted_at IS NULL
-          AND task_id IN (SELECT id FROM tasks WHERE event_id = ?)`,
-    )
-      .bind(nowIso(), nowIso(), c.req.param("commentId"), currentUser(c).id, event.id)
-      .run();
-    if (!res.meta.changes) fail(404, "Comment not found.");
     return c.json(await eventDetail(c, await loadEvent(c, event.id)));
   })
 

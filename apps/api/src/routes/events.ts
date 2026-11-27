@@ -195,7 +195,7 @@ export const events = new Hono<AppEnv>()
   /**
    * Delete a draft, or a past event to take it off everyone's list. Admins and Planners only.
    * Nobody is told: a draft was never sent out, and a past event is over. Everything that
-   * belongs to the event (its program, people, messages, comments) goes with it.
+   * belongs to the event (its program, people, messages) goes with it.
    */
   .delete("/:eventId", async (c) => {
     const { event, canManage } = await loadEvent(c, c.req.param("eventId"));

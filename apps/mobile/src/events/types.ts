@@ -32,7 +32,6 @@ export interface EventDetail {
   team?: { name: string; liveWarningMinutes: number; requireApproval: boolean; allowSelfApproval: boolean };
   permissions: {
     canRespond: boolean;
-    canComment: boolean;
     canApprove: boolean;
     canDelete?: boolean;
     /** Admins and Planners: drafts are edited in the app's program builder. */
@@ -57,12 +56,4 @@ export interface EventDetail {
     assigneeIds: string[];
   }[];
   participants: { id: string; name: string; kind: "member" | "guest"; userId: string | null; contactId: string | null; email: string | null }[];
-  comments: {
-    id: string;
-    taskId: string;
-    author: { id: string; name: string };
-    body: string;
-    postedDuring: EventStatus;
-    createdAt: string;
-  }[];
 }

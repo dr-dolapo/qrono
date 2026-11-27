@@ -62,11 +62,18 @@ describe("the Inbox", () => {
     const bola = await join("Bola", "bola@example.com", "admin");
     const id = (await bola.browser.post(`/api/teams/${teamId}/events`, { name: "Monday Meeting", startAt: START })).json.event.id;
     const task = (await bola.browser.post(`/api/events/${id}/tasks`, { title: "Welcome", durationMinutes: 15, who: [{ userId: bola.userId }] })).json.tasks[0];
-    await ada.post(`/api/events/${id}/tasks/${task.id}/comments`, { body: "Keep it short, please." });
+    const note = (kind: string, title: string) =>
+      t.sqlite
+        .prepare("INSERT INTO inbox_notes (id, user_id, team_id, event_id, task_id, kind, title, body) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+        .run(crypto.randomUUID(), bola.userId, teamId, id, task.id, kind, title, "");
+    note("part_changed", "Your part changed");
+    // Comments on items were removed; notes about old ones stay hidden.
+    note("comment", "Ada commented on “Welcome”");
     await settle();
 
     const before = await inbox(bola.browser);
-    expect(before.items[0]).toMatchObject({ kind: "comment", unread: true });
+    expect(before.items).toHaveLength(1);
+    expect(before.items[0]).toMatchObject({ kind: "part_changed", unread: true });
     const read = (await bola.browser.post("/api/me/inbox/read", {})).json;
     expect(read.unread).toBe(0);
     expect(read.items).toHaveLength(1);

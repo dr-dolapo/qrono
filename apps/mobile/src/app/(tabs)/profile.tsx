@@ -223,7 +223,7 @@ function PushStatus() {
         <View style={{ flex: 1, gap: 2 }}>
           <Text style={styles.label}>Push notifications</Text>
           <Text style={styles.hint}>
-            {on ? "On. Approvals, new parts, comments and broadcasts reach this phone." : "Off. Turn them on so urgent things reach you without opening the app."}
+            {on ? "On. Approvals, new parts and broadcasts reach this phone." : "Off. Turn them on so urgent things reach you without opening the app."}
           </Text>
         </View>
         <Text style={[styles.state, on && styles.stateOn]}>{status === null ? "" : on ? "On" : "Off"}</Text>

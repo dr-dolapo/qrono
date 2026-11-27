@@ -237,17 +237,6 @@ h1 { font-size: 1.75rem; margin: 0.5rem 0 1rem; }
 .agenda-item { display: block; }
 .agenda-line { display: flex; align-items: flex-start; gap: 1rem; }
 .agenda-line .row-main { flex: 1; }
-.has-comments { border-color: rgba(245, 179, 1, 0.5); color: var(--warn); }
-.comments { margin: 0.75rem 0 0.25rem 6.75rem; display: grid; gap: 0.6rem; }
-.comment-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.6rem; }
-.comment-list li { background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 0.6rem 0.8rem; }
-.comment-list p { margin: 0.25rem 0 0; white-space: pre-wrap; line-height: 1.45; }
-.comment-meta { display: flex; gap: 0.6rem; align-items: baseline; flex-wrap: wrap; }
-.comment-form { display: flex; gap: 0.5rem; align-items: flex-end; }
-.comment-form textarea {
-  flex: 1; padding: 0.5rem 0.75rem; border-radius: 10px; border: 1px solid var(--line); background: var(--bg);
-  color: var(--text); font: inherit; font-size: 16px; resize: vertical;
-}
 
 .my-part { border-color: rgba(164, 75, 233, 0.4); }
 .plain-list { list-style: none; margin: 0 0 1rem; padding: 0; display: grid; gap: 0.35rem; }
@@ -269,7 +258,6 @@ h1 { font-size: 1.75rem; margin: 0.5rem 0 1rem; }
 .guest .field textarea { width: 100%; }
 
 @media (max-width: 720px) {
-  .comments { margin-left: 0; }
   .agenda-line { flex-wrap: wrap; }
   .agenda-line .row-actions { width: 100%; }
 }
@@ -375,10 +363,8 @@ button.agenda-card-main:hover .agenda-cell-what { text-decoration: underline; te
 }
 .agenda-icon:hover:not(:disabled) { color: var(--text); background: rgba(255, 255, 255, 0.06); }
 .agenda-icon:disabled { opacity: 0.25; cursor: default; }
-.agenda-icon.has-comments { color: var(--purple); }
 .agenda-icon-count { position: absolute; top: 2px; right: 2px; font-size: 0.65rem; font-weight: 800; color: var(--text); }
 .agenda-card.task-done, .agenda-card.task-skipped { opacity: 0.55; }
-.agenda-card .comments { margin: 0 1.25rem 1rem; }
 
 /* Dashed boxes: the "+" button and the item editor. */
 .agenda-add, .agenda-editor {
@@ -851,8 +837,6 @@ a.list-row:hover { background: var(--rail); }
 }
 .tab-panel { outline: 0; }
 .tab-intro { color: var(--ink-3); margin: 0 0 14px; }
-.comment-groups { display: grid; gap: 22px; }
-.comment-group h3 { font-size: 14px; font-weight: 600; color: var(--ink); margin: 0 0 8px; }
 
 /* Agenda as one bordered table (calmer rows: 15px titles) */
 .agenda-section { margin-top: 0; }

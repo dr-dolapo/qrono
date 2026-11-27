@@ -34,16 +34,6 @@ interface ParticipantRow {
   last_name: string | null;
   email: string | null;
 }
-interface CommentRow {
-  id: string;
-  task_id: string;
-  author_id: string;
-  first_name: string;
-  last_name: string;
-  body: string;
-  event_status_at_post: string;
-  created_at: string;
-}
 interface ApproverRow {
   user_id: string;
   first_name: string;
@@ -112,7 +102,7 @@ export async function eventDetail(c: Context<AppEnv>, access: EventAccess) {
   const { event } = access;
   const db = c.env.DB;
   const me = c.get("user")!;
-  const [{ stages, tasks }, participants, assignments, comments, approvers] = await Promise.all([
+  const [{ stages, tasks }, participants, assignments, approvers] = await Promise.all([
     loadAgenda(c, event.id),
     db.prepare(
       `SELECT p.id, p.user_id, p.guest_name, p.guest_email, p.contact_id, p.response, p.decline_reason, p.responded_at,
@@ -131,14 +121,6 @@ export async function eventDetail(c: Context<AppEnv>, access: EventAccess) {
     )
       .bind(event.id)
       .all<AssignmentRow>(),
-    db.prepare(
-      `SELECT c.id, c.task_id, c.author_id, u.first_name, u.last_name, c.body, c.event_status_at_post, c.created_at
-         FROM comments c JOIN tasks t ON t.id = c.task_id JOIN users u ON u.id = c.author_id
-        WHERE t.event_id = ? AND c.deleted_at IS NULL
-        ORDER BY c.created_at`,
-    )
-      .bind(event.id)
-      .all<CommentRow>(),
     db.prepare(
       `SELECT a.user_id, u.first_name, u.last_name, a.approved_at
          FROM event_approvers a JOIN users u ON u.id = a.user_id
@@ -209,7 +191,6 @@ export async function eventDetail(c: Context<AppEnv>, access: EventAccess) {
       canPublish: !requireApproval && access.canManage && event.status === "draft" && tasks.length > 0,
       canWithdraw: access.canManage && event.status === "review",
       canApprove: event.status === "review" && iAmChosenApprover && access.role === "approver" && !selfBlocked,
-      canComment: true,
       canRespond: myParticipant !== null && (event.status === "approved" || event.status === "live"),
       canRunLive: access.canManage && (event.status === "approved" || event.status === "live"),
     },
@@ -220,14 +201,6 @@ export async function eventDetail(c: Context<AppEnv>, access: EventAccess) {
         : null,
     },
     approvers: approvers.results.map((a) => ({ userId: a.user_id, name: `${a.first_name} ${a.last_name}`, approvedAt: a.approved_at })),
-    comments: comments.results.map((cm) => ({
-      id: cm.id,
-      taskId: cm.task_id,
-      author: { id: cm.author_id, name: `${cm.first_name} ${cm.last_name}` },
-      body: cm.body,
-      postedDuring: cm.event_status_at_post,
-      createdAt: cm.created_at,
-    })),
     stages: stages.map((s) => ({ id: s.id, name: s.name, venue: s.venue })),
     tasks: tasks.map((t) => ({
       id: t.id,

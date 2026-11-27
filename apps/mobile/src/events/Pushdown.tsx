@@ -368,7 +368,7 @@ function AllTab(props: {
           <Pressable
             key={t.id}
             accessibilityRole="button"
-            accessibilityHint="Opens the item and its comments"
+            accessibilityHint="Opens the item"
             onPress={() => router.push({ pathname: "/events/[id]/tasks/[taskId]", params: { id: data.event.id, taskId: t.id } })}
             style={({ pressed }) => [styles.row, pressed && { opacity: 0.7 }]}
           >

@@ -7,7 +7,7 @@
  *  - confirm:<participantId> my part on an approved program, not yet confirmed
  *  - invite:<inviteId>       an invitation to join another team, sent to my email
  * The rest are notes about things that happened (a part changed, a program approved
- * or sent back, a comment), kept until opened or dismissed: note:<id>.
+ * or sent back), kept until opened or dismissed: note:<id>.
  */
 import type { Env } from "./env";
 import { newId } from "./ids";
@@ -17,7 +17,7 @@ export type InboxAction = "approve" | "open" | "let_in" | "decline_join" | "conf
 
 export interface InboxItem {
   key: string;
-  kind: "approve" | "join" | "confirm" | "invite" | "part_added" | "part_changed" | "part_removed" | "program_approved" | "program_returned" | "comment";
+  kind: "approve" | "join" | "confirm" | "invite" | "part_added" | "part_changed" | "part_removed" | "program_approved" | "program_returned";
   teamId: string;
   teamName: string;
   eventId: string | null;
@@ -30,7 +30,7 @@ export interface InboxItem {
   ref: { membershipId?: string; participantId?: string; inviteId?: string; noteId?: string; taskId?: string };
 }
 
-export type NoteKind = "part_added" | "part_changed" | "part_removed" | "program_approved" | "program_returned" | "comment";
+export type NoteKind = "part_added" | "part_changed" | "part_removed" | "program_approved" | "program_returned";
 
 /** Everything in someone's Inbox, newest first, with how many they haven't seen. */
 export async function buildInbox(db: D1Database, user: { id: string; email: string }): Promise<{ items: InboxItem[]; unread: number }> {
@@ -92,7 +92,7 @@ export async function buildInbox(db: D1Database, user: { id: string; email: stri
       .prepare(
         `SELECT n.id, n.kind, n.title, n.body, n.created_at, n.event_id, n.task_id, t.id AS team_id, t.name AS team_name
            FROM inbox_notes n JOIN teams t ON t.id = n.team_id
-          WHERE n.user_id = ? AND n.done_at IS NULL
+          WHERE n.user_id = ? AND n.done_at IS NULL AND n.kind <> 'comment' -- comments were removed; older notes stay hidden
           ORDER BY n.created_at DESC LIMIT 100`,
       )
       .bind(user.id)

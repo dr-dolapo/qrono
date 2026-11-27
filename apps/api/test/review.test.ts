@@ -133,36 +133,19 @@ describe("approving (QR016–QR018, QR032, QR044)", () => {
   });
 });
 
-describe("comments (QR012–QR015, QR031)", () => {
-  it("lets Admins, Planners and assigned Members comment during review", async () => {
+describe("no comments on items", () => {
+  it("has no way to comment, and no comments in the program", async () => {
     await submit();
     const keynote = await taskId("Keynote");
-    await ada.post(`/api/events/${eventId}/tasks/${keynote}/comments`, { body: "Can the keynote be 30 minutes?" });
-    await bola.post(`/api/events/${eventId}/tasks/${keynote}/comments`, { body: "Checking with the speaker." });
-    const res = await chi.browser.post(`/api/events/${eventId}/tasks/${keynote}/comments`, { body: "I can cover if needed." });
-    expect(res.status).toBe(201);
-    expect(res.json.comments.map((x: { author: { name: string }; postedDuring: string }) => [x.author.name, x.postedDuring])).toEqual([
-      ["Ada Test", "review"],
-      ["Bola Test", "review"],
-      ["Chi Test", "review"],
-    ]);
+    expect((await ada.post(`/api/events/${eventId}/tasks/${keynote}/comments`, { body: "Can the keynote be 30 minutes?" })).status).toBe(404);
+    const detail = (await ada.get(`/api/events/${eventId}`)).json;
+    expect(detail.comments).toBeUndefined();
+    expect(detail.permissions.canComment).toBeUndefined();
   });
 
   it("hides the event from Members who aren't on it", async () => {
     const dayo = await join("Dayo", "dayo@example.com", "member");
-    const keynote = await taskId("Keynote");
-    expect((await dayo.browser.post(`/api/events/${eventId}/tasks/${keynote}/comments`, { body: "Hi" })).status).toBe(404);
-  });
-
-  it("lets people delete only their own comments", async () => {
-    const keynote = await taskId("Keynote");
-    const posted = await ada.post(`/api/events/${eventId}/tasks/${keynote}/comments`, { body: "First thought" });
-    const commentId = posted.json.comments[0].id;
-    expect((await bola.request("DELETE", `/api/events/${eventId}/comments/${commentId}`)).status).toBe(404);
-    const res = await ada.request("DELETE", `/api/events/${eventId}/comments/${commentId}`);
-    expect(res.json.comments).toEqual([]);
-    // Kept in the database for history.
-    expect(t.sqlite.prepare("SELECT deleted_at IS NOT NULL AS gone FROM comments WHERE id = ?").get(commentId)).toEqual({ gone: 1 });
+    expect((await dayo.browser.get(`/api/events/${eventId}`)).status).toBe(404);
   });
 });
 

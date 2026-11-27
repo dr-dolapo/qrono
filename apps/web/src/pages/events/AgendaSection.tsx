@@ -10,7 +10,6 @@ import { AgendaItemEditor, type AgendaItemValues } from "./agenda/AgendaItemEdit
 import { TemplatePicker } from "./agenda/TemplatePicker";
 import type { PickerPerson } from "./agenda/WhoPicker";
 import type { Mutate } from "./EventEditor";
-import { TaskComments } from "./TaskComments";
 import { AvatarStack } from "../../components/Avatar";
 import { Icon } from "../../components/Icon";
 
@@ -122,8 +121,6 @@ export function AgendaSection({
   const [adding, setAdding] = useState(false);
   const [choosingTemplate, setChoosingTemplate] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [openComments, setOpenComments] = useState<string | null>(null);
-  const commentCount = (taskId: string) => detail.comments.filter((c) => c.taskId === taskId).length;
 
   const pickable = useMemo(() => pickerPeople(detail, people), [detail, people]);
   // Who on an existing item, as picker entries.
@@ -292,18 +289,6 @@ export function AgendaSection({
                             </div>
                           )}
                           <div className="agenda-card-actions">
-                            <button
-                              type="button"
-                              className={clsx("agenda-icon", commentCount(task.id) > 0 && "has-comments")}
-                              aria-expanded={openComments === task.id}
-                              aria-label={commentCount(task.id) ? `${commentCount(task.id)} comments on ${task.title}` : `Comment on ${task.title}`}
-                              onClick={() => setOpenComments(openComments === task.id ? null : task.id)}
-                            >
-                              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-                                <path d="M4 5h16v11H9l-5 4z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-                              </svg>
-                              {commentCount(task.id) > 0 && <span className="agenda-icon-count">{commentCount(task.id)}</span>}
-                            </button>
                             {editable(task) && (
                               <>
                                 <button
@@ -328,7 +313,6 @@ export function AgendaSection({
                             )}
                           </div>
                         </div>
-                        {openComments === task.id && <TaskComments detail={detail} task={task} mutate={mutate} />}
                       </>
                     )}
                   </SortableRow>
