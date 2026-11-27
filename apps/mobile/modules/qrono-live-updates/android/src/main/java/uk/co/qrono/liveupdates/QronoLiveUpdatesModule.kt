@@ -26,6 +26,13 @@ class LiveCardRecord : Record {
   @Field var detail: String? = null
   @Field var urgent: Boolean = false
   @Field var broadcast: String? = null
+  /** The pushdown, as on the event screen: purple, amber, green or red. */
+  @Field var tone: String? = null
+  @Field var caption: String? = null
+  /** Epoch ms the countdown reaches zero; when `over`, went over (it counts up from then). */
+  @Field var target: Double? = null
+  @Field var over: Boolean = false
+  @Field var text: String? = null
 }
 
 /**
@@ -74,8 +81,10 @@ class QronoLiveUpdatesModule : Module() {
     ) return
     ensureChannel()
 
-    val title = if (card.urgent && card.detail != null) "${card.headline}: ${card.detail}" else card.headline
-    val text = card.broadcast ?: "Messages from the organisers will show here."
+    // The caption ("Your part · Bible reading"), with a ticking countdown beside it, in the pushdown's colour.
+    val title = card.caption ?: if (card.urgent && card.detail != null) "${card.headline}: ${card.detail}" else card.headline
+    val text = card.broadcast ?: card.text ?: "Messages from the organisers will show here."
+    val target = card.target?.toLong()
     val open = PendingIntent.getActivity(
       context,
       card.eventId.hashCode(),
@@ -84,7 +93,7 @@ class QronoLiveUpdatesModule : Module() {
     )
     val builder = NotificationCompat.Builder(context, CHANNEL)
       .setSmallIcon(smallIcon())
-      .setColor(0xFFA97BFF.toInt())
+      .setColor(toneColor(card.tone))
       .setContentTitle(title)
       .setContentText(text)
       .setSubText(card.eventName)
@@ -100,8 +109,21 @@ class QronoLiveUpdatesModule : Module() {
     builder.extras.putString(EXTRA_EVENT, card.eventId)
     // Ask Android 16+ to promote it (EXTRA_REQUEST_PROMOTED_ONGOING), with short text for the status bar chip.
     builder.extras.putBoolean("android.requestPromotedOngoing", true)
-    builder.extras.putString("android.shortCriticalText", if (card.urgent) (if (card.headline.contains("next")) "Up next" else "On now") else "Live")
+    if (target != null) {
+      // The system ticks it: down to the target, or up from it once over time (also in the status bar chip).
+      builder.setWhen(target).setShowWhen(true).setUsesChronometer(true).setChronometerCountDown(!card.over)
+    } else {
+      builder.extras.putString("android.shortCriticalText", if (card.urgent) (if (card.headline.contains("next")) "Up next" else "On now") else "Live")
+    }
     NotificationManagerCompat.from(context).notify(TAG, card.eventId.hashCode(), builder.build())
+  }
+
+  private fun toneColor(tone: String?): Int = when (tone) {
+    "amber" -> 0xFFF5B301.toInt()
+    "green" -> 0xFF15803D.toInt()
+    "red" -> 0xFFC62828.toInt()
+    "purple" -> 0xFF460976.toInt()
+    else -> 0xFFA97BFF.toInt()
   }
 
   private fun ensureChannel() {
