@@ -1189,3 +1189,7 @@ a.pd-row-main:hover strong { text-decoration: underline; }
   88% { opacity: 1; }
   100% { opacity: 0; transform: translate(var(--dx), var(--fall)) rotate(var(--rot)); }
 }
+/* Drafts edited together, and items still to fill in. */
+.editing-together { margin: 0 0 12px; padding: 10px 14px; border-radius: 10px; background: rgba(14, 116, 144, 0.15); border: 1px solid rgba(14, 116, 144, 0.5); color: #bfe9f5; font-size: 14px; }
+.task-editing { margin-left: 8px; padding: 1px 8px; border-radius: 8px; background: #0e7490; color: #fff; font-size: 11px; font-weight: 700; }
+.agenda-cell-duration.is-missing { color: #c48cff; }

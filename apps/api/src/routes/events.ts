@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { requireVerifiedUser } from "../auth/session";
+import { inBackground, requireVerifiedUser } from "../auth/session";
 import type { AppEnv } from "../env";
 import { fail } from "../errors";
 import { isPublished, loadEditableEvent, loadEvent, type EventRow } from "../events/access";
@@ -45,10 +45,13 @@ const taskFields = z.object({
   title: z.string({ error: "Enter a title." }).trim().min(1, { error: "Enter a title." }).max(120, { error: "Use at most 120 characters." }),
   description,
   stageId: z.string().nullable().optional(),
+  /** Optional in a draft (null or left out: no length yet); needed before it's sent or published. */
   durationMinutes: z
     .number({ error: "Choose a duration." })
     .int({ error: "Choose a duration." })
-    .refine(isAgendaDuration, { error: `Choose a duration from the list (${AGENDA_DURATIONS[0]}–${AGENDA_DURATIONS.at(-1)} minutes).` }),
+    .refine(isAgendaDuration, { error: `Choose a duration from the list (${AGENDA_DURATIONS[0]}–${AGENDA_DURATIONS.at(-1)} minutes).` })
+    .nullable()
+    .optional(),
   assigneeIds: z.array(z.string()).max(50).optional(),
   /** Who runs it, from the team's people list. Takes the place of assigneeIds; adds them to the event as needed. */
   who: z
@@ -307,14 +310,16 @@ export const events = new Hono<AppEnv>()
     const { event } = await loadEditableEvent(c, c.req.param("eventId"));
     const body = c.req.valid("json");
     await checkStage(c, event.id, body.stageId ?? null);
+    const length = body.durationMinutes ?? null;
+    if (length === null) requireLengthOnPublished(event);
     const assignees = body.who ? await resolveWho(c, event, body.who) : await checkAssignees(c, event.id, body.assigneeIds ?? []);
     const max = await c.env.DB.prepare("SELECT COALESCE(MAX(sort_order), -1) AS m FROM tasks WHERE event_id = ?").bind(event.id).first<{ m: number }>();
     const id = newId();
     await c.env.DB.batch([
       c.env.DB.prepare(
-        `INSERT INTO tasks (id, event_id, stage_id, title, description, sort_order, planned_start_at, duration_minutes)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      ).bind(id, event.id, body.stageId ?? null, body.title, body.description || null, (max?.m ?? -1) + 1, event.start_at, body.durationMinutes),
+        `INSERT INTO tasks (id, event_id, stage_id, title, description, sort_order, planned_start_at, duration_minutes, duration_set)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ).bind(id, event.id, body.stageId ?? null, body.title, body.description || null, (max?.m ?? -1) + 1, event.start_at, length ?? PLACEHOLDER_LENGTH, length === null ? 0 : 1),
       ...assignmentStatements(c, id, assignees),
     ]);
     await resyncSchedule(c, event.id);
@@ -330,6 +335,8 @@ export const events = new Hono<AppEnv>()
     if (task.status === "done" || task.status === "skipped") fail(409, "This task has already happened, so it can't be changed.", { code: "task_finished" });
     const body = c.req.valid("json");
     if (body.stageId !== undefined) await checkStage(c, event.id, body.stageId);
+    // null clears the length (drafts only); a number sets it; left out, it stays.
+    if (body.durationMinutes === null) requireLengthOnPublished(event);
 
     const statements = [
       c.env.DB.prepare(
@@ -338,6 +345,7 @@ export const events = new Hono<AppEnv>()
            description = CASE WHEN ? THEN ? ELSE description END,
            stage_id = CASE WHEN ? THEN ? ELSE stage_id END,
            duration_minutes = COALESCE(?, duration_minutes),
+           duration_set = CASE WHEN ? THEN ? ELSE duration_set END,
            updated_at = ?
          WHERE id = ?`,
       ).bind(
@@ -347,6 +355,8 @@ export const events = new Hono<AppEnv>()
         body.stageId !== undefined ? 1 : 0,
         body.stageId ?? null,
         body.durationMinutes ?? null,
+        body.durationMinutes !== undefined ? 1 : 0,
+        body.durationMinutes === null ? 0 : 1,
         nowIso(),
         taskId,
       ),
@@ -388,18 +398,18 @@ export const events = new Hono<AppEnv>()
     const existing = await db.prepare("SELECT COUNT(*) AS n FROM tasks WHERE event_id = ?").bind(event.id).first<{ n: number }>();
     if (existing && existing.n > 0) fail(409, "Templates can only be used on an empty agenda.", { code: "agenda_not_empty" });
     const { results } = await db
-      .prepare("SELECT title, description, duration_minutes FROM tasks WHERE event_id = ? ORDER BY sort_order, created_at")
+      .prepare("SELECT title, description, duration_minutes, duration_set FROM tasks WHERE event_id = ? ORDER BY sort_order, created_at")
       .bind(source.id)
-      .all<{ title: string; description: string | null; duration_minutes: number }>();
+      .all<{ title: string; description: string | null; duration_minutes: number; duration_set: number }>();
     if (results.length === 0) fail(409, "That program has no agenda items to copy.");
     await db.batch(
       results.map((t, i) =>
         db
           .prepare(
-            `INSERT INTO tasks (id, event_id, stage_id, title, description, sort_order, planned_start_at, duration_minutes)
-             VALUES (?, ?, NULL, ?, ?, ?, ?, ?)`,
+            `INSERT INTO tasks (id, event_id, stage_id, title, description, sort_order, planned_start_at, duration_minutes, duration_set)
+             VALUES (?, ?, NULL, ?, ?, ?, ?, ?, ?)`,
           )
-          .bind(newId(), event.id, t.title, t.description, i, event.start_at, t.duration_minutes),
+          .bind(newId(), event.id, t.title, t.description, i, event.start_at, t.duration_minutes, t.duration_set),
       ),
     );
     await resyncSchedule(c, event.id);
@@ -431,11 +441,32 @@ export const events = new Hono<AppEnv>()
 
 // ───────────── Helpers ─────────────
 
+/** What duration_minutes holds for an item with no length yet (the schedule ignores it). */
+const PLACEHOLDER_LENGTH = 5;
+
+/** Only a draft can have items without a length: people on a published program are told its times. */
+function requireLengthOnPublished(event: EventRow): void {
+  if (event.status !== "draft") fail(400, "Please check the highlighted fields.", { fields: { durationMinutes: "Choose a duration." } });
+}
+
 /**
  * After a change to an approved or live event: refresh every screen now, and
  * email the people affected 2 minutes after the last change (batched).
  */
 async function afterPlanEdit(c: Ctx, event: EventRow): Promise<void> {
+  // A draft: refresh the other editors' screens (joint editing). Nobody else is told.
+  if (event.status === "draft") {
+    const me = c.get("user");
+    const room = c.env.LIVE_EVENT.get(c.env.LIVE_EVENT.idFromName(event.id));
+    const notice = room.fetch("https://live/plan-edited", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Qrono-Event": event.id },
+      body: JSON.stringify({ userId: me?.id ?? null, name: me ? `${me.firstName} ${me.lastName}` : null }),
+    });
+    // Not worth failing the edit over: the other screens also check every minute.
+    inBackground(c, notice);
+    return;
+  }
   if (!isPublished(event.status)) return;
   await markChanged(c.env.DB, event.id);
   await liveCommand(c, event.id, "edited", c.get("user")?.id ?? null);

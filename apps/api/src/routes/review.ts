@@ -63,6 +63,7 @@ export const review = new Hono<AppEnv>()
 
       const tasks = await c.env.DB.prepare("SELECT COUNT(*) AS n FROM tasks WHERE event_id = ?").bind(event.id).first<{ n: number }>();
       if (!tasks?.n) fail(409, "Add at least one task to the agenda before sending it for review.", { code: "agenda_empty" });
+      await requireComplete(c, event.id);
       await requireEmails(c, event.id);
 
       const ids = [...new Set(c.req.valid("json").approverIds)];
@@ -184,6 +185,7 @@ export const review = new Hono<AppEnv>()
     if (team.require_approval === 1) fail(409, "Your team requires programs to be approved. Send it for review instead.", { code: "approval_required" });
     const tasks = await c.env.DB.prepare("SELECT COUNT(*) AS n FROM tasks WHERE event_id = ?").bind(event.id).first<{ n: number }>();
     if (!tasks?.n) fail(409, "Add at least one item to the agenda before publishing it.", { code: "agenda_empty" });
+    await requireComplete(c, event.id);
     await requireEmails(c, event.id);
 
     const me = currentUser(c);
@@ -275,6 +277,21 @@ export const review = new Hono<AppEnv>()
   });
 
 /** Everyone on the program must have an email before it's sent for review or approved. */
+/** A draft can be just titles, but nothing goes out until every item has a length and someone to run it. */
+async function requireComplete(c: Ctx, eventId: string): Promise<void> {
+  const gaps = await c.env.DB.prepare(
+    `SELECT COUNT(*) AS n FROM tasks t
+      WHERE t.event_id = ? AND (t.duration_set = 0 OR NOT EXISTS (SELECT 1 FROM task_assignments a WHERE a.task_id = t.id))`,
+  )
+    .bind(eventId)
+    .first<{ n: number }>();
+  if (gaps?.n) {
+    fail(409, `Every item needs a length and someone to run it. ${gaps.n === 1 ? "1 item still doesn't" : `${gaps.n} items still don't`}.`, {
+      code: "agenda_incomplete",
+    });
+  }
+}
+
 async function requireEmails(c: Ctx, eventId: string): Promise<void> {
   const missing = await contactsMissingEmail(c.env.DB, eventId);
   if (missing.length) {

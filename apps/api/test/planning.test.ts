@@ -182,7 +182,7 @@ describe("Who on an agenda item", () => {
 describe("suggestions for What", () => {
   async function approvedProgram(titles: string[], by = ada, team = teamId, byId = adaId) {
     const id = await newEvent("Past", by, team);
-    for (const title of titles) await by.post(`/api/events/${id}/tasks`, { title, durationMinutes: 5 });
+    for (const title of titles) await by.post(`/api/events/${id}/tasks`, { title, durationMinutes: 5, who: [{ userId: byId }] });
     await by.post(`/api/events/${id}/submit`, { approverIds: [byId] });
     await by.post(`/api/events/${id}/approve`);
   }

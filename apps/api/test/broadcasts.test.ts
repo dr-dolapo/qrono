@@ -44,7 +44,7 @@ beforeEach(async () => {
   chi = await member("Chi", "chi@example.com");
   dayo = await member("Dayo", "dayo@example.com");
   guest = (await ada.post(`/api/events/${eventId}/participants`, { guestName: "Funmi", guestEmail: "funmi@example.com" })).json.participantId;
-  await ada.post(`/api/events/${eventId}/tasks`, { title: "Opening", durationMinutes: 10 });
+  await ada.post(`/api/events/${eventId}/tasks`, { title: "Opening", durationMinutes: 10, who: [{ userId: adaId }] });
   await ada.post(`/api/events/${eventId}/submit`, { approverIds: [adaId] });
   await ada.post(`/api/events/${eventId}/approve`);
 });

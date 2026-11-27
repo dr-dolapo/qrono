@@ -82,7 +82,8 @@ export function PushdownScreen({
   const tasks: FaceTask[] = data.tasks.map((t) => ({
     id: t.id,
     title: t.title,
-    durationMinutes: t.durationMinutes,
+    // Approved and live programs always have lengths.
+    durationMinutes: t.durationMinutes ?? 0,
     plannedStartAt: t.startAt,
     status: live.get(t.id)?.status ?? t.status,
     actualStartAt: live.get(t.id)?.actualStartAt ?? null,

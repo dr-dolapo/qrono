@@ -42,7 +42,7 @@ export function LiveNow({
     tasks: detail.tasks.map((t) => ({
       id: t.id,
       title: t.title,
-      durationMinutes: t.durationMinutes,
+      durationMinutes: t.durationMinutes ?? 0,
       startAt: t.startAt,
       status: liveTasks.get(t.id)?.status,
       actualStartAt: liveTasks.get(t.id)?.actualStartAt,

@@ -1,3 +1,4 @@
+import { router } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Image, Pressable, RefreshControl, SectionList, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -30,6 +31,9 @@ export default function Events() {
   useEffect(() => {
     if (data) void saveUpcoming(data.events);
   }, [data, savedAt]);
+  // Admins and Planners can start a program from here.
+  const { data: teams } = useCachedApi<{ teams: { role: string; status: string }[] }>("/teams", "teams", () => 30 * 60_000);
+  const canCreate = (teams?.teams ?? []).some((t) => t.status === "active" && (t.role === "approver" || t.role === "admin"));
   const now = useNow(30_000);
   const [selected, setSelected] = useState(todayKey);
   const [monthOpen, setMonthOpen] = useState(false);
@@ -78,6 +82,16 @@ export default function Events() {
             <Text style={styles.monthText}>{monthLabel(fromKey(selected))}</Text>
             <CalendarIcon color={colors.text} size={18} />
           </Pressable>
+          {canCreate ? (
+            <Pressable
+              onPress={() => router.push({ pathname: "/events/new", params: { day: selected >= todayKey() ? selected : todayKey() } })}
+              style={({ pressed }) => [styles.add, pressed && { opacity: 0.85 }]}
+              accessibilityRole="button"
+              accessibilityLabel="New program"
+            >
+              <Text style={styles.addText}>+</Text>
+            </Pressable>
+          ) : null}
         </View>
       </View>
 
@@ -173,6 +187,8 @@ const styles = StyleSheet.create({
   chip: { paddingHorizontal: space.md, paddingVertical: 6, borderRadius: 999, borderWidth: 1, borderColor: colors.border },
   chipText: { color: colors.text, fontSize: 13, ...font("600") },
   monthButton: { flexDirection: "row", alignItems: "center", gap: 6, paddingLeft: space.md, paddingRight: space.md, paddingVertical: 7, borderRadius: 999, backgroundColor: "rgba(255,255,255,0.07)" },
+  add: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.accent, alignItems: "center", justifyContent: "center" },
+  addText: { color: "#fff", fontSize: 24, lineHeight: 26, marginTop: -2, ...font("500") },
   monthText: { color: colors.text, fontSize: 13, ...font("600") },
   content: { paddingHorizontal: space.xl, paddingBottom: space.xxl, flexGrow: 1 },
   dayTitle: { color: colors.muted, fontSize: 13, ...font("700"), letterSpacing: 0.6, textTransform: "uppercase", marginTop: space.xl, marginBottom: space.md },

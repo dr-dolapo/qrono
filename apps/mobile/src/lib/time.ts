@@ -76,3 +76,37 @@ export function shortCountdown(iso: string, now: number): string {
   if (c.hours > 0) return `in ${c.hours} h ${c.minutes} min`;
   return `in ${Math.max(c.minutes, 1)} min`;
 }
+
+/** Minutes the zone is ahead of UTC at a given moment. */
+function zoneOffsetMinutes(utcMs: number, timeZone: string): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hourCycle: "h23",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).formatToParts(new Date(utcMs));
+  const get = (type: string) => Number(parts.find((p) => p.type === type)!.value);
+  const asUtc = Date.UTC(get("year"), get("month") - 1, get("day"), get("hour"), get("minute"), get("second"));
+  return Math.round((asUtc - utcMs) / 60_000);
+}
+
+/** A wall-clock date and time in `timeZone` ("2026-11-29", 9 * 60) → UTC ISO string. (Same as the web's.) */
+export function fromZoned(dayKey: string, minutesIntoDay: number, timeZone: string): string {
+  const [y, m, d] = dayKey.split("-").map(Number) as [number, number, number];
+  const wall = Date.UTC(y, m - 1, d, Math.floor(minutesIntoDay / 60), minutesIntoDay % 60);
+  // Two passes handle daylight-saving changes.
+  let utc = wall - zoneOffsetMinutes(wall, timeZone) * 60_000;
+  utc = wall - zoneOffsetMinutes(utc, timeZone) * 60_000;
+  return new Date(utc).toISOString();
+}
+
+/** UTC ISO string → its day ("2026-11-29") and minutes into that day, in `timeZone`. */
+export function toZoned(iso: string, timeZone: string): { day: string; minutes: number } {
+  const utc = Date.parse(iso);
+  const local = new Date(utc + zoneOffsetMinutes(utc, timeZone) * 60_000);
+  return { day: local.toISOString().slice(0, 10), minutes: local.getUTCHours() * 60 + local.getUTCMinutes() };
+}

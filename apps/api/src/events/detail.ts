@@ -17,6 +17,8 @@ interface TaskRow {
   description: string | null;
   sort_order: number;
   duration_minutes: number;
+  /** 0: no length yet (a draft item that's just a title). */
+  duration_set: number;
   status: string;
 }
 interface ParticipantRow {
@@ -54,12 +56,15 @@ interface AssignmentRow {
   roll_call_order: number;
 }
 
+/** An item's length for the schedule: one with no length yet takes no time. */
+const lengthOf = (t: { duration_minutes: number; duration_set: number }) => (t.duration_set ? t.duration_minutes : 0);
+
 async function loadAgenda(c: Context<AppEnv>, eventId: string) {
   const db = c.env.DB;
   const [stages, tasks] = await Promise.all([
     db.prepare("SELECT id, name, venue, sort_order FROM stages WHERE event_id = ? ORDER BY sort_order, created_at").bind(eventId).all<StageRow>(),
     db.prepare(
-      "SELECT id, stage_id, title, description, sort_order, duration_minutes, status FROM tasks WHERE event_id = ? ORDER BY sort_order, created_at",
+      "SELECT id, stage_id, title, description, sort_order, duration_minutes, duration_set, status FROM tasks WHERE event_id = ? ORDER BY sort_order, created_at",
     )
       .bind(eventId)
       .all<TaskRow>(),
@@ -81,10 +86,11 @@ export async function resyncSchedule(c: Context<AppEnv>, eventId: string): Promi
   const schedule = buildSchedule(
     event.start_at,
     event.end_at,
-    tasks.map((t) => ({ id: t.id, stageId: t.stage_id, durationMinutes: t.duration_minutes })),
+    tasks.map((t) => ({ id: t.id, stageId: t.stage_id, durationMinutes: lengthOf(t) })),
   );
-  // An event ends when its agenda does. With nothing on it yet, a minute after it starts.
-  const endsAt = tasks.length ? schedule.endsAt : new Date(Date.parse(event.start_at) + 60_000).toISOString();
+  // An event ends when its agenda does. With nothing timed on it yet (no items, or only items
+  // without a length), a minute after it starts.
+  const endsAt = Date.parse(schedule.endsAt) > Date.parse(event.start_at) ? schedule.endsAt : new Date(Date.parse(event.start_at) + 60_000).toISOString();
   const statements = schedule.tasks.map((t) => db.prepare("UPDATE tasks SET planned_start_at = ? WHERE id = ?").bind(t.startAt, t.id));
   if (endsAt !== event.end_at) {
     statements.push(db.prepare("UPDATE events SET end_at = ? WHERE id = ?").bind(endsAt, eventId));
@@ -160,7 +166,7 @@ export async function eventDetail(c: Context<AppEnv>, access: EventAccess) {
   const schedule = buildSchedule(
     event.start_at,
     event.end_at,
-    tasks.map((t) => ({ id: t.id, stageId: t.stage_id, durationMinutes: t.duration_minutes })),
+    tasks.map((t) => ({ id: t.id, stageId: t.stage_id, durationMinutes: lengthOf(t) })),
   );
   const times = new Map(schedule.tasks.map((t) => [t.id, t]));
   const assigneesByTask = new Map<string, string[]>();
@@ -228,7 +234,8 @@ export async function eventDetail(c: Context<AppEnv>, access: EventAccess) {
       stageId: t.stage_id,
       title: t.title,
       description: t.description,
-      durationMinutes: t.duration_minutes,
+      // Null: no length yet (drafts only).
+      durationMinutes: t.duration_set ? t.duration_minutes : null,
       status: t.status,
       startAt: times.get(t.id)!.startAt,
       endAt: times.get(t.id)!.endAt,

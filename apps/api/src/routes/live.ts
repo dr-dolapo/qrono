@@ -45,7 +45,10 @@ export const live = new Hono<AppEnv>()
     const headers = new Headers(c.req.raw.headers);
     headers.set("X-Qrono-Event", access.event.id);
     headers.set("X-Qrono-Viewer", access.canManage ? "manager" : "participant");
-    headers.set("X-Qrono-User", currentUser(c).id);
+    const me = currentUser(c);
+    headers.set("X-Qrono-User", me.id);
+    // For "Ada is editing" markers on drafts. (Header values must be plain ASCII-safe text.)
+    headers.set("X-Qrono-Name", encodeURIComponent(`${me.firstName} ${me.lastName}`));
     return room.fetch(new Request("https://live/connect", { headers }));
   })
 

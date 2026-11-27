@@ -7,13 +7,15 @@ import clsx from "clsx";
 
 export interface AgendaItemValues {
   title: string;
-  durationMinutes: number;
+  /** Null: no length yet (drafts only). */
+  durationMinutes: number | null;
   who: WhoRef[];
 }
 
 /**
- * Add or edit one agenda item: What, Duration and Who, all required. The tick turns
- * green and becomes usable once all three are filled in.
+ * Add or edit one agenda item: What, Duration and Who. In a draft only What is needed (the
+ * timing and people can come later; they're needed before it's sent). Once published, all
+ * three are. The tick turns green once what's needed is filled in.
  */
 export function AgendaItemEditor({
   teamId,
@@ -26,6 +28,7 @@ export function AgendaItemEditor({
   onCancel,
   onDelete,
   autoFocus = true,
+  draft = false,
 }: {
   teamId: string;
   people: PickerPerson[];
@@ -37,6 +40,8 @@ export function AgendaItemEditor({
   onCancel: () => void;
   onDelete?: () => Promise<void>;
   autoFocus?: boolean;
+  /** A draft: only the title is needed for now. */
+  draft?: boolean;
 }) {
   const [title, setTitle] = useState(initial?.title ?? "");
   const [duration, setDuration] = useState<number | null>(initial?.durationMinutes ?? null);
@@ -45,7 +50,7 @@ export function AgendaItemEditor({
   const [error, setError] = useState<string | null>(null);
   const [fields, setFields] = useState<Record<string, string>>({});
 
-  const complete = title.trim().length > 0 && duration !== null && who.length > 0;
+  const complete = title.trim().length > 0 && (draft || (duration !== null && who.length > 0));
 
   async function submit(e?: FormEvent) {
     e?.preventDefault();
@@ -54,7 +59,7 @@ export function AgendaItemEditor({
     setError(null);
     setFields({});
     try {
-      await onSave({ title: title.trim(), durationMinutes: duration!, who: who.map((p) => p.ref) });
+      await onSave({ title: title.trim(), durationMinutes: duration, who: who.map((p) => p.ref) });
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message);
@@ -86,7 +91,7 @@ export function AgendaItemEditor({
         <button
           type="submit"
           className={clsx("agenda-save", complete && "is-ready")}
-          aria-label={complete ? "Save item" : "Save item (fill in What, Duration and Who first)"}
+          aria-label={complete ? "Save item" : draft ? "Save item (fill in What first)" : "Save item (fill in What, Duration and Who first)"}
           aria-disabled={!complete || busy}
         >
           <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">

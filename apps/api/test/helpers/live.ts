@@ -9,12 +9,19 @@ import type { Env } from "../../src/env";
 export function fakeLiveNamespace(getDb: () => D1Database, now: () => number = () => Date.now(), hooks?: () => NotifyHooks) {
   const alarms = new Map<string, number | null>();
   const deliveries: Delivery[] = [];
+  /** Draft edits announced to the room (joint editing): event id and who made them. */
+  const draftEdits: { eventId: string; by: { userId: string | null; name: string | null } }[] = [];
   const ns = {
     alarms,
     deliveries,
+    draftEdits,
     idFromName: (name: string) => name,
     get: (id: string) => ({
       async fetch(url: string, init?: RequestInit) {
+        if (String(url).endsWith("/plan-edited")) {
+          draftEdits.push({ eventId: id, by: JSON.parse(String(init!.body)) });
+          return Response.json({ ok: true });
+        }
         if (!String(url).endsWith("/command")) return new Response("WebSockets aren't simulated", { status: 501 });
         const cmd = JSON.parse(String(init!.body)) as LiveCommand;
         const result = await runCommand(getDb(), id, cmd, now(), hooks?.());
@@ -26,5 +33,9 @@ export function fakeLiveNamespace(getDb: () => D1Database, now: () => number = (
       },
     }),
   };
-  return ns as unknown as Env["LIVE_EVENT"] & { alarms: Map<string, number | null>; deliveries: Delivery[] };
+  return ns as unknown as Env["LIVE_EVENT"] & {
+    alarms: Map<string, number | null>;
+    deliveries: Delivery[];
+    draftEdits: typeof draftEdits;
+  };
 }

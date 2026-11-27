@@ -5,6 +5,7 @@ import { Button } from "../../../components/Button";
 import { StatusPill } from "../../../components/StatusPill";
 import { ApprovalPanel } from "../../../events/ApprovalPanel";
 import { PushdownScreen } from "../../../events/Pushdown";
+import { DraftEditor } from "../../../program/DraftEditor";
 import { RespondPanel } from "../../../events/RespondPanel";
 import type { EventDetail } from "../../../events/types";
 import { ApiError, api } from "../../../lib/api";
@@ -64,6 +65,10 @@ export default function EventScreen() {
 
   const { event } = data;
   // Approved or live: the pushdown screen (one big countdown; Me, All and Messages below it).
+  // Drafts open in the program builder for the Admins and Planners who can edit them.
+  if (event.status === "draft" && data.permissions.canEdit) {
+    return <DraftEditor data={data} onUpdated={setData} refresh={refresh} savedAt={savedAt} />;
+  }
   if (event.status === "approved" || event.status === "live") {
     return <PushdownScreen data={data} onUpdated={setData} refresh={refresh} savedAt={savedAt} />;
   }
@@ -250,7 +255,7 @@ function TaskRow({ task, timezone, mine, people, stage, comments, onPress }: Tas
     >
       <View style={styles.taskTime}>
         <Text style={styles.time}>{formatTime(task.startAt, timezone)}</Text>
-        <Text style={styles.duration}>{formatDuration(task.durationMinutes)}</Text>
+        <Text style={styles.duration}>{(task.durationMinutes === null ? "No length yet" : formatDuration(task.durationMinutes))}</Text>
       </View>
       <View style={styles.taskBody}>
         <View style={styles.taskTitleRow}>

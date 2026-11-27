@@ -156,8 +156,8 @@ describe("editing an approved event", () => {
   it("changes during review aren't possible, so nothing is queued", async () => {
     // (approved here; move a fresh draft into review to check)
     const draft = (await ada.post(`/api/teams/${teamId}/events`, { name: "Other", startAt: START, endAt: END, timezone: "UTC" })).json.event.id;
-    await ada.post(`/api/events/${draft}/tasks`, { title: "X", durationMinutes: 5 });
     const adaId = (await ada.get("/api/auth/me")).json.user.id;
+    await ada.post(`/api/events/${draft}/tasks`, { title: "X", durationMinutes: 5, who: [{ userId: adaId }] });
     await ada.post(`/api/events/${draft}/submit`, { approverIds: [adaId] });
     expect((await ada.post(`/api/events/${draft}/tasks`, { title: "Y", durationMinutes: 5 })).json.code).toBe("event_in_review");
   });
