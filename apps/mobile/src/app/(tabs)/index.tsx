@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, RefreshControl, SectionList, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Image, Pressable, RefreshControl, SectionList, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../auth/AuthProvider";
 import { MonthSheet } from "../../calendar/MonthSheet";
@@ -91,18 +91,7 @@ export default function Events() {
           item.kind === "event" ? (
             <EventCard event={item.event} now={now} />
           ) : (
-            <View style={styles.empty}>
-              <Text style={styles.emptyTitle}>{selected === todayKey() ? "Nothing today" : "Nothing on this day"}</Text>
-              {item.next ? (
-                <Pressable onPress={() => choose(dayOf(item.next!.startAt))} accessibilityRole="button" style={styles.nextLink}>
-                  <Text style={styles.nextText}>
-                    Next: {item.next.name} · {dayHeading(dayOf(item.next.startAt))} ›
-                  </Text>
-                </Pressable>
-              ) : (
-                <Text style={styles.emptyBody}>Nothing coming up after this.</Text>
-              )}
-            </View>
+            <FreeDay day={selected} next={item.next} onNext={(day) => choose(day)} />
           )
         }
         renderSectionHeader={({ section }) => <Text style={styles.dayTitle}>{section.title}</Text>}
@@ -130,7 +119,53 @@ export default function Events() {
   );
 }
 
+const FREE_DAY = require("../../../assets/free-day.png");
+
+/**
+ * A day with nothing on it: no card (so it can't be mistaken for an event), just a calendar
+ * with a tick, "A free day", and a way to the next event.
+ */
+function FreeDay({ day, next, onNext }: { day: string; next: MyEvent | null; onNext(day: string): void }) {
+  const when = dayHeading(day);
+  const which = when === "Today" || when === "Tomorrow" || when === "Yesterday" ? when.toLowerCase() : `on ${fromKey(day).toLocaleDateString("en-GB", { weekday: "long" })}`;
+  const nextDay = next ? dayOf(next.startAt) : null;
+  return (
+    <View style={styles.free}>
+      <Image source={FREE_DAY} style={styles.freeImage} accessibilityIgnoresInvertColors accessible={false} />
+      <Text style={styles.freeTitle} accessibilityRole="header">
+        A free day
+      </Text>
+      <Text style={styles.freeBody}>Nothing is planned {which}.</Text>
+      {next && nextDay ? (
+        <Pressable
+          onPress={() => onNext(nextDay)}
+          accessibilityRole="button"
+          accessibilityHint="Goes to that day"
+          style={({ pressed }) => [styles.freeButton, pressed && { opacity: 0.75 }]}
+        >
+          <Text style={styles.freeButtonText} numberOfLines={1}>
+            Next: {next.name} · {shortDay(nextDay)}
+          </Text>
+        </Pressable>
+      ) : (
+        <Text style={styles.freeBody}>Nothing coming up after this.</Text>
+      )}
+    </View>
+  );
+}
+
+const shortDay = (key: string) => {
+  const h = dayHeading(key);
+  return h === "Today" || h === "Tomorrow" ? h : fromKey(key).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+};
+
 const styles = StyleSheet.create({
+  free: { minHeight: 420, alignItems: "center", justifyContent: "center", gap: space.md, paddingHorizontal: space.xl, paddingBottom: space.xxl },
+  freeImage: { width: 72, height: 72 },
+  freeTitle: { color: colors.text, fontSize: 20, textAlign: "center", ...font("800") },
+  freeBody: { color: colors.muted, fontSize: 14, lineHeight: 20, textAlign: "center", ...font("400") },
+  freeButton: { marginTop: 6, minHeight: 44, maxWidth: "100%", paddingHorizontal: 18, borderRadius: 999, justifyContent: "center", backgroundColor: "#1d1430", borderWidth: 1, borderColor: "#3b2160" },
+  freeButtonText: { color: colors.text, fontSize: 14, ...font("600") },
   safe: { flex: 1, backgroundColor: "transparent" },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: space.xl, paddingTop: space.sm, paddingBottom: space.md },
   title: { color: colors.text, fontSize: 30, ...font("800") },
@@ -144,6 +179,4 @@ const styles = StyleSheet.create({
   empty: { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: radius.lg, padding: space.lg, gap: space.sm },
   emptyTitle: { color: colors.text, fontSize: 16, ...font("600") },
   emptyBody: { color: colors.muted, fontSize: 14, ...font("400"), lineHeight: 20 },
-  nextLink: { paddingVertical: 2 },
-  nextText: { color: "#c48cff", fontSize: 14, ...font("600") },
 });

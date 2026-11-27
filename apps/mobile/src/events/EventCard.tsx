@@ -18,6 +18,22 @@ export function EventCard({ event, now }: { event: MyEvent; now: number }) {
     note = { text: `Your next task: ${event.myNextTask.title} · ${formatTime(event.myNextTask.startAt, event.timezone)}`, tone: "muted" };
   else if (event.myResponse && event.status !== "past") note = { text: "No tasks assigned to you yet", tone: "muted" };
 
+  // Ended: half the height of an active card, in a subdued purple, so it can't be mistaken for one.
+  if (ended) {
+    return (
+      <Pressable
+        onPress={() => router.push({ pathname: "/events/[id]", params: { id: event.id, team: event.team.name } })}
+        accessibilityRole="button"
+        accessibilityLabel={`${event.name}, ended. Started at ${formatTime(event.startAt, event.timezone)}.`}
+        accessibilityHint="Opens the event's program"
+        style={({ pressed }) => [styles.past, pressed && styles.pressed]}
+      >
+        <Text style={styles.pastTime}>{formatTime(event.startAt, event.timezone)}</Text>
+        <Struck text={event.name} />
+      </Pressable>
+    );
+  }
+
   return (
     <Pressable
       // Approved and live events open on the pushdown (the live view), so one screen is enough.
@@ -32,25 +48,26 @@ export function EventCard({ event, now }: { event: MyEvent; now: number }) {
           <Text style={styles.countdown}>Starts {shortCountdown(event.startAt, now)}</Text>
         ) : null}
       </View>
-      {ended ? <Struck text={event.name} /> : <Text style={styles.name}>{event.name}</Text>}
+      <Text style={styles.name}>{event.name}</Text>
       <Text style={styles.meta}>
         {event.team.name} · {formatRange(event.startAt, event.endAt, event.timezone)}
       </Text>
-      {note ? <Text style={[styles.note, note.tone === "attention" && styles.attention, ended && styles.endedText]}>{note.text}</Text> : null}
+      {note ? <Text style={[styles.note, note.tone === "attention" && styles.attention]}>{note.text}</Text> : null}
     </Pressable>
   );
 }
 
-const ENDED = "#6b7180";
+/** Ended events: a subdued purple card, purple-grey text, a darker purple-grey strike. */
+const PAST = { surface: "#170f26", border: "#2b1e44", text: "#a596c4", muted: "#7f74a0" };
 /** About 1.5x the line React Native draws for line-through at this size, which it can't thicken. */
 const STRIKE = 2;
 
-/** An ended event's name: grey, struck through with a thicker grey line (one per wrapped line). */
+/** An ended event's name, on one line, struck through with a thicker line than React Native draws. */
 function Struck({ text }: { text: string }) {
   const [lines, setLines] = useState<TextLayoutEvent["nativeEvent"]["lines"]>([]);
   return (
-    <View>
-      <Text style={[styles.name, styles.endedText]} onTextLayout={(e) => setLines(e.nativeEvent.lines)} accessibilityLabel={`${text}, ended`}>
+    <View style={styles.pastNameWrap}>
+      <Text style={styles.pastName} numberOfLines={1} onTextLayout={(e) => setLines(e.nativeEvent.lines)}>
         {text}
       </Text>
       {lines.map((l, i) => (
@@ -65,8 +82,11 @@ function Struck({ text }: { text: string }) {
 }
 
 const styles = StyleSheet.create({
-  endedText: { color: ENDED },
-  strike: { position: "absolute", height: STRIKE, borderRadius: STRIKE / 2, backgroundColor: ENDED },
+  past: { flexDirection: "row", alignItems: "center", gap: 14, height: 60, paddingHorizontal: space.lg, borderRadius: 14, backgroundColor: PAST.surface, borderWidth: 1, borderColor: PAST.border },
+  pastTime: { width: 64, color: PAST.muted, fontSize: 12, ...font("700") },
+  pastNameWrap: { flex: 1, minWidth: 0, alignItems: "flex-start" },
+  pastName: { maxWidth: "100%", color: PAST.text, fontSize: 15, ...font("600") },
+  strike: { position: "absolute", height: STRIKE, borderRadius: STRIKE / 2, backgroundColor: PAST.muted },
   card: {
     backgroundColor: colors.surface,
     borderColor: colors.border,
