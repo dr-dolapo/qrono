@@ -52,8 +52,8 @@ export const live = new Hono<AppEnv>()
     return room.fetch(new Request("https://live/connect", { headers }));
   })
 
-  /** Start early, move to the next task, or end the event (QR028, QR029). Admins and Planners only. */
-  .post("/:eventId/live/:action{start|next|end}", async (c) => {
+  /** Start early, move to the next task (and undo that straight after), or end the event (QR028, QR029). Admins and Planners only. */
+  .post("/:eventId/live/:action{start|next|undo|end}", async (c) => {
     const access = await loadEvent(c, c.req.param("eventId"));
     if (!access.canManage) fail(403, "Only Admins and Planners can run the event.");
     const result = await liveCommand(c, access.event.id, c.req.param("action") as LiveAction, currentUser(c).id);
