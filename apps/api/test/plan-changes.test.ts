@@ -1,3 +1,4 @@
+import { guestLinkExpiry } from "../src/live/engine";
 import { beforeEach, describe, expect, it } from "vitest";
 import { NOTIFY_DELAY_MS } from "../src/live/changes";
 import { runCommand } from "../src/live/commands";
@@ -140,9 +141,9 @@ describe("editing an approved event", () => {
     const before = t.emails.length;
     await quietPeriodPasses();
     expect(t.emails.slice(before).map((e) => e.to).sort()).toEqual(["chi@example.com", "dayo@example.com", "funmi@example.com"]);
-    // Guest links now expire at the new end time.
+    // Guest links now last until the new end time (plus the late-running allowance).
     const links = t.sqlite.prepare("SELECT expires_at FROM guest_access_links WHERE revoked_at IS NULL").all() as { expires_at: string }[];
-    expect(links.every((l) => l.expires_at === endAfter)).toBe(true);
+    expect(links.every((l) => l.expires_at === guestLinkExpiry(endAfter))).toBe(true);
   });
 
   it("replaced guest links explain where to find the new one", async () => {
