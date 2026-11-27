@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { allFace, faceProgress, followPlan, formatFace, formatWait, meFace, type FaceInput, type FaceTask } from "../src/live/faces";
+import { allFace, expectedStarts, faceProgress, followPlan, formatFace, formatWait, meFace, type FaceInput, type FaceTask } from "../src/live/faces";
 
 const T0 = Date.parse("2030-06-01T17:00:00.000Z");
 const min = (n: number) => n * 60_000;
@@ -90,5 +90,47 @@ describe("pushdown faces", () => {
 
     // Nothing to move on yet: unchanged.
     expect(followPlan(input({}))).toEqual(input({}));
+  });
+});
+
+describe("expectedStarts: times follow what really happened", () => {
+  // Test Run: Opening 10 min (planned 23:45), Middle 7 min (23:55), Close 5 min (00:02).
+  const at = (hm: string) => Date.parse(`2026-11-27T${hm}:00.000+01:00`);
+  const task = (id: string, mins: number, planned: string, status: "upcoming" | "in_progress" | "done", actual: string | null) => ({
+    id,
+    title: id,
+    durationMinutes: mins,
+    plannedStartAt: new Date(at(planned)).toISOString(),
+    status,
+    actualStartAt: actual ? new Date(at(actual)).toISOString() : null,
+  });
+
+  it("started early: the next item follows on from when the one on now is due to finish", () => {
+    const starts = expectedStarts({
+      status: "live",
+      startAt: new Date(at("23:45")).toISOString(),
+      tasks: [task("Opening", 10, "23:45", "done", "23:37"), task("Middle", 7, "23:55", "in_progress", "23:47"), task("Close", 5, "23:59", "upcoming", null)],
+      currentTaskId: "Middle",
+      mine: new Set(),
+      warningMs: 60_000,
+      now: at("23:50"),
+    });
+    expect(new Date(starts.get("Opening")!).toISOString()).toBe(new Date(at("23:37")).toISOString());
+    expect(new Date(starts.get("Middle")!).toISOString()).toBe(new Date(at("23:47")).toISOString());
+    expect(new Date(starts.get("Close")!).toISOString()).toBe(new Date(at("23:54")).toISOString());
+  });
+
+  it("running over: what's next moves with the clock", () => {
+    const starts = expectedStarts({
+      status: "live",
+      startAt: new Date(at("23:45")).toISOString(),
+      tasks: [task("Opening", 10, "23:45", "in_progress", "23:45"), task("Middle", 7, "23:55", "upcoming", null), task("Close", 5, "00:02", "upcoming", null)],
+      currentTaskId: "Opening",
+      mine: new Set(),
+      warningMs: 60_000,
+      now: at("23:58"),
+    });
+    expect(starts.get("Middle")).toBe(at("23:58"));
+    expect(starts.get("Close")).toBe(at("23:58") + 7 * 60_000);
   });
 });
