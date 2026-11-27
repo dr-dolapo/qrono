@@ -45,7 +45,7 @@ export interface Face {
   over: boolean;
   /** When the span being counted began, for progress bars and rings. */
   from: number | null;
-  /** Shown instead of a countdown: "Any moment", "Thank you!", "All items are done". */
+  /** Shown instead of a countdown: "Any moment", "Thank you!", "Meeting ended". */
   text: string | null;
   /** The wait depends on how long earlier items take. */
   estimated: boolean;
@@ -54,6 +54,11 @@ export interface Face {
 }
 
 const MINUTE = 60_000;
+
+/** The Me tab once your part is done (the app and web celebrate it with confetti). */
+export const PART_DONE = "Your part is done";
+const THANKS = "Thank you for joining";
+const MEETING_ENDED = "Meeting ended";
 
 function running(input: FaceInput): { task: FaceTask; start: number; end: number } | null {
   const task = input.tasks.find((t) => t.id === input.currentTaskId && t.status === "in_progress");
@@ -85,18 +90,18 @@ function itemOnNow(r: { task: FaceTask; start: number; end: number }, input: Fac
 
 /** The All tab: the start, then the item on now. */
 export function allFace(input: FaceInput): Face {
-  if (input.status === "past") return still("This event has ended", "Thank you!");
+  if (input.status === "past") return still(THANKS, MEETING_ENDED);
   if (input.status !== "live") return countingDown("The event starts in", Date.parse(input.startAt), null, input);
   const r = running(input);
   if (r) return itemOnNow(r, input);
-  return still("Live now", input.tasks.some((t) => t.status === "upcoming") ? "Next item soon" : "All items are done");
+  return input.tasks.some((t) => t.status === "upcoming") ? still("Live now", "Next item soon") : still(THANKS, MEETING_ENDED);
 }
 
 /** The Me tab: your own part. Null when you have no part in this program. */
 export function meFace(input: FaceInput): Face | null {
   const mineInOrder = input.tasks.filter((t) => input.mine.has(t.id));
   if (mineInOrder.length === 0) return null;
-  if (input.status === "past") return still("This event has ended", "Thank you!");
+  if (input.status === "past") return still(PART_DONE, "Thank you!");
 
   if (input.status !== "live") {
     const first = mineInOrder[0]!;
@@ -113,7 +118,7 @@ export function meFace(input: FaceInput): Face | null {
     if (input.mine.has(t.id)) return countingDown(`Your part · ${t.title}`, at, r?.start ?? null, input, true);
     at += t.durationMinutes * MINUTE;
   }
-  return still("Your part is done", "Thank you!");
+  return still(PART_DONE, "Thank you!");
 }
 
 /**

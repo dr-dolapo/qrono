@@ -277,7 +277,7 @@ export async function syncLiveCards(
 /** The final card: says it's over, keeps the last broadcast. */
 function endProps(state: string): string {
   const card = JSON.parse(state) as LiveCard;
-  return props({ ...card, headline: "Ended", detail: null, urgent: false, tone: "purple", caption: "This event has ended", target: null, from: null, over: false, text: "Thank you!" });
+  return props({ ...card, headline: "Ended", detail: null, urgent: false, tone: "purple", caption: "Thank you for joining", target: null, from: null, over: false, text: "Meeting ended" });
 }
 
 /** Saves an iOS token: one that can open cards on this phone, or one for an open card. */

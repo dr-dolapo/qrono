@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { Link } from "react-router";
 import clsx from "clsx";
-import { allFace, faceProgress, followPlan, formatFace, meFace, type Face, type FaceInput, type Tone } from "../faces";
+import { allFace, faceProgress, followPlan, formatFace, meFace, PART_DONE, type Face, type FaceInput, type Tone } from "../faces";
 import { formatDuration, formatTime } from "../time";
 
 /** The pushdown's colours (the same in the app and on the lock screen). */
@@ -67,6 +67,9 @@ export function Pushdown(props: {
 
   const [menu, setMenu] = useState(false);
   const [declining, setDeclining] = useState(false);
+  // Your part is done: a confetti popper pops up from behind the black sheet.
+  const celebrate = tab === "me" && !!me && me.caption === PART_DONE;
+  const header = useRef<HTMLElement>(null);
   const open = (t: Tab) => {
     setTab(t);
     if (t === "messages") props.onMessagesOpened?.();
@@ -86,7 +89,7 @@ export function Pushdown(props: {
             .join(" · ")}
         </p>
       )}
-      <header className="pd-top">
+      <header className={clsx("pd-top", celebrate && "pd-celebrating")} ref={header}>
         <div className="pd-buttons">
           {props.back ? (
             <Link to={props.back.to} className="pd-round" aria-label={props.back.label}>
@@ -126,7 +129,9 @@ export function Pushdown(props: {
           )}
         </div>
         <Countdown face={face} now={now} />
+        {celebrate && <Popper />}
       </header>
+      {celebrate && <Confetti from={header} />}
 
       <section className="pd-sheet">
         {tab === "me" && me ? (
@@ -168,6 +173,74 @@ export function Pushdown(props: {
 
       {declining && props.attendance && <DeclineDialog onClose={() => setDeclining(false)} onSend={props.attendance.onDecline} />}
     </main>
+  );
+}
+
+/** The popper: behind the black sheet (only its mouth shows), with a pop when it first appears. */
+function Popper() {
+  return (
+    <svg className="pd-popper" viewBox="0 0 64 80" width="56" height="70" aria-hidden="true">
+      <defs>
+        <clipPath id="pd-cone">
+          <path d="M12 16 L52 16 L35 78 L29 78 Z" />
+        </clipPath>
+      </defs>
+      <path d="M12 16 L52 16 L35 78 L29 78 Z" fill="#f5b301" />
+      <g clipPath="url(#pd-cone)" fill="#ff6b6b">
+        <path d="M0 30 L64 18 L64 27 L0 39 Z" />
+        <path d="M0 50 L64 38 L64 47 L0 59 Z" />
+        <path d="M0 70 L64 58 L64 67 L0 79 Z" />
+      </g>
+      <ellipse cx="32" cy="16" rx="20" ry="6" fill="#c98f00" />
+      <ellipse cx="32" cy="16" rx="15.5" ry="3.8" fill="#2a1d00" />
+    </svg>
+  );
+}
+
+const CONFETTI = ["#f5b301", "#4ade80", "#b98af5", "#ff6b6b", "#60a5fa", "#ffffff"];
+
+/**
+ * The spray: bits rise from the popper's mouth inside the coloured pushdown, then fall in front
+ * of everything, over the black sheet too, so the popper looks hidden behind it while the
+ * confetti spills out over it. Plays once; not at all when reduced motion is on.
+ */
+function Confetti({ from }: { from: React.RefObject<HTMLElement | null> }) {
+  const [origin, setOrigin] = useState<number | null>(null);
+  const [done, setDone] = useState(false);
+  useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return setDone(true);
+    const box = from.current?.getBoundingClientRect();
+    // The popper's mouth: just above where the black sheet starts (it overlaps the header by 28px).
+    if (box) setOrigin(box.bottom - 58);
+    const t = setTimeout(() => setDone(true), 4200);
+    return () => clearTimeout(t);
+  }, [from]);
+  const bits = useMemo(
+    () =>
+      Array.from({ length: 56 }, (_, i) => {
+        const room = Math.max(120, (origin ?? 300) - 40);
+        return {
+          "--dx": `${Math.round((Math.random() - 0.5) * 340)}px`,
+          "--peak": `${Math.round(room * (0.45 + Math.random() * 0.55))}px`,
+          "--fall": `${Math.round(window.innerHeight * (0.45 + Math.random() * 0.5))}px`,
+          "--rot": `${Math.round((Math.random() - 0.5) * 1440)}deg`,
+          "--w": `${i % 3 === 0 ? 7 : 6}px`,
+          "--h": `${i % 3 === 0 ? 7 : 11}px`,
+          "--r": i % 3 === 0 ? "50%" : "2px",
+          background: CONFETTI[i % CONFETTI.length],
+          animationDelay: `${380 + Math.round(Math.random() * 160)}ms`,
+          animationDuration: `${2400 + Math.round(Math.random() * 1200)}ms`,
+        } as CSSProperties;
+      }),
+    [origin],
+  );
+  if (done || origin === null) return null;
+  return (
+    <div className="pd-confetti" style={{ top: origin }} aria-hidden="true">
+      {bits.map((style, i) => (
+        <span key={i} style={style} />
+      ))}
+    </div>
   );
 }
 

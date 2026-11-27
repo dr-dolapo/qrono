@@ -41,7 +41,7 @@ function QronoLive(card: LiveCard, env: LiveActivityEnvironment) {
   const accent = t[3];
   const ended = env.isStale;
   // Cards from a server before the pushdown carry only the headline.
-  const caption = ended ? "This event has ended" : card.caption ?? (card.urgent ? `${card.headline} · ${card.detail ?? ""}` : card.eventName);
+  const caption = ended ? "Thank you for joining" : card.caption ?? (card.urgent ? `${card.headline} · ${card.detail ?? ""}` : card.eventName);
   const now = Date.now();
   const target = !ended && typeof card.target === "number" ? card.target : null;
   const from = typeof card.from === "number" ? Math.min(card.from, now) : now;
@@ -49,7 +49,7 @@ function QronoLive(card: LiveCard, env: LiveActivityEnvironment) {
 
   const big = (size: number, color: string) =>
     target === null ? (
-      <Text modifiers={[font({ size: size * 0.6, weight: "heavy" }), foregroundStyle(color), lineLimit(1)]}>{ended ? "Thank you!" : card.text ?? card.headline}</Text>
+      <Text modifiers={[font({ size: size * 0.6, weight: "heavy" }), foregroundStyle(color), lineLimit(1)]}>{ended ? "Meeting ended" : card.text ?? card.headline}</Text>
     ) : card.over ? (
       <HStack spacing={0}>
         <Text modifiers={[font({ size, weight: "heavy" }), foregroundStyle(color)]}>+</Text>

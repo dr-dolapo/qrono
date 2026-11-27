@@ -63,6 +63,10 @@ describe("pushdown faces", () => {
     expect(meFace({ ...on, now: T0 + min(26) })).toMatchObject({ tone: "red", caption: "Over time · Bible reading" });
     const after = input({ status: "live", tasks: tasks(["done", "done", "done", "in_progress"], [at(0), at(5), at(20), at(25)]), currentTaskId: "d", now: T0 + min(30) });
     expect(meFace(after)).toMatchObject({ caption: "Your part is done", text: "Thank you!", target: null });
+    // Every item done (and once it's ended): "Meeting ended".
+    const finished = input({ status: "live", tasks: tasks(["done", "done", "done", "done"], [at(0), at(5), at(20), at(25)]), currentTaskId: null, now: T0 + min(56) });
+    expect(allFace(finished)).toMatchObject({ caption: "Thank you for joining", text: "Meeting ended" });
+    expect(allFace({ ...finished, status: "past" }).text).toBe("Meeting ended");
   });
 
   it("writes long waits in words", () => {

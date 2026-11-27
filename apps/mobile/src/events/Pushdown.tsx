@@ -2,7 +2,7 @@ import { Stack, router } from "expo-router";
 import { useKeepAwake } from "expo-keep-awake";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Modal, Pressable, ScrollView, StyleSheet, Text, Vibration, View } from "react-native";
+import { Modal, Pressable, ScrollView, StyleSheet, Text, Vibration, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BroadcastModal, useBroadcasts } from "../broadcasts/BroadcastAlerts";
 import { Button } from "../components/Button";
@@ -17,7 +17,8 @@ import { formatDuration, formatTime } from "../lib/time";
 import { useNow } from "../lib/useNow";
 import { useLiveEvent } from "../live/useLiveEvent";
 import { colors, font } from "../theme";
-import { allFace, faceProgress, followPlan, formatFace, meFace, type Face, type FaceTask, type Tone } from "./faces";
+import { ConfettiBurst, Popper, POPPER_SIZE } from "./Celebration";
+import { allFace, faceProgress, followPlan, formatFace, meFace, PART_DONE, type Face, type FaceTask, type Tone } from "./faces";
 import type { EventDetail } from "./types";
 
 type Tab = "me" | "all" | "messages";
@@ -137,6 +138,12 @@ export function PushdownScreen({
   const [menu, setMenu] = useState(false);
   const [declining, setDeclining] = useState(false);
   const tone = TONES[face.tone];
+
+  // Your part is done: a confetti popper pops up from behind the black sheet (once per visit).
+  const celebrate = tab === "me" && !!me && me.caption === PART_DONE;
+  const [topBottom, setTopBottom] = useState<number | null>(null);
+  const screen = useWindowDimensions();
+  const mouthY = topBottom === null ? null : topBottom - 2 - (POPPER_SIZE.height - POPPER_SIZE.mouth);
   const tz = data.event.timezone;
 
   return (
@@ -148,7 +155,10 @@ export function PushdownScreen({
         {/* Offline: a slim strip in a darker shade of the pushdown, so the colour still runs to the top. */}
         <OfflineBanner savedAt={savedAt} following={following} tint="rgba(0,0,0,0.25)" color={tone.fg} />
       </View>
-      <View style={[styles.top, { paddingTop: 8 }]}>
+      <View
+        style={[styles.top, { paddingTop: 8 }, celebrate && { paddingBottom: 100 }]}
+        onLayout={(e) => setTopBottom(e.nativeEvent.layout.y + e.nativeEvent.layout.height)}
+      >
         <View style={styles.topRow}>
           <RoundButton label="Back to events" color={tone.button} onPress={() => (router.canGoBack() ? router.back() : router.replace("/"))}>
             <Text style={[styles.glyph, { color: tone.fg }]}>‹</Text>
@@ -164,6 +174,8 @@ export function PushdownScreen({
           ) : null}
         </View>
         <Countdown face={face} now={now} fg={tone.fg} sub={tone.sub} />
+        {/* Drawn before the sheet, so the sheet hides its lower half. */}
+        {celebrate ? <Popper bottom={2} /> : null}
       </View>
 
       <View style={styles.sheet}>
@@ -179,6 +191,9 @@ export function PushdownScreen({
         <Switcher tab={tab} hasMe={!!me} unread={unread && tab !== "messages"} onChange={open} bottom={insets.bottom + 12} />
       </View>
 
+      {celebrate && mouthY !== null ? (
+        <ConfettiBurst x={screen.width / 2} y={mouthY} room={mouthY - insets.top - 24} fall={screen.height - mouthY} />
+      ) : null}
       <BroadcastModal broadcast={broadcasts.current} waiting={broadcasts.waiting} timezone={tz} onReply={broadcasts.reply} />
       <Menu
         visible={menu}
