@@ -155,6 +155,32 @@ export function followPlan(input: FaceInput): FaceInput {
   return { ...input, status, currentTaskId, tasks };
 }
 
+/**
+ * When each item starts, as things stand: items already run show when they really started; the
+ * item on now, its real start; the rest follow on from when the item on now is due to finish (or
+ * from now, if it's over time), so starting early or running late moves everything after it.
+ * Before the event is live, the planned times.
+ */
+export function expectedStarts(input: FaceInput): Map<string, number> {
+  const starts = new Map<string, number>();
+  const planned = (t: FaceTask) => Date.parse(t.plannedStartAt);
+  if (input.status !== "live") {
+    for (const t of input.tasks) starts.set(t.id, planned(t));
+    return starts;
+  }
+  const r = running(input);
+  let at = r ? Math.max(r.end, input.now) : input.now;
+  for (const t of input.tasks) {
+    if (t.status === "upcoming") {
+      starts.set(t.id, at);
+      at += t.durationMinutes * MINUTE;
+    } else {
+      starts.set(t.id, t.actualStartAt ? Date.parse(t.actualStartAt) : planned(t));
+    }
+  }
+  return starts;
+}
+
 function still(caption: string, text: string): Face {
   return { tone: "purple", caption, target: null, over: false, from: null, text, estimated: false, changesAt: null };
 }

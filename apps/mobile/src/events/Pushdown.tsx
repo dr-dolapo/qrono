@@ -19,7 +19,7 @@ import { SlideControl, UndoToast, runLive, sliderStep } from "./LiveControls";
 import { useLiveEvent } from "../live/useLiveEvent";
 import { colors, font } from "../theme";
 import { ConfettiBurst, Horn, HORN, ROUND_MS, ROUNDS } from "./Celebration";
-import { allFace, faceProgress, followPlan, formatFace, meFace, PART_DONE, type Face, type FaceTask, type Tone } from "./faces";
+import { allFace, expectedStarts, faceProgress, followPlan, formatFace, meFace, PART_DONE, type Face, type FaceTask, type Tone } from "./faces";
 import type { EventDetail } from "./types";
 
 type Tab = "me" | "all" | "messages";
@@ -104,6 +104,8 @@ export function PushdownScreen({
   const input = connection === "connected" ? heard : followPlan(heard);
   const following = !online && input.status === "live";
   const me = meFace(input);
+  // Each item's start as things stand (moves when items start early or run late).
+  const starts = expectedStarts(input);
   const all = allFace(input);
 
   const [tab, setTab] = useState<Tab>(me ? "me" : "all");
@@ -217,9 +219,9 @@ export function PushdownScreen({
       <View style={styles.sheet}>
         <ScrollView contentContainerStyle={[styles.sheetContent, { paddingBottom: insets.bottom + 110 }]}>
           {tab === "me" ? (
-            <MeTab tasks={input.tasks} mine={mine} tz={tz} input={input} latest={broadcasts.history[0] ?? null} onOpenMessages={() => open("messages")} />
+            <MeTab starts={starts} tasks={input.tasks} mine={mine} tz={tz} input={input} latest={broadcasts.history[0] ?? null} onOpenMessages={() => open("messages")} />
           ) : tab === "all" ? (
-            <AllTab data={data} tasks={input.tasks} mine={mine} names={names} participantId={participant?.id ?? null} tz={tz} current={input.currentTaskId} over={all.over} />
+            <AllTab starts={starts} data={data} tasks={input.tasks} mine={mine} names={names} participantId={participant?.id ?? null} tz={tz} current={input.currentTaskId} over={all.over} />
           ) : (
             <MessagesTab items={broadcasts.history} tz={tz} />
           )}
@@ -329,7 +331,7 @@ function Switcher({ tab, hasMe, unread, onChange, bottom }: { tab: Tab; hasMe: b
 
 type Input = Parameters<typeof meFace>[0];
 
-function MeTab(props: { tasks: FaceTask[]; mine: Set<string>; tz: string; input: Input; latest: { body: string; sentBy: string; sentAt: string } | null; onOpenMessages(): void }) {
+function MeTab(props: { starts: Map<string, number>; tasks: FaceTask[]; mine: Set<string>; tz: string; input: Input; latest: { body: string; sentBy: string; sentAt: string } | null; onOpenMessages(): void }) {
   const { tasks, mine, tz, input, latest, onOpenMessages } = props;
   const parts = tasks.filter((t) => mine.has(t.id));
   const nextUp = tasks.find((t) => t.status === "upcoming");
@@ -343,7 +345,7 @@ function MeTab(props: { tasks: FaceTask[]; mine: Set<string>; tz: string; input:
         const tag = over ? ["Over time", "#ffffff", "#c62828"] : onNow ? ["On now", "#04210f", colors.live] : input.status === "live" && nextUp?.id === t.id ? ["Up next", "#2a1d00", "#f5b301"] : null;
         return (
           <View key={t.id} style={[styles.card, onNow && { borderColor: over ? "#6b1f1f" : "#1f5c36" }]}>
-            <Text style={[styles.cardTime, done && styles.doneText]}>{formatTime(t.plannedStartAt, tz)}</Text>
+            <Text style={[styles.cardTime, done && styles.doneText]}>{formatTime(new Date(props.starts.get(t.id) ?? Date.parse(t.plannedStartAt)).toISOString(), tz)}</Text>
             <View style={{ flex: 1 }}>
               <Text style={[styles.cardTitle, done && styles.strike]}>{t.title}</Text>
               <Text style={[styles.muted, done && styles.doneText]}>{formatDuration(t.durationMinutes)}</Text>
@@ -367,6 +369,7 @@ function MeTab(props: { tasks: FaceTask[]; mine: Set<string>; tz: string; input:
 }
 
 function AllTab(props: {
+  starts: Map<string, number>;
   data: EventDetail;
   tasks: FaceTask[];
   mine: Set<string>;
@@ -395,7 +398,7 @@ function AllTab(props: {
             onPress={() => router.push({ pathname: "/events/[id]/tasks/[taskId]", params: { id: data.event.id, taskId: t.id } })}
             style={({ pressed }) => [styles.row, pressed && { opacity: 0.7 }]}
           >
-            <Text style={[styles.rowTime, done && styles.doneText]}>{formatTime(t.plannedStartAt, tz)}</Text>
+            <Text style={[styles.rowTime, done && styles.doneText]}>{formatTime(new Date(props.starts.get(t.id) ?? Date.parse(t.plannedStartAt)).toISOString(), tz)}</Text>
             <View style={styles.rail}>
               <View style={[styles.dot, isNow && styles.dotNow, { backgroundColor: dot }]} />
               {i < tasks.length - 1 ? <View style={styles.line} /> : null}

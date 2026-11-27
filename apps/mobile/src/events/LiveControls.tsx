@@ -20,14 +20,16 @@ export function sliderStep(input: {
   now: number;
   tasks: { id: string; title: string; status: string }[];
   currentTaskId: string | null;
-}): { action: "start" | "next" | "end"; label: string } | null {
+}): { action: "start" | "next" | "end"; label: string; prefix: string; name: string | null } | null {
   if (input.status === "approved") {
     // Starting early: from an hour before.
-    return input.now >= Date.parse(input.startAt) - 60 * 60_000 ? { action: "start", label: "Slide to start now" } : null;
+    return input.now >= Date.parse(input.startAt) - 60 * 60_000 ? { action: "start", label: "Slide to start now", prefix: "Slide to start now", name: null } : null;
   }
   if (input.status !== "live") return null;
   const next = input.tasks.find((t) => t.status === "upcoming");
-  return next ? { action: "next", label: `Slide to start ${next.title}` } : { action: "end", label: "Slide to end the event" };
+  return next
+    ? { action: "next", label: `Slide to start ${next.title}`, prefix: "Slide to start", name: next.title }
+    : { action: "end", label: "Slide to end the event", prefix: "Slide to end the event", name: null };
 }
 
 /**
@@ -77,7 +79,7 @@ export function SlideControl({
     setBusy(true);
     try {
       await send(s.action);
-      if (s.action === "next") skipped(s.label.replace("Slide to start ", ""));
+      if (s.action === "next" && s.name) skipped(s.name);
     } catch (err) {
       Alert.alert("That didn't work", err instanceof ApiError ? err.message : "Check your connection and try again.");
     } finally {
@@ -101,7 +103,18 @@ export function SlideControl({
     }),
   ).current;
 
-  const label = !online ? "Connect to run the event" : busy ? "One moment…" : step.label;
+  // The instruction is plain and dimmed; the item's name is bold, solid and in quotes, so it
+  // can't be mistaken for part of the instruction.
+  const label = !online ? (
+    <Text style={styles.hint}>Connect to run the event</Text>
+  ) : busy ? (
+    <Text style={styles.hint}>One moment…</Text>
+  ) : (
+    <>
+      <Text style={styles.hint}>{step.prefix}</Text>
+      {step.name ? <Text style={styles.name}> “{step.name}”</Text> : null}
+    </>
+  );
   const fade = max ? x.interpolate({ inputRange: [0, max * 0.6], outputRange: [1, 0], extrapolate: "clamp" }) : 1;
 
   return (
@@ -141,7 +154,8 @@ export function UndoToast({ title, bottom, onUndo, onDone }: { title: string; bo
   return (
     <View style={[styles.toast, { bottom }]} accessibilityLiveRegion="polite">
       <Text style={styles.toastText} numberOfLines={1}>
-        {title} started
+        <Text style={styles.name}>“{title}”</Text>
+        <Text style={styles.hint}> started</Text>
       </Text>
       <Pressable
         accessibilityRole="button"
@@ -177,7 +191,9 @@ const Play = ({ color }: { color: string }) => <View style={[styles.tri, { borde
 
 const styles = StyleSheet.create({
   track: { height: 60, borderRadius: 30, justifyContent: "center", marginTop: 6 },
-  label: { textAlign: "center", fontSize: 15, paddingHorizontal: 64, ...font("600") },
+  label: { textAlign: "center", fontSize: 15, paddingHorizontal: 64 },
+  hint: { opacity: 0.5, ...font("400") },
+  name: { ...font("700") },
   knob: { position: "absolute", left: 5, top: 5, width: KNOB, height: KNOB, borderRadius: KNOB / 2, alignItems: "center", justifyContent: "center" },
   chevron: { position: "absolute", right: 20, fontSize: 24, opacity: 0.5, ...font("400") },
   tri: { width: 0, height: 0, borderTopWidth: 9, borderBottomWidth: 9, borderLeftWidth: 13, borderTopColor: "transparent", borderBottomColor: "transparent" },

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { Link } from "react-router";
 import clsx from "clsx";
-import { allFace, faceProgress, followPlan, formatFace, meFace, PART_DONE, type Face, type FaceInput, type Tone } from "../faces";
+import { allFace, expectedStarts, faceProgress, followPlan, formatFace, meFace, PART_DONE, type Face, type FaceInput, type Tone } from "../faces";
 import { formatDuration, formatTime } from "../time";
 
 /** The pushdown's colours (the same in the app and on the lock screen). */
@@ -289,6 +289,7 @@ function Countdown({ face, now }: { face: Face; now: number }) {
 
 function MeTab({ rows, input, tz, latest, onOpenMessages }: { rows: PushdownRow[]; input: FaceInput; tz: string; latest: PushdownMessage | null; onOpenMessages(): void }) {
   const parts = rows.filter((r) => input.mine.has(r.id));
+  const starts = expectedStarts(input);
   const byId = new Map(input.tasks.map((t) => [t.id, t]));
   const nextUp = input.tasks.find((t) => t.status === "upcoming");
   return (
@@ -302,7 +303,7 @@ function MeTab({ rows, input, tz, latest, onOpenMessages }: { rows: PushdownRow[
         const tag = over ? ["Over time", "red"] : onNow ? ["On now", "green"] : input.status === "live" && nextUp?.id === t.id ? ["Up next", "amber"] : null;
         return (
           <div key={r.id} className={clsx("pd-card", onNow && (over ? "is-over" : "is-on"))}>
-            <span className={clsx("pd-card-time", done && "is-done")}>{formatTime(r.plannedStartAt, tz)}</span>
+            <span className={clsx("pd-card-time", done && "is-done")}>{formatTime(new Date(starts.get(r.id) ?? Date.parse(r.plannedStartAt)).toISOString(), tz)}</span>
             <span className="pd-card-main">
               <strong className={clsx(done && "is-struck")}>{r.title}</strong>
               <span className="pd-muted">{formatDuration(r.durationMinutes)}</span>
@@ -329,6 +330,7 @@ function MeTab({ rows, input, tz, latest, onOpenMessages }: { rows: PushdownRow[
 function AllTab({ rows, input, tz, over, itemLink }: { rows: PushdownRow[]; input: FaceInput; tz: string; over: boolean; itemLink?(id: string): string }) {
   if (rows.length === 0) return <p className="pd-muted">The program hasn't been planned yet.</p>;
   const byId = new Map(input.tasks.map((t) => [t.id, t]));
+  const starts = expectedStarts(input);
   return (
     <div>
       <h2 className="pd-label">Program</h2>
@@ -351,7 +353,7 @@ function AllTab({ rows, input, tz, over, itemLink }: { rows: PushdownRow[]; inpu
           );
           return (
             <li key={r.id} className={clsx(done && "is-done", isNow && "is-now", isNow && over && "is-over", mine && "is-mine")}>
-              <span className="pd-row-time">{formatTime(r.plannedStartAt, tz)}</span>
+              <span className="pd-row-time">{formatTime(new Date(starts.get(r.id) ?? Date.parse(r.plannedStartAt)).toISOString(), tz)}</span>
               <span className="pd-rail" aria-hidden="true" />
               {itemLink ? (
                 <Link to={itemLink(r.id)} className="pd-row-main">
