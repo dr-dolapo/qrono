@@ -129,9 +129,8 @@ export function Pushdown(props: {
           )}
         </div>
         <Countdown face={face} now={now} />
-        {celebrate && <Popper />}
+        {celebrate && <Celebration from={header} />}
       </header>
-      {celebrate && <Confetti from={header} />}
 
       <section className="pd-sheet">
         {tab === "me" && me ? (
@@ -176,51 +175,76 @@ export function Pushdown(props: {
   );
 }
 
-/** The popper: behind the black sheet (only its mouth shows), with a pop when it first appears. */
-function Popper() {
+/**
+ * Your part is done. A confetti horn, hidden behind the black sheet at 70% across, swings up from
+ * pointing left to 45° (up and to the left) and fires; the confetti rises inside the pushdown,
+ * then falls in front of everything, over the sheet too. The horn then swings back down out of
+ * sight. Each round takes 7 seconds (the rest is the pause after the confetti has fallen), three
+ * rounds, then it stops. With reduced motion: the horn at rest, no confetti.
+ */
+const ROUND_MS = 7000;
+const ROUNDS = 3;
+
+function Celebration({ from }: { from: React.RefObject<HTMLElement | null> }) {
+  const reduced = useMemo(() => window.matchMedia("(prefers-reduced-motion: reduce)").matches, []);
+  const [round, setRound] = useState(0);
+  useEffect(() => {
+    if (reduced || round >= ROUNDS) return;
+    const t = setTimeout(() => setRound((r) => r + 1), ROUND_MS);
+    return () => clearTimeout(t);
+  }, [round, reduced]);
+  if (reduced) return <Horn still />;
+  if (round >= ROUNDS) return null;
   return (
-    <svg className="pd-popper" viewBox="0 0 64 80" width="56" height="70" aria-hidden="true">
-      <defs>
-        <clipPath id="pd-cone">
-          <path d="M12 16 L52 16 L35 78 L29 78 Z" />
-        </clipPath>
-      </defs>
-      <path d="M12 16 L52 16 L35 78 L29 78 Z" fill="#f5b301" />
-      <g clipPath="url(#pd-cone)" fill="#ff6b6b">
-        <path d="M0 30 L64 18 L64 27 L0 39 Z" />
-        <path d="M0 50 L64 38 L64 47 L0 59 Z" />
-        <path d="M0 70 L64 58 L64 67 L0 79 Z" />
-      </g>
-      <ellipse cx="32" cy="16" rx="20" ry="6" fill="#c98f00" />
-      <ellipse cx="32" cy="16" rx="15.5" ry="3.8" fill="#2a1d00" />
-    </svg>
+    <>
+      <Horn key={`horn-${round}`} />
+      <Confetti key={`confetti-${round}`} from={from} />
+    </>
+  );
+}
+
+function Horn({ still }: { still?: boolean }) {
+  return (
+    <span className={clsx("pd-horn", still && "is-still")} aria-hidden="true">
+      <svg viewBox="0 0 64 80" width="56" height="70">
+        <defs>
+          <clipPath id="pd-cone">
+            <path d="M12 16 L52 16 L35 78 L29 78 Z" />
+          </clipPath>
+        </defs>
+        <path d="M12 16 L52 16 L35 78 L29 78 Z" fill="#f5b301" />
+        <g clipPath="url(#pd-cone)" fill="#ff6b6b">
+          <path d="M0 30 L64 18 L64 27 L0 39 Z" />
+          <path d="M0 50 L64 38 L64 47 L0 59 Z" />
+          <path d="M0 70 L64 58 L64 67 L0 79 Z" />
+        </g>
+        <ellipse cx="32" cy="16" rx="20" ry="6" fill="#c98f00" />
+        <ellipse cx="32" cy="16" rx="15.5" ry="3.8" fill="#2a1d00" />
+      </svg>
+    </span>
   );
 }
 
 const CONFETTI = ["#f5b301", "#4ade80", "#b98af5", "#ff6b6b", "#60a5fa", "#ffffff"];
+/** Where the horn sits across the header, and where its mouth ends up at 45° (from its pivot at the tip). */
+const HORN_ACROSS = 0.7;
+const MOUTH_AT_REST = { dx: -39, dy: -39 };
 
-/**
- * The spray: bits rise from the popper's mouth inside the coloured pushdown, then fall in front
- * of everything, over the black sheet too, so the popper looks hidden behind it while the
- * confetti spills out over it. Plays once; not at all when reduced motion is on.
- */
+/** One burst from the horn's mouth: up inside the pushdown, then down over everything. */
 function Confetti({ from }: { from: React.RefObject<HTMLElement | null> }) {
-  const [origin, setOrigin] = useState<number | null>(null);
-  const [done, setDone] = useState(false);
+  const [origin, setOrigin] = useState<{ x: number; y: number } | null>(null);
   useEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return setDone(true);
     const box = from.current?.getBoundingClientRect();
-    // The popper's mouth: just above where the black sheet starts (it overlaps the header by 28px).
-    if (box) setOrigin(box.bottom - 58);
-    const t = setTimeout(() => setDone(true), 4200);
-    return () => clearTimeout(t);
+    // The horn pivots on its tip, 18px above the header bottom (the black sheet covers the bottom 28px).
+    if (box) setOrigin({ x: box.left + box.width * HORN_ACROSS + MOUTH_AT_REST.dx, y: box.bottom - 18 + MOUTH_AT_REST.dy });
   }, [from]);
   const bits = useMemo(
     () =>
       Array.from({ length: 56 }, (_, i) => {
-        const room = Math.max(120, (origin ?? 300) - 40);
+        const room = Math.max(120, (origin?.y ?? 300) - 40);
         return {
-          "--dx": `${Math.round((Math.random() - 0.5) * 340)}px`,
+          // Mostly up and to the left, the way the horn points.
+          "--dx": `${Math.round(-110 + (Math.random() - 0.5) * 300)}px`,
           "--peak": `${Math.round(room * (0.45 + Math.random() * 0.55))}px`,
           "--fall": `${Math.round(window.innerHeight * (0.45 + Math.random() * 0.5))}px`,
           "--rot": `${Math.round((Math.random() - 0.5) * 1440)}deg`,
@@ -234,9 +258,9 @@ function Confetti({ from }: { from: React.RefObject<HTMLElement | null> }) {
       }),
     [origin],
   );
-  if (done || origin === null) return null;
+  if (origin === null) return null;
   return (
-    <div className="pd-confetti" style={{ top: origin }} aria-hidden="true">
+    <div className="pd-confetti" style={{ top: origin.y, left: origin.x }} aria-hidden="true">
       {bits.map((style, i) => (
         <span key={i} style={style} />
       ))}

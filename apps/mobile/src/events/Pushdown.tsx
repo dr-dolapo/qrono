@@ -2,7 +2,7 @@ import { Stack, router } from "expo-router";
 import { useKeepAwake } from "expo-keep-awake";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Modal, Pressable, ScrollView, StyleSheet, Text, Vibration, View, useWindowDimensions } from "react-native";
+import { AccessibilityInfo, Modal, Pressable, ScrollView, StyleSheet, Text, Vibration, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BroadcastModal, useBroadcasts } from "../broadcasts/BroadcastAlerts";
 import { Button } from "../components/Button";
@@ -17,7 +17,7 @@ import { formatDuration, formatTime } from "../lib/time";
 import { useNow } from "../lib/useNow";
 import { useLiveEvent } from "../live/useLiveEvent";
 import { colors, font } from "../theme";
-import { ConfettiBurst, Popper, POPPER_SIZE } from "./Celebration";
+import { ConfettiBurst, Horn, HORN, ROUND_MS, ROUNDS } from "./Celebration";
 import { allFace, faceProgress, followPlan, formatFace, meFace, PART_DONE, type Face, type FaceTask, type Tone } from "./faces";
 import type { EventDetail } from "./types";
 
@@ -139,11 +139,26 @@ export function PushdownScreen({
   const [declining, setDeclining] = useState(false);
   const tone = TONES[face.tone];
 
-  // Your part is done: a confetti popper pops up from behind the black sheet (once per visit).
+  // Your part is done: the confetti horn, three rounds of 7 seconds, then it stops for this visit.
   const celebrate = tab === "me" && !!me && me.caption === PART_DONE;
-  const [topBottom, setTopBottom] = useState<number | null>(null);
+  const [round, setRound] = useState(0);
+  const [reduceMotion, setReduceMotion] = useState(false);
+  useEffect(() => {
+    void AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion);
+  }, []);
+  useEffect(() => {
+    if (!celebrate || reduceMotion || round >= ROUNDS) return;
+    const t = setTimeout(() => setRound((r) => r + 1), ROUND_MS);
+    return () => clearTimeout(t);
+  }, [celebrate, reduceMotion, round]);
+  const playing = celebrate && !reduceMotion && round < ROUNDS;
+  const [top, setTop] = useState<{ y: number; width: number; height: number } | null>(null);
   const screen = useWindowDimensions();
-  const mouthY = topBottom === null ? null : topBottom - 2 - (POPPER_SIZE.height - POPPER_SIZE.mouth);
+  // The horn's mouth at rest: it pivots on its tip, HORN.bottom + 2px above the bottom of the pushdown.
+  const mouth = top && {
+    x: top.width * HORN.across + HORN.mouthAtRest.dx,
+    y: top.y + top.height - HORN.bottom - (HORN.height - HORN.tip) + HORN.mouthAtRest.dy,
+  };
   const tz = data.event.timezone;
 
   return (
@@ -157,7 +172,7 @@ export function PushdownScreen({
       </View>
       <View
         style={[styles.top, { paddingTop: 8 }, celebrate && { paddingBottom: 100 }]}
-        onLayout={(e) => setTopBottom(e.nativeEvent.layout.y + e.nativeEvent.layout.height)}
+        onLayout={(e) => setTop({ y: e.nativeEvent.layout.y, width: e.nativeEvent.layout.width, height: e.nativeEvent.layout.height })}
       >
         <View style={styles.topRow}>
           <RoundButton label="Back to events" color={tone.button} onPress={() => (router.canGoBack() ? router.back() : router.replace("/"))}>
@@ -175,7 +190,7 @@ export function PushdownScreen({
         </View>
         <Countdown face={face} now={now} fg={tone.fg} sub={tone.sub} />
         {/* Drawn before the sheet, so the sheet hides its lower half. */}
-        {celebrate ? <Popper bottom={2} /> : null}
+        {playing ? <Horn key={`horn-${round}`} /> : celebrate && reduceMotion ? <Horn still /> : null}
       </View>
 
       <View style={styles.sheet}>
@@ -191,8 +206,8 @@ export function PushdownScreen({
         <Switcher tab={tab} hasMe={!!me} unread={unread && tab !== "messages"} onChange={open} bottom={insets.bottom + 12} />
       </View>
 
-      {celebrate && mouthY !== null ? (
-        <ConfettiBurst x={screen.width / 2} y={mouthY} room={mouthY - insets.top - 24} fall={screen.height - mouthY} />
+      {playing && mouth ? (
+        <ConfettiBurst key={`confetti-${round}`} x={mouth.x} y={mouth.y} room={mouth.y - insets.top - 24} fall={screen.height - mouth.y} />
       ) : null}
       <BroadcastModal broadcast={broadcasts.current} waiting={broadcasts.waiting} timezone={tz} onReply={broadcasts.reply} />
       <Menu

@@ -5,30 +5,35 @@ const POPPER = require("../../assets/popper.png");
 const COLORS = ["#f5b301", "#4ade80", "#b98af5", "#ff6b6b", "#60a5fa", "#ffffff"];
 const COUNT = 56;
 
-/** The popper's size, and where its mouth is (from its top). */
-export const POPPER_SIZE = { width: 56, height: 70, mouth: 14 };
+/** The horn's size, where it sits across the pushdown, and where its mouth is at rest (45°), from its tip. */
+export const HORN = { width: 56, height: 70, across: 0.7, bottom: 16, tip: 68, mouthAtRest: { dx: -39, dy: -39 } };
+/** One round: up and fire, the confetti falls, a pause. Three rounds, then it stops. */
+export const ROUND_MS = 7000;
+export const ROUNDS = 3;
 
 /**
- * Your part is done: a confetti popper pops up from behind the black sheet. It sits in the
- * pushdown under the sheet (only its mouth and top show), with a springy pop when it appears.
+ * The confetti horn, hidden behind the black sheet at 70% across, pivoting on its tip: it swings
+ * up from pointing left to 45° (up and to the left) as it rises, fires, then swings back down out
+ * of sight (rise 0–900ms, hold, back down 1400–2000ms). `still`: at rest, for Reduce Motion.
  */
-export function Popper({ bottom }: { bottom: number }) {
-  const pop = useRef(new Animated.Value(0)).current;
+export function Horn({ still }: { still?: boolean }) {
+  const t = useRef(new Animated.Value(still ? 0.45 : 0)).current;
   useEffect(() => {
-    Animated.spring(pop, { toValue: 1, friction: 5, tension: 70, useNativeDriver: true }).start();
-  }, [pop]);
+    if (!still) Animated.timing(t, { toValue: 1, duration: 2000, easing: Easing.linear, useNativeDriver: true }).start();
+  }, [t, still]);
+  // Key moments, as fractions of the 2 seconds (the same as the web's keyframes).
+  const at = [0, 0.06, 0.13, 0.2625, 0.35, 0.45, 0.7, 0.8, 0.9, 1];
   return (
     <Animated.Image
       source={POPPER}
       accessibilityIgnoresInvertColors
       style={[
-        styles.popper,
+        styles.horn,
         {
-          bottom,
+          transformOrigin: `50% ${(HORN.tip / HORN.height) * 100}%`,
           transform: [
-            { translateX: -POPPER_SIZE.width / 2 },
-            { translateY: pop.interpolate({ inputRange: [0, 1], outputRange: [90, 0] }) },
-            { rotate: pop.interpolate({ inputRange: [0, 0.5, 0.8, 1], outputRange: ["0deg", "-7deg", "5deg", "0deg"] }) },
+            { translateY: t.interpolate({ inputRange: at, outputRange: [90, 45, 15, -6, 3, 0, 0, 12, 45, 90] }) },
+            { rotate: t.interpolate({ inputRange: at, outputRange: ["-90deg", "-70deg", "-55deg", "-40deg", "-48deg", "-45deg", "-45deg", "-50deg", "-68deg", "-90deg"] }) },
           ],
         },
       ]}
@@ -42,12 +47,13 @@ export function Popper({ bottom }: { bottom: number }) {
  * sheet while its confetti spills out over it. Plays once; skipped when Reduce Motion is on.
  */
 export function ConfettiBurst({ x, y, room, fall }: { x: number; y: number; room: number; fall: number }) {
+  // Mostly up and to the left, the way the horn points.
   const [done, setDone] = useState(false);
   const bits = useRef(
     Array.from({ length: COUNT }, (_, i) => ({
       rise: new Animated.Value(0),
       drop: new Animated.Value(0),
-      dx: (Math.random() - 0.5) * 340,
+      dx: -110 + (Math.random() - 0.5) * 300,
       peak: Math.max(100, room) * (0.45 + Math.random() * 0.55),
       fall: fall * (0.45 + Math.random() * 0.5),
       spin: (Math.random() - 0.5) * 1440,
@@ -110,6 +116,6 @@ export function ConfettiBurst({ x, y, room, fall }: { x: number; y: number; room
 }
 
 const styles = StyleSheet.create({
-  popper: { position: "absolute", left: "50%", width: POPPER_SIZE.width, height: POPPER_SIZE.height },
+  horn: { position: "absolute", left: `${HORN.across * 100}%`, bottom: HORN.bottom, marginLeft: -HORN.width / 2, width: HORN.width, height: HORN.height },
 });
 
