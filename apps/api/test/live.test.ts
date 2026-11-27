@@ -70,6 +70,31 @@ describe("running an event live", () => {
     expect(detail.json.permissions.canRunLive).toBe(false);
   });
 
+  it("a skip can be undone straight after, and only then", async () => {
+    await approve();
+    await ada.post(`/api/events/${eventId}/live/start`);
+    const before = (await ada.post(`/api/events/${eventId}/live/next`)).json;
+    let state = (await ada.post(`/api/events/${eventId}/live/undo`)).json;
+    expect(state.tasks.map((x: { status: string }) => x.status)).toEqual(["in_progress", "upcoming"]);
+    expect(state.currentTaskId).toBe(state.tasks[0].id);
+    // Opening carries on from when it really started; Keynote hasn't started.
+    expect(state.tasks[0].actualStartAt).toBe(before.tasks[0].actualStartAt);
+    expect(state.tasks[1].actualStartAt).toBeNull();
+    // Nothing more to undo.
+    expect((await ada.post(`/api/events/${eventId}/live/undo`)).status).toBe(409);
+
+    // Too late: the skip was a minute ago.
+    state = (await ada.post(`/api/events/${eventId}/live/next`)).json;
+    const minuteAgo = new Date(Date.now() - 60_000).toISOString();
+    t.sqlite.prepare("UPDATE tasks SET actual_end_at = ? WHERE id = ?").run(minuteAgo, state.tasks[0].id);
+    t.sqlite.prepare("UPDATE tasks SET actual_start_at = ? WHERE id = ?").run(minuteAgo, state.tasks[1].id);
+    const late = await ada.post(`/api/events/${eventId}/live/undo`);
+    expect(late.status).toBe(409);
+    expect(late.json.error).toMatch(/too late/i);
+    // Members can't.
+    expect((await chi.post(`/api/events/${eventId}/live/undo`)).status).toBe(403);
+  });
+
   it("an Admin or Planner can delete a past event; nobody is told, and it leaves everyone's list", async () => {
     await approve();
     // Not while it's coming up or live.

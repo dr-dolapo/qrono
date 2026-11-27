@@ -128,6 +128,34 @@ export async function nextTask(db: D1Database, eventId: string, now: number): Pr
   ]);
 }
 
+/** How long after a skip it can still be undone (the app offers 5 seconds; this allows for a slow connection). */
+export const UNDO_WINDOW_MS = 30_000;
+
+/**
+ * Undo the last skip: the task that just started goes back to upcoming, and the one before it
+ * carries on (its time used so far keeps counting). Only straight after the skip.
+ */
+export async function undoNext(db: D1Database, eventId: string, now: number): Promise<void> {
+  const event = await loadEvent(db, eventId);
+  if (event.status !== "live") throw new LiveError(409, "The event isn't live.");
+  const tasks = await loadTasks(db, eventId);
+  const current = tasks.find((t) => t.id === event.current_task_id && t.status === "in_progress");
+  if (!current?.actual_start_at) throw new LiveError(409, "There's nothing to undo.");
+  const index = tasks.indexOf(current);
+  const previous = tasks.slice(0, index).reverse().find((t) => t.status === "done");
+  if (!previous || previous.actual_end_at !== current.actual_start_at || now - Date.parse(current.actual_start_at) > UNDO_WINDOW_MS) {
+    throw new LiveError(409, "It's too late to undo that.");
+  }
+  if (event.progression_mode === "auto" && previous.actual_start_at && now >= Date.parse(previous.actual_start_at) + previous.duration_minutes * 60_000) {
+    throw new LiveError(409, "This event moves on by itself, and that item's time is up.");
+  }
+  await db.batch([
+    db.prepare("UPDATE tasks SET status = 'upcoming', actual_start_at = NULL WHERE id = ?").bind(current.id),
+    db.prepare("UPDATE tasks SET status = 'in_progress', actual_end_at = NULL WHERE id = ?").bind(previous.id),
+    db.prepare("UPDATE events SET current_task_id = ?, updated_at = ? WHERE id = ?").bind(previous.id, iso(now), eventId),
+  ]);
+}
+
 /**
  * End the event (QR029), either by a Planner or because the end time passed.
  * Unfinished tasks are marked skipped; guests' links stop working.

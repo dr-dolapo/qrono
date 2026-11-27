@@ -1,15 +1,15 @@
 import { broadcastMessage, nextSnoozeAt, recipientIds, releaseDueSnoozes, type BroadcastMessage } from "./broadcasts";
 import { flushChanges, notifyDueAt, type NotifyHooks } from "./changes";
-import { endEvent, goLive, LiveError, nextTask, snapshot, tick, type LiveSnapshot } from "./engine";
+import { endEvent, goLive, LiveError, nextTask, snapshot, tick, undoNext, type LiveSnapshot } from "./engine";
 
 /**
- * - start / next / end: Planner controls.
+ * - start / next / undo / end: Planner controls (undo: straight after a next).
  * - tick: apply whatever is due (alarm, or after approval).
  * - broadcast: deliver a new broadcast to its recipients.
  * - replied: someone answered a broadcast; refresh Planners' views and re-plan snoozes.
  * - edited: a Planner changed an approved/live event; refresh screens, plan the notices.
  */
-export type LiveAction = "tick" | "start" | "next" | "end" | "broadcast" | "replied" | "edited";
+export type LiveAction = "tick" | "start" | "next" | "undo" | "end" | "broadcast" | "replied" | "edited";
 
 export interface LiveCommand {
   action: LiveAction | "arm";
@@ -57,6 +57,7 @@ export async function runCommand(db: D1Database, eventId: string, cmd: LiveComma
   try {
     if (cmd.action === "start") await goLive(db, eventId, now, cmd.by);
     if (cmd.action === "next") await nextTask(db, eventId, now);
+    if (cmd.action === "undo") await undoNext(db, eventId, now);
     if (cmd.action === "end") await endEvent(db, eventId, now, cmd.by);
     if (cmd.action === "broadcast" && cmd.broadcastId) {
       const message = await broadcastMessage(db, cmd.broadcastId);

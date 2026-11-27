@@ -39,6 +39,8 @@ export interface EventDetail {
     canManage?: boolean;
     canSubmit?: boolean;
     canPublish?: boolean;
+    /** Admins and Planners: start, skip and end the event from the live screen. */
+    canRunLive?: boolean;
   };
   approvers: { userId: string; name: string; approvedAt: string | null }[];
   me: { userId: string; participant: { id: string; response: Response; declineReason: string | null } | null };
