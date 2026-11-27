@@ -111,68 +111,32 @@ export function CommandCentre() {
         </Link>
       </header>
 
-      {/* The countdown is the biggest thing on the screen: to the start, then what's left of the item on now. */}
-      {event.status === "approved" && (
-        <section className="command-hero" aria-live="polite">
-          <span className="command-hero-label">Starts in</span>
-          <strong className="command-hero-time">{startsIn > 0 ? startsIn >= 3_600_000 ? formatStartsIn(startsIn) : <Countdown ms={startsIn} /> : "Starting…"}</strong>
-          <span className="command-hero-sub">at {formatTime(event.startAt, tz)}</span>
-        </section>
-      )}
-      {event.status === "live" && view.current && (
-        <section className={clsx("command-hero", overrun ? "over" : view.remainingMs! < display.warningMs && "soon")} aria-live="off">
-          <span className="command-hero-label">{overrun ? "Over time" : "Time left"}</span>
-          <strong className="command-hero-time">
+      {/* The countdown fills the screen: to the start, then what's left of the item on now. */}
+      <section
+        className={clsx("command-hero", event.status === "live" && view.current && (overrun ? "over" : view.remainingMs! < display.warningMs && "soon"))}
+        aria-live="off"
+        aria-label={event.status === "approved" ? `Starts at ${formatTime(event.startAt, tz)}` : overrun ? "Over time" : "Time left"}
+      >
+        {event.status === "approved" ? (
+          startsIn >= 3_600_000 ? (
+            <strong className="command-hero-time is-long">{formatStartsIn(startsIn)}</strong>
+          ) : startsIn > 0 ? (
+            <strong className="command-hero-time"><Countdown ms={startsIn} /></strong>
+          ) : (
+            <strong className="command-hero-time is-long">Starting…</strong>
+          )
+        ) : event.status === "live" && view.current ? (
+          <strong className={clsx("command-hero-time", Math.abs(view.remainingMs!) >= 3_600_000 ? "is-hours" : overrun && "is-plus")}>
             {overrun && "+"}
             <Countdown ms={view.remainingMs!} />
           </strong>
-        </section>
-      )}
-      {event.status === "past" && <section className="command-status">The event has ended.</section>}
-
-      <section className="command-grid">
-        <div className={clsx("command-panel command-now", overrun && "is-overrun")}>
-          <h2>{event.status === "approved" ? "First up" : "Now"}</h2>
-          {event.status === "live" && view.current ? (
-            <>
-              <p className="command-task">{view.current.title}</p>
-              {display.showNames && view.current.assignees.length > 0 && <p className="command-people">{view.current.assignees.join(" · ")}</p>}
-              <div className="command-progress" aria-hidden="true" key={view.current.id}>
-                <div style={{ width: `${Math.round(view.progress * 100)}%` }} />
-              </div>
-            </>
-          ) : event.status === "approved" && view.next ? (
-            <>
-              <p className="command-task">{view.next.title}</p>
-              {display.showNames && view.next.assignees.length > 0 && <p className="command-people">{view.next.assignees.join(" · ")}</p>}
-            </>
-          ) : (
-            <p className="command-task muted">{event.status === "past" ? "—" : "All tasks are done"}</p>
-          )}
-        </div>
-
-        <div className="command-panel">
-          <h2>Up next</h2>
-          {event.status === "live" && view.next ? (
-            <>
-              <p className="command-next">{view.next.title}</p>
-              {display.showNames && view.next.assignees.length > 0 && <p className="command-people small-people">{view.next.assignees.join(" · ")}</p>}
-              {view.nextExpectedAt && <p className="muted">around {formatTime(new Date(view.nextExpectedAt).toISOString(), tz)}</p>}
-            </>
-          ) : (
-            <p className="command-next muted">{event.status === "approved" ? (state.tasks[1]?.title ?? "—") : "—"}</p>
-          )}
-          {event.status === "live" && view.later.length > 0 && (
-            <ol className="command-later">
-              {view.later.map((t) => (
-                <li key={t.id}>{t.title}</li>
-              ))}
-            </ol>
-          )}
-        </div>
+        ) : (
+          <strong className="command-hero-time is-message">{event.status === "past" ? "The event has ended" : "All items are done"}</strong>
+        )}
       </section>
 
-      <footer className="command-controls">
+      <footer className="command-foot">
+        <div className="command-controls">
         {error && <p className="command-error" role="alert">{error}</p>}
         {confirmEnd ? (
           <div className="command-confirm" role="alertdialog" aria-label="End the event?">
@@ -206,6 +170,28 @@ export function CommandCentre() {
             )}
           </>
         )}
+        </div>
+
+        <div className="command-cards">
+          {event.status === "live" && view.current && (
+            <div className={clsx("command-card", overrun && "is-overrun")}>
+              <h2>Now</h2>
+              <p className="command-card-title">{view.current.title}</p>
+              {display.showNames && view.current.assignees.length > 0 && <p className="command-people">{view.current.assignees.join(" · ")}</p>}
+              <div className="command-progress" aria-hidden="true" key={view.current.id}>
+                <div style={{ width: `${Math.round(view.progress * 100)}%` }} />
+              </div>
+            </div>
+          )}
+          {(event.status === "approved" || event.status === "live") && view.next && (
+            <div className="command-card">
+              <h2>Up next</h2>
+              <p className="command-card-title">{view.next.title}</p>
+              {display.showNames && view.next.assignees.length > 0 && <p className="command-people">{view.next.assignees.join(" · ")}</p>}
+              {event.status === "live" && view.nextExpectedAt && <p className="command-card-when">around {formatTime(new Date(view.nextExpectedAt).toISOString(), tz)}</p>}
+            </div>
+          )}
+        </div>
       </footer>
     </main>
   );
