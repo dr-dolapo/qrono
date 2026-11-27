@@ -189,10 +189,17 @@ export const events = new Hono<AppEnv>()
     return c.json(await eventDetail(c, await loadEvent(c, event.id)));
   })
 
-  /** Delete a draft event. */
+  /**
+   * Delete a draft, or a past event to take it off everyone's list. Admins and Planners only.
+   * Nobody is told: a draft was never sent out, and a past event is over. Everything that
+   * belongs to the event (its program, people, messages, comments) goes with it.
+   */
   .delete("/:eventId", async (c) => {
-    const { event } = await loadEditableEvent(c, c.req.param("eventId"));
-    if (event.status !== "draft") fail(409, "Only draft events can be deleted. To stop a live event, end it from the command centre.", { code: "event_not_draft" });
+    const { event, canManage } = await loadEvent(c, c.req.param("eventId"));
+    if (!canManage) fail(403, "Only Admins and Planners can delete events.");
+    if (event.status !== "draft" && event.status !== "past") {
+      fail(409, "Only drafts and past events can be deleted. To stop a live event, end it from the command centre.", { code: "event_not_deletable" });
+    }
     await c.env.DB.prepare("DELETE FROM events WHERE id = ?").bind(event.id).run();
     return c.json({ deleted: true });
   })

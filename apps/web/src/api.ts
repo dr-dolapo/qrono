@@ -163,6 +163,8 @@ export interface EventDetail {
   permissions: {
     canEdit: boolean;
     canManage: boolean;
+    /** Drafts, and past events (to take them off everyone's list). */
+    canDelete?: boolean;
     canSubmit: boolean;
     canPublish: boolean;
     canWithdraw: boolean;

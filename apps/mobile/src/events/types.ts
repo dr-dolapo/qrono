@@ -30,7 +30,7 @@ export interface EventDetail {
   };
   /** The team's live-screen settings: when countdowns turn amber. */
   team?: { liveWarningMinutes: number };
-  permissions: { canRespond: boolean; canComment: boolean; canApprove: boolean };
+  permissions: { canRespond: boolean; canComment: boolean; canApprove: boolean; canDelete?: boolean };
   approvers: { userId: string; name: string; approvedAt: string | null }[];
   me: { userId: string; participant: { id: string; response: Response; declineReason: string | null } | null };
   stages: { id: string; name: string; venue: string | null }[];

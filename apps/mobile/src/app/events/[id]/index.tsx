@@ -1,12 +1,14 @@
 import { Stack, router, useLocalSearchParams } from "expo-router";
 import { useMemo, useState } from "react";
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Alert, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
 import { Button } from "../../../components/Button";
 import { StatusPill } from "../../../components/StatusPill";
 import { ApprovalPanel } from "../../../events/ApprovalPanel";
 import { PushdownScreen } from "../../../events/Pushdown";
 import { RespondPanel } from "../../../events/RespondPanel";
 import type { EventDetail } from "../../../events/types";
+import { ApiError, api } from "../../../lib/api";
+import { removeCache } from "../../../lib/cache";
 import { countdownTo, deviceTimeZone, formatDuration, formatRange, formatTime, zoneCity } from "../../../lib/time";
 import { eventCheckEvery, useCachedApi } from "../../../lib/useCachedApi";
 import { useNow } from "../../../lib/useNow";
@@ -117,8 +119,48 @@ export default function EventScreen() {
             {filter === "mine" ? "You have no tasks in this event." : "The program hasn't been planned yet."}
           </Text>
         }
+        ListFooterComponent={data.permissions.canDelete ? <DeleteEvent eventId={event.id} past={event.status === "past"} /> : undefined}
       />
     </>
+  );
+}
+
+/**
+ * Admins and Planners: delete a past event (or a draft), to take it off everyone's list.
+ * Nobody is notified. Asks first, since it can't be undone.
+ */
+function DeleteEvent({ eventId, past }: { eventId: string; past: boolean }) {
+  const [busy, setBusy] = useState(false);
+  const confirm = () =>
+    Alert.alert(
+      past ? "Delete this event?" : "Delete this draft?",
+      past
+        ? "It comes off everyone's list, with its program, messages and comments. Nobody is notified. This can't be undone."
+        : "The draft and its program are deleted. This can't be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            setBusy(true);
+            try {
+              await api(`/events/${encodeURIComponent(eventId)}`, { method: "DELETE" });
+              for (const key of [`event:${eventId}`, `broadcasts:${eventId}`, `live:${eventId}`]) removeCache(key);
+              if (router.canGoBack()) router.back();
+              else router.replace("/");
+            } catch (err) {
+              setBusy(false);
+              Alert.alert("Couldn't delete the event", err instanceof ApiError ? err.message : "Please try again.");
+            }
+          },
+        },
+      ],
+    );
+  return (
+    <View style={styles.deleteWrap}>
+      <Button label={busy ? "Deleting…" : past ? "Delete event" : "Delete draft"} variant="link" onPress={confirm} disabled={busy} />
+    </View>
   );
 }
 
@@ -232,6 +274,7 @@ function TaskRow({ task, timezone, mine, people, stage, comments, onPress }: Tas
 }
 
 const styles = StyleSheet.create({
+  deleteWrap: { marginTop: space.xl, marginBottom: space.xxl, alignItems: "center" },
   screen: { flex: 1, backgroundColor: "transparent" },
   content: { padding: space.xl, paddingBottom: space.xxl * 2 },
   center: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "transparent" },

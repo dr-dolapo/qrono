@@ -19,8 +19,8 @@ import { colors, font, radius, space } from "../../theme";
 type Row = { kind: "event"; event: MyEvent } | { kind: "empty"; next: MyEvent | null };
 
 /**
- * Events: a week strip to move between days, a month sheet to jump to a date, and
- * every event from the chosen day on, grouped by day. Opens on today.
+ * Events: a week strip to move between days, a month sheet to jump to a date, and the
+ * events on the chosen day (only that day). Opens on today.
  */
 export default function Events() {
   const { user } = useAuth();
@@ -38,21 +38,13 @@ export default function Events() {
   const events = useMemo(() => [...(data?.events ?? [])].sort((a, b) => a.startAt.localeCompare(b.startAt)), [data]);
   const eventDays = useMemo(() => new Set(events.map((e) => dayOf(e.startAt))), [events]);
 
-  // The chosen day first (with a note if it's empty), then every later day that has events.
+  // Only the chosen day. An empty day says so and points to the next event.
   const sections = useMemo(() => {
-    const byDay = new Map<string, MyEvent[]>();
-    for (const e of events) {
-      const day = dayOf(e.startAt);
-      if (day < selected) continue;
-      byDay.set(day, [...(byDay.get(day) ?? []), e]);
-    }
-    const out: { key: string; title: string; data: Row[] }[] = [];
-    if (!byDay.has(selected)) {
-      const next = events.find((e) => dayOf(e.startAt) > selected) ?? null;
-      out.push({ key: selected, title: dayHeading(selected), data: [{ kind: "empty", next }] });
-    }
-    for (const [day, list] of byDay) out.push({ key: day, title: dayHeading(day), data: list.map((event) => ({ kind: "event", event })) });
-    return out.sort((a, b) => a.key.localeCompare(b.key));
+    const today = events.filter((e) => dayOf(e.startAt) === selected);
+    const rows: Row[] = today.length
+      ? today.map((event) => ({ kind: "event", event }))
+      : [{ kind: "empty", next: events.find((e) => dayOf(e.startAt) > selected) ?? null }];
+    return [{ key: selected, title: dayHeading(selected), data: rows }];
   }, [events, selected]);
 
   const choose = (key: string) => {

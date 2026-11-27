@@ -70,6 +70,25 @@ describe("running an event live", () => {
     expect(detail.json.permissions.canRunLive).toBe(false);
   });
 
+  it("an Admin or Planner can delete a past event; nobody is told, and it leaves everyone's list", async () => {
+    await approve();
+    // Not while it's coming up or live.
+    expect((await ada.request("DELETE", `/api/events/${eventId}`)).status).toBe(409);
+    await ada.post(`/api/events/${eventId}/live/start`);
+    await ada.post(`/api/events/${eventId}/live/end`);
+    expect((await ada.get(`/api/events/${eventId}`)).json.permissions.canDelete).toBe(true);
+    expect((await chi.get(`/api/events/${eventId}`)).json.permissions.canDelete).toBe(false);
+    // A member taking part can't.
+    expect((await chi.request("DELETE", `/api/events/${eventId}`)).status).toBe(403);
+
+    const emailsBefore = t.emails.length;
+    expect((await ada.request("DELETE", `/api/events/${eventId}`)).status).toBe(200);
+    expect(t.emails.length).toBe(emailsBefore);
+    expect((await chi.get(`/api/events/${eventId}`)).status).toBe(404);
+    const list = (await chi.get("/api/me/events")).json.events as { id: string }[];
+    expect(list.some((e) => e.id === eventId)).toBe(false);
+  });
+
   it("participants can't control the event", async () => {
     await approve();
     expect((await chi.post(`/api/events/${eventId}/live/start`)).status).toBe(403);
