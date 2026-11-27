@@ -37,6 +37,7 @@ export function StatusRail({ detail, mutate, onEditDetails }: { detail: EventDet
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const past = event.status === "past";
 
   useEffect(() => {
     if (!choosing) return;
@@ -252,16 +253,20 @@ export function StatusRail({ detail, mutate, onEditDetails }: { detail: EventDet
           </div>
         </details>
 
-        {event.status === "draft" && permissions.canEdit && (
+        {permissions.canDelete && (
           <details>
             <summary>
               <span>
-                Danger zone<small>Delete this draft</small>
+                Danger zone<small>{past ? "Delete this event" : "Delete this draft"}</small>
               </span>
               <Icon name="plus" className="accordion-icon" />
             </summary>
             <div className="accordion-body">
-              <p className="rail-text">Deleting removes the event and its agenda. Nobody has been emailed about it yet.</p>
+              <p className="rail-text">
+                {past
+                  ? "Deleting takes this event off everyone's list, with its agenda, messages and comments. Nobody is notified."
+                  : "Deleting removes the event and its agenda. Nobody has been emailed about it yet."}
+              </p>
               {confirmDelete ? (
                 <div className="rail-actions rail-actions-row">
                   <button
@@ -271,14 +276,14 @@ export function StatusRail({ detail, mutate, onEditDetails }: { detail: EventDet
                       try {
                         await api(`/events/${event.id}`, { method: "DELETE" });
                         refreshComingUp();
-                        toast.success("Draft deleted");
+                        toast.success(past ? "Event deleted" : "Draft deleted");
                         navigate("/admin", { replace: true });
                       } catch (err) {
                         setError(err instanceof ApiError ? err.message : "Couldn't delete the event.");
                       }
                     }}
                   >
-                    Yes, delete draft
+                    {past ? "Yes, delete event" : "Yes, delete draft"}
                   </button>
                   <button type="button" className="button button-soft button-small" onClick={() => setConfirmDelete(false)}>
                     Cancel
@@ -286,7 +291,7 @@ export function StatusRail({ detail, mutate, onEditDetails }: { detail: EventDet
                 </div>
               ) : (
                 <button type="button" className="button button-secondary button-small" onClick={() => setConfirmDelete(true)}>
-                  Delete draft
+                  {past ? "Delete event" : "Delete draft"}
                 </button>
               )}
             </div>
