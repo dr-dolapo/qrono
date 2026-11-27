@@ -118,7 +118,8 @@ export interface Task {
   stageId: string | null;
   title: string;
   description: string | null;
-  durationMinutes: number;
+  /** Null: no length yet (a draft item that's just a title). */
+  durationMinutes: number | null;
   status: string;
   startAt: string;
   endAt: string;

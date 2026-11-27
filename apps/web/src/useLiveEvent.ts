@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export type LiveConnection = "connecting" | "connected" | "reconnecting";
 
@@ -38,7 +38,10 @@ export interface LiveState {
 export type LiveMessage =
   | { type: "broadcast"; broadcast: { id: string; body: string; sentBy: string; sentAt: string; realert: boolean } }
   | { type: "broadcasts-changed" }
-  | { type: "plan-changed" };
+  /** The plan changed (by: who changed it, on drafts). */
+  | { type: "plan-changed"; by?: { userId: string | null; name: string | null } }
+  /** Drafts: the Admins and Planners with it open, and the item each has open. */
+  | { type: "presence"; editors: { userId: string; name: string; taskId: string | null }[] };
 
 export function useLiveEvent(eventId: string | undefined, enabled = true, onMessage?: (msg: LiveMessage) => void) {
   const [connection, setConnection] = useState<LiveConnection>("connecting");
@@ -97,7 +100,13 @@ export function useLiveEvent(eventId: string | undefined, enabled = true, onMess
     };
   }, [eventId, enabled]);
 
-  return { connection, state, setState, clockOffset };
+  /** Tells the others which item you have open (null: none), for "Ada is editing" markers. */
+  const sendEditing = useCallback((taskId: string | null) => {
+    const socket = socketRef.current;
+    if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: "editing", taskId }));
+  }, []);
+
+  return { connection, state, setState, clockOffset, sendEditing };
 }
 
 /** Derived view of the live agenda at a moment in time. */

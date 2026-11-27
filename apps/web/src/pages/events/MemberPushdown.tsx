@@ -49,7 +49,7 @@ export function MemberPushdown({
   const faceTasks: FaceTask[] = tasks.map((t) => ({
     id: t.id,
     title: t.title,
-    durationMinutes: t.durationMinutes,
+    durationMinutes: t.durationMinutes ?? 0,
     plannedStartAt: t.startAt,
     status: liveTasks.get(t.id)?.status ?? (t.status as FaceTask["status"]),
     actualStartAt: liveTasks.get(t.id)?.actualStartAt ?? null,
@@ -88,7 +88,7 @@ export function MemberPushdown({
         id: t.id,
         title: t.title,
         plannedStartAt: t.startAt,
-        durationMinutes: t.durationMinutes,
+        durationMinutes: t.durationMinutes ?? 0,
         people: t.assigneeIds.map((id) => (id === participant?.id ? "You" : names.get(id) ?? "Someone")).join(", ") || null,
       }))}
       messages={list}

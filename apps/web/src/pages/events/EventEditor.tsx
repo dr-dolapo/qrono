@@ -1,3 +1,4 @@
+import { useAuth } from "../../auth/AuthContext";
 import { Menu } from "@base-ui/react/menu";
 import { Tabs } from "@base-ui/react/tabs";
 import { useCallback, useEffect, useState } from "react";
@@ -74,11 +75,17 @@ export function EventEditor() {
   // One live connection for the page: the live strip and broadcast alerts.
   const broadcastSignal = useBroadcastSignal();
   const liveActive = detail?.event.status === "approved" || detail?.event.status === "live";
-  const live = useLiveEvent(eventId, liveActive, (msg) => {
+  // Drafts are edited together: the same connection keeps everyone's screen up to date.
+  const draftTogether = detail?.event.status === "draft" && !!detail?.permissions.canManage;
+  const { user } = useAuth();
+  const [editors, setEditors] = useState<{ userId: string; name: string; taskId: string | null }[]>([]);
+  const live = useLiveEvent(eventId, liveActive || draftTogether, (msg) => {
     if (msg.type === "broadcast" || msg.type === "broadcasts-changed") broadcastSignal.bump();
     // Someone changed the plan: show the new one straight away.
     if (msg.type === "plan-changed") load();
+    if (msg.type === "presence") setEditors(msg.editors);
   });
+  const others = editors.filter((e) => e.userId !== user?.id);
 
   const mutate: Mutate = useCallback(
     async (path, method, body) => {
@@ -115,7 +122,7 @@ export function EventEditor() {
 
   const { event, permissions, tasks, participants, comments } = detail;
   const tz = event.timezone;
-  const agendaMinutes = tasks.reduce((n, t) => n + t.durationMinutes, 0);
+  const agendaMinutes = tasks.reduce((n, t) => n + (t.durationMinutes ?? 0), 0);
   const withEmail = participants.filter((p) => p.email).length;
   const confirmed = participants.filter((p) => p.response === "acknowledged").length;
   const published = event.status === "approved" || event.status === "live" || event.status === "past";
@@ -245,7 +252,19 @@ export function EventEditor() {
           <Tabs.Indicator className="tab-indicator" />
         </Tabs.List>
         <Tabs.Panel value="agenda" className="tab-panel">
-          <AgendaSection detail={detail} mutate={mutate} people={people} reloadPeople={loadPeople} />
+          {draftTogether && others.length > 0 && (
+            <p className="editing-together" role="status">
+              {others.map((o) => o.name).join(", ")} {others.length === 1 ? "is" : "are"} also editing this draft. Changes show up for everyone as they're made.
+            </p>
+          )}
+          <AgendaSection
+            detail={detail}
+            mutate={mutate}
+            people={people}
+            reloadPeople={loadPeople}
+            others={draftTogether ? others : []}
+            onEditing={draftTogether ? live.sendEditing : undefined}
+          />
         </Tabs.Panel>
         <Tabs.Panel value="people" className="tab-panel">
           <PeopleSection detail={detail} mutate={mutate} people={people} reloadPeople={loadPeople} reloadEvent={load} />

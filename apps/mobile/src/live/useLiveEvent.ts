@@ -1,5 +1,5 @@
 import { reportOnline } from "../lib/connectivity";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState } from "react-native";
 import { QRONO_URL } from "../config";
 import { getAuthToken } from "../lib/api";
@@ -46,7 +46,16 @@ export interface LiveState {
 export type LiveMessage =
   | { type: "broadcast"; broadcast: { id: string; body: string; sentBy: string; sentAt: string; realert: boolean } }
   | { type: "broadcasts-changed" }
-  | { type: "plan-changed" };
+  /** The plan changed (by: who changed it, on drafts). */
+  | { type: "plan-changed"; by?: { userId: string | null; name: string | null } }
+  /** Drafts: the Admins and Planners with it open, and the item each has open. */
+  | { type: "presence"; editors: Editor[] };
+
+export interface Editor {
+  userId: string;
+  name: string;
+  taskId: string | null;
+}
 
 /**
  * Connects to the event's live room over WebSocket and keeps the latest state.
@@ -59,6 +68,7 @@ export function useLiveEvent(eventId: string, onMessage?: (msg: LiveMessage) => 
   const [state, setState] = useState<LiveState | null>(null);
   const [clockOffset, setClockOffset] = useState(0);
   const onMessageRef = useRef(onMessage);
+  const socketRef = useRef<WebSocket | null>(null);
   onMessageRef.current = onMessage;
 
   useEffect(() => {
@@ -77,6 +87,7 @@ export function useLiveEvent(eventId: string, onMessage?: (msg: LiveMessage) => 
       if (token) headers.Authorization = `Bearer ${token}`;
       const ws = new NativeWebSocket(url, null, { headers });
       socket = ws;
+      socketRef.current = ws;
       ws.onopen = () => {
         attempts = 0;
         setConnection("connected");
@@ -127,7 +138,13 @@ export function useLiveEvent(eventId: string, onMessage?: (msg: LiveMessage) => 
     };
   }, [eventId]);
 
-  return { connection, state, clockOffset };
+  /** Tells the others which item you have open (null: none), for "Ada is editing" markers. */
+  const sendEditing = useCallback((taskId: string | null) => {
+    const ws = socketRef.current;
+    if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "editing", taskId }));
+  }, []);
+
+  return { connection, state, clockOffset, sendEditing };
 }
 
 /** What's on now, what's next, and when each upcoming task is expected to start. */

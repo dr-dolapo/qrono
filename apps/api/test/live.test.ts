@@ -31,7 +31,7 @@ beforeEach(async () => {
   eventId = (await ada.post(`/api/teams/${teamId}/events`, { name: "AGM", startAt: START, endAt: END, timezone: "Africa/Lagos" })).json.event.id;
   const p = (await ada.post(`/api/events/${eventId}/participants`, { userId: chiId })).json.participantId;
   await ada.post(`/api/events/${eventId}/tasks`, { title: "Opening", durationMinutes: 5, assigneeIds: [p] });
-  await ada.post(`/api/events/${eventId}/tasks`, { title: "Keynote", durationMinutes: 30 });
+  await ada.post(`/api/events/${eventId}/tasks`, { title: "Keynote", durationMinutes: 30, who: [{ userId: adaId }] });
   await ada.post(`/api/events/${eventId}/submit`, { approverIds: [adaId] });
 });
 

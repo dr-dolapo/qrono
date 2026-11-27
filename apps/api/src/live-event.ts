@@ -1,3 +1,4 @@
+import { editorsOf, parseEditing, type Attendee } from "./live/presence";
 import { DurableObject } from "cloudflare:workers";
 import type { Env } from "./env";
 import { runCommand, type CommandResult, type LiveCommand } from "./live/commands";
@@ -36,8 +37,23 @@ export class LiveEvent extends DurableObject<Env> {
       const userId = request.headers.get("X-Qrono-User");
       if (userId) tags.push(`user:${userId}`);
       this.ctx.acceptWebSocket(server, tags);
+      // Who this screen belongs to, for "Ada is editing" markers on drafts (kept through hibernation).
+      server.serializeAttachment({
+        userId: userId ?? "",
+        name: decodeURIComponent(request.headers.get("X-Qrono-Name") ?? "Someone"),
+        viewer: tags[0] === "manager" ? "manager" : "participant",
+        taskId: null,
+      } satisfies Attendee);
       server.send(JSON.stringify(await snapshot(this.env.DB, eventId, Date.now())));
+      this.sendPresence();
       return new Response(null, { status: 101, webSocket: client });
+    }
+
+    // A draft's plan changed (joint editing): every open screen reloads it.
+    if (url.pathname === "/plan-edited" && request.method === "POST") {
+      const by = (await request.json()) as { userId: string | null; name: string | null };
+      send(this.ctx.getWebSockets(), JSON.stringify({ type: "plan-changed", by }));
+      return Response.json({ ok: true });
     }
 
     if (url.pathname === "/command" && request.method === "POST") {
@@ -58,11 +74,29 @@ export class LiveEvent extends DurableObject<Env> {
   }
 
   async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {
-    if (message === "ping") ws.send("pong");
+    if (message === "ping") return ws.send("pong");
+    if (typeof message !== "string") return;
+    // "I have this item open" (or closed it): everyone else sees the marker move.
+    const editing = parseEditing(message);
+    const me = ws.deserializeAttachment() as Attendee | null;
+    if (!editing || !me || me.viewer !== "manager") return;
+    ws.serializeAttachment({ ...me, taskId: editing.taskId } satisfies Attendee);
+    this.sendPresence();
   }
 
-  async webSocketClose(): Promise<void> {
+  async webSocketClose(ws: WebSocket): Promise<void> {
     // The runtime completes the close handshake itself on this compatibility date.
+    this.sendPresence(ws);
+  }
+
+  /** Tells Admins' and Planners' screens who's here and which item each has open. */
+  private sendPresence(leaving?: WebSocket): void {
+    const sockets = this.ctx.getWebSockets().filter((ws) => ws !== leaving);
+    const attendees = sockets.map((ws) => ws.deserializeAttachment() as Attendee | null).filter((a): a is Attendee => !!a?.userId);
+    send(
+      sockets.filter((ws) => (ws.deserializeAttachment() as Attendee | null)?.viewer === "manager"),
+      JSON.stringify({ type: "presence", editors: editorsOf(attendees) }),
+    );
   }
 
   private async afterChange(result: CommandResult): Promise<void> {

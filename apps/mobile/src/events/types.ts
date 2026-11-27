@@ -28,9 +28,19 @@ export interface EventDetail {
     timezone: string;
     status: EventStatus;
   };
-  /** The team's live-screen settings: when countdowns turn amber. */
-  team?: { liveWarningMinutes: number };
-  permissions: { canRespond: boolean; canComment: boolean; canApprove: boolean; canDelete?: boolean };
+  /** The team's settings: when countdowns turn amber, and how programs get approved. */
+  team?: { name: string; liveWarningMinutes: number; requireApproval: boolean; allowSelfApproval: boolean };
+  permissions: {
+    canRespond: boolean;
+    canComment: boolean;
+    canApprove: boolean;
+    canDelete?: boolean;
+    /** Admins and Planners: drafts are edited in the app's program builder. */
+    canEdit?: boolean;
+    canManage?: boolean;
+    canSubmit?: boolean;
+    canPublish?: boolean;
+  };
   approvers: { userId: string; name: string; approvedAt: string | null }[];
   me: { userId: string; participant: { id: string; response: Response; declineReason: string | null } | null };
   stages: { id: string; name: string; venue: string | null }[];
@@ -39,13 +49,14 @@ export interface EventDetail {
     stageId: string | null;
     title: string;
     description: string | null;
-    durationMinutes: number;
+    /** Null: no length yet (a draft item that's just a title). */
+    durationMinutes: number | null;
     status: "upcoming" | "in_progress" | "done" | "skipped";
     startAt: string;
     endAt: string;
     assigneeIds: string[];
   }[];
-  participants: { id: string; name: string; kind: "member" | "guest" }[];
+  participants: { id: string; name: string; kind: "member" | "guest"; userId: string | null; contactId: string | null; email: string | null }[];
   comments: {
     id: string;
     taskId: string;

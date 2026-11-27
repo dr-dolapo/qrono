@@ -45,7 +45,7 @@ describe("GET /api/me/events", () => {
     const agm = await createEvent("AGM");
     await createEvent("Board meeting"); // Bola isn't in this one
     const pid = await addParticipant(agm, bola.userId);
-    await ada.post(`/api/events/${agm}/tasks`, { title: "Opening", durationMinutes: 10 });
+    await ada.post(`/api/events/${agm}/tasks`, { title: "Opening", durationMinutes: 10, who: [{ userId: adaId }] });
     await ada.post(`/api/events/${agm}/tasks`, { title: "Keynote", durationMinutes: 30, assigneeIds: [pid] });
     await ada.post(`/api/events/${agm}/tasks`, { title: "Q&A", durationMinutes: 15, assigneeIds: [pid] });
 
@@ -92,7 +92,9 @@ describe("GET /api/me/events", () => {
 
   it("includes events waiting for my approval, even when I'm not a participant", async () => {
     const agm = await createEvent("AGM");
-    await ada.post(`/api/events/${agm}/tasks`, { title: "Opening", durationMinutes: 10 });
+    // Run by a guest, so Ada isn't on the program herself.
+    const guest = (await ada.post(`/api/events/${agm}/participants`, { guestName: "Funmi", guestEmail: "funmi@example.com" })).json.participantId;
+    await ada.post(`/api/events/${agm}/tasks`, { title: "Opening", durationMinutes: 10, assigneeIds: [guest] });
     await ada.post(`/api/events/${agm}/submit`, { approverIds: [adaId] });
 
     const [event] = (await ada.get("/api/me/events")).json.events;

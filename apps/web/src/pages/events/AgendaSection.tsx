@@ -2,7 +2,7 @@ import { DndContext, KeyboardSensor, PointerSensor, closestCenter, useSensor, us
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import clsx from "clsx";
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { api, type EventDetail, type Person, type Task } from "../../api";
 import { Alert } from "../../components/Form";
 import { formatDuration, formatShortClock, formatTime } from "../../time";
@@ -86,7 +86,23 @@ function SortableRow({
   );
 }
 
-export function AgendaSection({ detail, mutate, people, reloadPeople }: { detail: EventDetail; mutate: Mutate; people: Person[]; reloadPeople: () => void }) {
+export function AgendaSection({
+  detail,
+  mutate,
+  people,
+  reloadPeople,
+  others = [],
+  onEditing,
+}: {
+  detail: EventDetail;
+  mutate: Mutate;
+  people: Person[];
+  reloadPeople: () => void;
+  /** Drafts: the other Admins and Planners with it open, and the item each has open. */
+  others?: { userId: string; name: string; taskId: string | null }[];
+  /** Tells the others which item you have open. */
+  onEditing?: (taskId: string | null) => void;
+}) {
   const { participants, permissions, event, schedule } = detail;
   // While a drag is being saved, show the new order straight away.
   const [pendingOrder, setPendingOrder] = useState<string[] | null>(null);
@@ -101,6 +117,8 @@ export function AgendaSection({ detail, mutate, people, reloadPeople }: { detail
     }),
   );
   const [editingId, setEditingId] = useState<string | null>(null);
+  useEffect(() => onEditing?.(editingId), [editingId, onEditing]);
+  const editorOf = (taskId: string) => others.find((o) => o.taskId === taskId)?.name.split(" ")[0] ?? null;
   const [adding, setAdding] = useState(false);
   const [choosingTemplate, setChoosingTemplate] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -147,10 +165,11 @@ export function AgendaSection({ detail, mutate, people, reloadPeople }: { detail
         };
   };
 
+  // In a draft, length and who can be left for later (null and none).
   const toBody = (v: AgendaItemValues) => ({
     title: v.title,
     durationMinutes: v.durationMinutes,
-    who: v.who,
+    ...(v.who.length ? { who: v.who } : { assigneeIds: [] }),
   });
 
   // Once live, items that have started stay where they are (the API enforces this too).
@@ -199,6 +218,7 @@ export function AgendaSection({ detail, mutate, people, reloadPeople }: { detail
     people: pickable,
     needEmailForNew: published,
     onCreatePerson: createPerson,
+    draft: event.status === "draft",
   };
 
   return (
@@ -264,11 +284,11 @@ export function AgendaSection({ detail, mutate, people, reloadPeople }: { detail
                               }}
                               aria-label={`Edit ${task.title}`}
                             >
-                              <CardCells task={task} who={task.assigneeIds.map(nameOf)} tag={STATUS_TAG[task.status]} />
+                              <CardCells task={task} who={task.assigneeIds.map(nameOf)} tag={STATUS_TAG[task.status]} editor={editorOf(task.id)} />
                             </button>
                           ) : (
                             <div className="agenda-card-main">
-                              <CardCells task={task} who={task.assigneeIds.map(nameOf)} tag={STATUS_TAG[task.status]} />
+                              <CardCells task={task} who={task.assigneeIds.map(nameOf)} tag={STATUS_TAG[task.status]} editor={editorOf(task.id)} />
                             </div>
                           )}
                           <div className="agenda-card-actions">
@@ -375,14 +395,17 @@ export function AgendaSection({ detail, mutate, people, reloadPeople }: { detail
   );
 }
 
-function CardCells({ task, who, tag }: { task: Task; who: string[]; tag?: string }) {
+function CardCells({ task, who, tag, editor }: { task: Task; who: string[]; tag?: string; editor?: string | null }) {
   return (
     <>
       <span className="agenda-cell-what">
         {task.title}
         {tag && <span className={`task-tag task-${task.status}`}>{tag}</span>}
+        {editor && <span className="task-editing">{editor} is editing</span>}
       </span>
-      <span className="agenda-cell-duration">{formatDuration(task.durationMinutes)}</span>
+      <span className={clsx("agenda-cell-duration", task.durationMinutes === null && "is-missing")}>
+        {task.durationMinutes === null ? "Add length" : formatDuration(task.durationMinutes)}
+      </span>
       <span className="agenda-cell-who">
         {who.length ? (
           <>

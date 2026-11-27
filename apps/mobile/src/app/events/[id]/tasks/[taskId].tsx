@@ -88,7 +88,7 @@ export default function TaskScreen() {
           {task.title}
         </Text>
         <Text style={styles.when}>
-          {formatTime(task.startAt, tz)} – {formatTime(task.endAt, tz)} · {formatDuration(task.durationMinutes)}
+          {formatTime(task.startAt, tz)} – {formatTime(task.endAt, tz)} · {(task.durationMinutes === null ? "No length yet" : formatDuration(task.durationMinutes))}
         </Text>
         <Text style={styles.muted}>
           {data.event.name} · {formatDate(task.startAt, tz)}
