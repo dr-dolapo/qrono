@@ -10,6 +10,7 @@
 import { inviteContactsOnProgram } from "../teams/contacts";
 import { emailBrand } from "../teams/settings";
 import { newSecretToken, sha256Hex } from "../auth/crypto";
+import { guestLinkExpiry } from "./engine";
 import {
   assignedEmail,
   formatClockTime,
@@ -139,13 +140,14 @@ export async function writeBaseline(db: D1Database, eventId: string, now = Date.
 }
 
 /** Create (or replace) a guest's personal link. Returns the token to put in the email. */
+/** `expiresAt`: the event's planned end (the link lasts a little past it; see guestLinkExpiry). */
 export async function createGuestLink(db: D1Database, participantId: string, expiresAt: string, now = Date.now()): Promise<string> {
   const token = newSecretToken();
   await db.batch([
     db.prepare("UPDATE guest_access_links SET revoked_at = ? WHERE participant_id = ? AND revoked_at IS NULL").bind(new Date(now).toISOString(), participantId),
     db
       .prepare("INSERT INTO guest_access_links (id, participant_id, token_hash, expires_at) VALUES (?, ?, ?, ?)")
-      .bind(crypto.randomUUID(), participantId, await sha256Hex(token), expiresAt),
+      .bind(crypto.randomUUID(), participantId, await sha256Hex(token), guestLinkExpiry(expiresAt)),
   ]);
   return token;
 }

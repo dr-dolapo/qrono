@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { endEvent, goLive, LiveError, nextTask, snapshot, tick } from "../src/live/engine";
+import { endEvent, FORGOTTEN_AFTER_MS, goLive, LiveError, nextTask, snapshot, tick } from "../src/live/engine";
 import { createTestDb } from "./helpers/d1";
 
 const START = Date.parse("2026-12-01T09:00:00.000Z");
@@ -66,7 +66,7 @@ describe("moving through the agenda", () => {
     seed("manual");
     await tick(db, "e1", START);
     // Time is up for the opening, but manual mode doesn't move on by itself.
-    expect(await tick(db, "e1", START + min(8))).toBe(END);
+    expect(await tick(db, "e1", START + min(8))).toBe(END + FORGOTTEN_AFTER_MS);
     expect(event().current_task_id).toBe("k1");
 
     await nextTask(db, "e1", START + min(8));
@@ -75,15 +75,16 @@ describe("moving through the agenda", () => {
     expect(event().current_task_id).toBe("k2");
   });
 
-  it("after the last task, nothing is current but the event stays live", async () => {
+  it("moving on from the last item ends the event", async () => {
     seed("manual");
     await goLive(db, "e1", START, "u1");
     await nextTask(db, "e1", START + min(5));
     await nextTask(db, "e1", START + min(35));
     await nextTask(db, "e1", START + min(45));
-    expect(event()).toMatchObject({ status: "live", current_task_id: null });
     expect(task("k3").status).toBe("done");
     await expect(nextTask(db, "e1", START + min(46))).rejects.toThrow("There are no more tasks.");
+    expect(await tick(db, "e1", START + min(45))).toBeNull();
+    expect(event()).toMatchObject({ status: "past", current_task_id: null });
   });
 
   it("auto mode: hands over on time, catching up if it was asleep", async () => {
@@ -117,10 +118,26 @@ describe("ending", () => {
     expect(link).toEqual({ expires_at: "2026-12-01T09:20:00.000Z" });
   });
 
-  it("ends by itself at the end time", async () => {
+  it("running late isn't cut off at the planned end", async () => {
     seed("manual");
     await tick(db, "e1", START);
-    expect(await tick(db, "e1", END + 1000)).toBeNull();
+    expect(await tick(db, "e1", END + min(20))).toBe(END + FORGOTTEN_AFTER_MS);
+    expect(event()).toMatchObject({ status: "live", current_task_id: "k1" });
+  });
+
+  it("an item that starts late gets its full time before the forgotten-event cut-off counts", async () => {
+    seed("manual");
+    await goLive(db, "e1", START, "u1");
+    await nextTask(db, "e1", START + min(5)); // Keynote
+    await nextTask(db, "e1", END + min(50)); // Close (10 min), starting 50 minutes after the planned end
+    expect(await tick(db, "e1", END + min(55))).toBe(END + min(60) + FORGOTTEN_AFTER_MS);
+    expect(event().status).toBe("live");
+  });
+
+  it("a forgotten event closes itself hours after its planned end", async () => {
+    seed("manual");
+    await tick(db, "e1", START);
+    expect(await tick(db, "e1", END + FORGOTTEN_AFTER_MS)).toBeNull();
     expect(event()).toMatchObject({ status: "past", ended_early_at: null });
   });
 

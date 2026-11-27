@@ -128,6 +128,12 @@ export async function nextTask(db: D1Database, eventId: string, now: number): Pr
   ]);
 }
 
+/** A live event nobody ended closes itself this long after its planned end (or the item on now's end, if later). */
+export const FORGOTTEN_AFTER_MS = 3 * 60 * 60_000;
+
+/** Guests' links last as long as the event could: ending it closes them straight away. */
+export const guestLinkExpiry = (endAt: string) => new Date(Date.parse(endAt) + FORGOTTEN_AFTER_MS).toISOString();
+
 /** How long after a skip it can still be undone (the app offers 5 seconds; this allows for a slow connection). */
 export const UNDO_WINDOW_MS = 30_000;
 
@@ -184,7 +190,8 @@ export async function endEvent(db: D1Database, eventId: string, now: number, by:
 /**
  * Called by the Durable Object's alarm (and after every change). Applies
  * anything that is due — going live at the start time, auto-advancing,
- * ending at the end time — and returns when it next needs to run.
+ * ending once the last item is done (or a forgotten event, hours late) — and
+ * returns when it next needs to run.
  */
 export async function tick(db: D1Database, eventId: string, now: number): Promise<number | null> {
   for (let guard = 0; guard < 500; guard++) {
@@ -205,24 +212,30 @@ export async function tick(db: D1Database, eventId: string, now: number): Promis
     }
 
     if (event.status === "live") {
-      if (now >= end) {
-        await endEvent(db, eventId, end, null);
+      // A live event isn't cut off at its planned end: programs run late. It ends when an Admin
+      // or Planner ends it, when its last item is done, or, if it's been forgotten, a while after
+      // both the planned end and the item on now's own end have passed.
+      const tasks = await loadTasks(db, eventId);
+      const current = tasks.find((t) => t.id === event.current_task_id && t.status === "in_progress");
+      if (!current && !tasks.some((t) => t.status === "upcoming")) {
+        await endEvent(db, eventId, now, null);
         continue;
       }
-      if (event.progression_mode === "auto" && event.current_task_id) {
-        const tasks = await loadTasks(db, eventId);
-        const current = tasks.find((t) => t.id === event.current_task_id);
-        if (current?.actual_start_at) {
-          const due = Date.parse(current.actual_start_at) + current.duration_minutes * 60_000;
-          if (now >= due) {
-            // Record the hand-over at the moment it was due, not when we noticed.
-            await nextTask(db, eventId, due);
-            continue;
-          }
-          return Math.min(due, end);
-        }
+      const due = current?.actual_start_at ? Date.parse(current.actual_start_at) + current.duration_minutes * 60_000 : null;
+      const forgotten = Math.max(end, due ?? end) + FORGOTTEN_AFTER_MS;
+      if (now >= forgotten) {
+        await endEvent(db, eventId, now, null);
+        continue;
       }
-      return end;
+      if (event.progression_mode === "auto" && current && due !== null) {
+        if (now >= due) {
+          // Record the hand-over at the moment it was due, not when we noticed.
+          await nextTask(db, eventId, due);
+          continue;
+        }
+        return Math.min(due, forgotten);
+      }
+      return forgotten;
     }
 
     return null; // draft, review, past: nothing scheduled

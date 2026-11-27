@@ -3,6 +3,7 @@ import type { AppEnv } from "../env";
 import type { EventAccess } from "./access";
 import { loadTeam } from "../teams/settings";
 import { buildSchedule } from "./schedule";
+import { guestLinkExpiry } from "../live/engine";
 
 interface StageRow {
   id: string;
@@ -85,12 +86,12 @@ export async function resyncSchedule(c: Context<AppEnv>, eventId: string): Promi
   if (endsAt !== event.end_at) {
     statements.push(db.prepare("UPDATE events SET end_at = ? WHERE id = ?").bind(endsAt, eventId));
     if (event.status === "approved" || event.status === "live") {
-      // Guests' links expire when the event ends.
+      // Guests' links last as long as the event could (ending it closes them).
       statements.push(
         db.prepare(
           `UPDATE guest_access_links SET expires_at = ?
             WHERE revoked_at IS NULL AND participant_id IN (SELECT id FROM event_participants WHERE event_id = ?)`,
-        ).bind(endsAt, eventId),
+        ).bind(guestLinkExpiry(endsAt), eventId),
       );
     }
   }
