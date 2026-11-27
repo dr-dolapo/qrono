@@ -189,6 +189,8 @@ export interface GuestProgram {
   teamLogoUrl: string | null;
   venue: string | null;
   clockFormat: "12h" | "24h";
+  /** When countdowns turn amber, as in the command centre. */
+  liveWarningMinutes: number;
   event: { name: string; description: string | null; startAt: string; endAt: string; timezone: string; status: EventStatus };
   me: { name: string; response: Participant["response"]; declineReason: string | null };
   program: { id: string; title: string; durationMinutes: number; startAt: string; endAt: string; mine: boolean }[];

@@ -9,6 +9,15 @@ export interface LiveCard {
   urgent: boolean;
   broadcast: string | null;
   broadcastAt: string | null;
+  /** The pushdown, as on the event screen (apps/api/src/live/faces.ts). Missing from servers before it. */
+  tone?: "purple" | "amber" | "green" | "red";
+  caption?: string;
+  /** Epoch ms the countdown reaches zero; when `over`, went over (it counts up from then). Null: show `text`. */
+  target?: number | null;
+  /** Epoch ms the counted span began. */
+  from?: number | null;
+  over?: boolean;
+  text?: string | null;
 }
 
 interface Native {

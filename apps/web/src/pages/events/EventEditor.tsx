@@ -15,6 +15,7 @@ import { BroadcastAlerts, BroadcastPanel, useBroadcastSignal } from "./Broadcast
 import { EventDetailsForm } from "./EventDetailsForm";
 import { LiveNow } from "./LiveNow";
 import { MyPart } from "./MyPart";
+import { MemberPushdown } from "./MemberPushdown";
 import { PeopleSection } from "./PeopleSection";
 import { StatusRail } from "./StatusRail";
 import { TaskComments } from "./TaskComments";
@@ -104,6 +105,12 @@ export function EventEditor() {
         <p className="muted">Loading…</p>
       </AppShell>
     );
+  }
+
+  // People taking part (not running it) get the pushdown once it's approved or live: one big
+  // countdown, with Me, All and Messages. Admins and Planners keep the full page.
+  if (liveActive && !detail.permissions.canManage) {
+    return <MemberPushdown detail={detail} live={live} broadcastVersion={broadcastSignal.version} onUpdated={setDetail} />;
   }
 
   const { event, permissions, tasks, participants, comments } = detail;
