@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Modal, StyleSheet, Text, Vibration, View } from "react-native";
 import { Button } from "../components/Button";
 import { ApiError } from "../lib/api";
+import { readCache, writeCache } from "../lib/cache";
 import { formatTime } from "../lib/time";
 import { colors, font, radius, space } from "../theme";
 import { loadMyBroadcasts, replyToBroadcast, type BroadcastReply, type IncomingBroadcast, type MyBroadcast } from "./api";
@@ -12,12 +13,15 @@ import { loadMyBroadcasts, replyToBroadcast, type BroadcastReply, type IncomingB
  * connection: `incoming` is fed by the live screen's WebSocket.
  */
 export function useBroadcasts(eventId: string) {
+  const key = `broadcasts:${eventId}`;
   const [queue, setQueue] = useState<IncomingBroadcast[]>([]);
-  const [history, setHistory] = useState<MyBroadcast[]>([]);
+  // The saved messages first (readable offline), newest first.
+  const [history, setHistory] = useState<MyBroadcast[]>(() => newestFirst(readCache<{ broadcasts: Partial<MyBroadcast>[] }>(key)?.value.broadcasts ?? []));
 
   const reload = useCallback(async () => {
     try {
-      const list = await loadMyBroadcasts(eventId);
+      const list = newestFirst(await loadMyBroadcasts(eventId));
+      writeCache(key, { broadcasts: list });
       setHistory(list);
       // Anything still waiting for a reply (e.g. it arrived while the app was closed).
       setQueue((q) => {
@@ -25,9 +29,9 @@ export function useBroadcasts(eventId: string) {
         return [...q, ...pending.map((b) => ({ id: b.id, body: b.body, sentBy: b.sentBy, sentAt: b.sentAt, realert: false }))];
       });
     } catch {
-      /* the live view still works without the history */
+      /* offline: the saved messages stay */
     }
-  }, [eventId]);
+  }, [eventId, key]);
 
   useEffect(() => {
     void reload();
@@ -41,14 +45,24 @@ export function useBroadcasts(eventId: string) {
 
   const reply = useCallback(
     async (broadcastId: string, response: BroadcastReply) => {
-      await replyToBroadcast(eventId, broadcastId, response);
+      // Offline, the reply is saved and sent when the connection is back; it counts on the phone now.
+      const sent = await replyToBroadcast(eventId, broadcastId, response);
       setQueue((q) => q.filter((x) => x.id !== broadcastId));
-      void reload();
+      if (sent) return void reload();
+      setHistory((h) => {
+        const next = h.map((b) => (b.id === broadcastId ? { ...b, response } : b));
+        writeCache(key, { broadcasts: next });
+        return next;
+      });
     },
-    [eventId, reload],
+    [eventId, key, reload],
   );
 
   return { current: queue[0] ?? null, waiting: queue.length, history, incoming, reply };
+}
+
+function newestFirst(list: Partial<MyBroadcast>[]): MyBroadcast[] {
+  return list.filter((b): b is MyBroadcast => typeof b.response === "string").sort((a, b) => b.sentAt.localeCompare(a.sentAt));
 }
 
 export function BroadcastModal(props: {

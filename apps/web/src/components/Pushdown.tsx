@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router";
 import clsx from "clsx";
-import { allFace, faceProgress, formatFace, meFace, type Face, type FaceInput, type Tone } from "../faces";
+import { allFace, faceProgress, followPlan, formatFace, meFace, type Face, type FaceInput, type Tone } from "../faces";
 import { formatDuration, formatTime } from "../time";
 
 /** The pushdown's colours (the same in the app and on the lock screen). */
@@ -44,10 +44,15 @@ export function Pushdown(props: {
   attendance: { declined: boolean; onDecline(reason: string): Promise<void>; onAttend(): Promise<void> } | null;
   /** Lets an item open its comments (members). */
   itemLink?(id: string): string;
+  /** No connection: what's shown is the saved copy (from `savedAt`), and the countdown follows the plan. */
+  offline?: { savedAt: number | null } | null;
   children?: ReactNode;
 }) {
-  const { input, now, rows, timezone: tz, messages } = props;
-  const full = { ...input, now };
+  const { now, rows, timezone: tz, messages, offline } = props;
+  // Offline: assume each item runs to its planned length, from the last state we heard.
+  const heard = { ...props.input, now };
+  const full = offline ? followPlan(heard) : heard;
+  const input = full;
   const me = meFace(full);
   const all = allFace(full);
   const [tab, setTab] = useState<Tab>(me ? "me" : "all");
@@ -69,6 +74,18 @@ export function Pushdown(props: {
 
   return (
     <main className={clsx("pd", `pd-${face.tone}`)}>
+      {offline && (
+        <p className="pd-offline" role="status">
+          <span className="pd-offline-dot" aria-hidden="true" />
+          {[
+            "Offline",
+            offline.savedAt ? `Updated ${formatTime(new Date(offline.savedAt).toISOString(), props.timezone)}` : null,
+            full.status === "live" ? "Following the plan" : null,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
+        </p>
+      )}
       <header className="pd-top">
         <div className="pd-buttons">
           {props.back ? (

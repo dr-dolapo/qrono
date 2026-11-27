@@ -8,12 +8,16 @@ import { BroadcastModal, useBroadcasts } from "../broadcasts/BroadcastAlerts";
 import { Button } from "../components/Button";
 import { ChatIcon } from "../components/TabIcons";
 import { TextField } from "../components/TextField";
-import { ApiError, api } from "../lib/api";
+import { OfflineBanner } from "../components/OfflineBanner";
+import { ApiError } from "../lib/api";
+import { readCache, writeCache } from "../lib/cache";
+import { useOnline } from "../lib/connectivity";
+import { sendOrQueue } from "../lib/outbox";
 import { formatDuration, formatTime } from "../lib/time";
 import { useNow } from "../lib/useNow";
 import { useLiveEvent } from "../live/useLiveEvent";
 import { colors, font } from "../theme";
-import { allFace, faceProgress, formatFace, meFace, type Face, type FaceTask, type Tone } from "./faces";
+import { allFace, faceProgress, followPlan, formatFace, meFace, type Face, type FaceTask, type Tone } from "./faces";
 import type { EventDetail } from "./types";
 
 type Tab = "me" | "all" | "messages";
@@ -34,15 +38,34 @@ const MINE = "#b98af5";
  * countdown; Me (your part), All (the program as it runs) and Messages sit below it. Everything
  * else (title, venue, times) is left out: in the moment, it's noise.
  */
-export function PushdownScreen({ data, onUpdated, refresh }: { data: EventDetail; onUpdated(d: EventDetail): void; refresh(): void }) {
+export function PushdownScreen({
+  data,
+  onUpdated,
+  refresh,
+  savedAt,
+}: {
+  data: EventDetail;
+  onUpdated(d: EventDetail): void;
+  refresh(): void;
+  /** When the saved copy was last confirmed fresh, for the offline banner. */
+  savedAt: number | null;
+}) {
   useKeepAwake();
   const insets = useSafeAreaInsets();
   const eventId = data.event.id;
   const broadcasts = useBroadcasts(eventId);
-  const { state, clockOffset } = useLiveEvent(eventId, (msg) => {
+  const { state: liveState, clockOffset, connection } = useLiveEvent(eventId, (msg) => {
     if (msg.type === "plan-changed") refresh();
     if (msg.type === "broadcast") broadcasts.incoming(msg.broadcast);
   });
+  // The live room's last state is saved, so reopening mid-event with no connection still knows what was on.
+  const liveKey = `live:${eventId}`;
+  const [savedLive] = useState(() => readCache<NonNullable<typeof liveState>>(liveKey)?.value ?? null);
+  useEffect(() => {
+    if (liveState) writeCache(liveKey, liveState);
+  }, [liveState, liveKey]);
+  const state = liveState ?? savedLive;
+  const online = useOnline();
   const now = useNow(1000) + clockOffset;
 
   const participant = data.me.participant;
@@ -64,7 +87,7 @@ export function PushdownScreen({ data, onUpdated, refresh }: { data: EventDetail
     actualStartAt: live.get(t.id)?.actualStartAt ?? null,
   }));
   const status = state?.event.status ?? data.event.status;
-  const input = {
+  const heard = {
     status,
     startAt: data.event.startAt,
     tasks,
@@ -73,6 +96,10 @@ export function PushdownScreen({ data, onUpdated, refresh }: { data: EventDetail
     warningMs: (data.team?.liveWarningMinutes ?? 1) * 60_000,
     now,
   };
+  // Not connected to the live room: follow the plan from the last thing we heard. Snaps back to
+  // the real state as soon as the connection returns.
+  const input = connection === "connected" ? heard : followPlan(heard);
+  const following = !online && input.status === "live";
   const me = meFace(input);
   const all = allFace(input);
 
@@ -97,6 +124,16 @@ export function PushdownScreen({ data, onUpdated, refresh }: { data: EventDetail
     if (t === "messages") setSeenAt(new Date().toISOString());
   };
 
+  // Offline, the change shows straight away and is sent when the connection is back.
+  async function respond(response: "acknowledged" | "declined", reason: string | null) {
+    const sent = await sendOrQueue<EventDetail>(
+      `/events/${encodeURIComponent(eventId)}/response`,
+      response === "declined" ? { response, reason } : { response },
+      response === "declined" ? "that you can't make it" : "that you can make it",
+    );
+    onUpdated(sent ?? { ...data, me: { ...data.me, participant: participant && { ...participant, response, declineReason: reason } } });
+  }
+
   const [menu, setMenu] = useState(false);
   const [declining, setDeclining] = useState(false);
   const tone = TONES[face.tone];
@@ -107,7 +144,11 @@ export function PushdownScreen({ data, onUpdated, refresh }: { data: EventDetail
       <Stack.Screen options={{ headerShown: false }} />
       <StatusBar style={face.tone === "amber" ? "dark" : "light"} />
 
-      <View style={[styles.top, { paddingTop: insets.top + 8 }]}>
+      <View style={{ paddingTop: insets.top }}>
+        {/* Offline: a slim strip in a darker shade of the pushdown, so the colour still runs to the top. */}
+        <OfflineBanner savedAt={savedAt} following={following} tint="rgba(0,0,0,0.25)" color={tone.fg} />
+      </View>
+      <View style={[styles.top, { paddingTop: 8 }]}>
         <View style={styles.topRow}>
           <RoundButton label="Back to events" color={tone.button} onPress={() => (router.canGoBack() ? router.back() : router.replace("/"))}>
             <Text style={[styles.glyph, { color: tone.fg }]}>‹</Text>
@@ -128,9 +169,9 @@ export function PushdownScreen({ data, onUpdated, refresh }: { data: EventDetail
       <View style={styles.sheet}>
         <ScrollView contentContainerStyle={[styles.sheetContent, { paddingBottom: insets.bottom + 110 }]}>
           {tab === "me" ? (
-            <MeTab tasks={tasks} mine={mine} tz={tz} input={input} latest={broadcasts.history[0] ?? null} onOpenMessages={() => open("messages")} />
+            <MeTab tasks={input.tasks} mine={mine} tz={tz} input={input} latest={broadcasts.history[0] ?? null} onOpenMessages={() => open("messages")} />
           ) : tab === "all" ? (
-            <AllTab data={data} tasks={tasks} mine={mine} names={names} participantId={participant?.id ?? null} tz={tz} current={state?.currentTaskId ?? null} over={all.over} />
+            <AllTab data={data} tasks={input.tasks} mine={mine} names={names} participantId={participant?.id ?? null} tz={tz} current={input.currentTaskId} over={all.over} />
           ) : (
             <MessagesTab items={broadcasts.history} tz={tz} />
           )}
@@ -151,13 +192,13 @@ export function PushdownScreen({ data, onUpdated, refresh }: { data: EventDetail
         onAttend={async () => {
           setMenu(false);
           try {
-            onUpdated(await api<EventDetail>(`/events/${encodeURIComponent(eventId)}/response`, { body: { response: "acknowledged" } }));
+            await respond("acknowledged", null);
           } catch {
             /* the menu stays available to try again */
           }
         }}
       />
-      <DeclineSheet eventId={eventId} visible={declining} onClose={() => setDeclining(false)} onDone={(d) => (setDeclining(false), onUpdated(d))} />
+      <DeclineSheet visible={declining} onClose={() => setDeclining(false)} onSend={(reason) => respond("declined", reason).then(() => setDeclining(false))} />
     </View>
   );
 }
@@ -365,7 +406,7 @@ function Menu(props: { visible: boolean; top: number; declined: boolean; onClose
   );
 }
 
-function DeclineSheet({ eventId, visible, onClose, onDone }: { eventId: string; visible: boolean; onClose(): void; onDone(d: EventDetail): void }) {
+function DeclineSheet({ visible, onClose, onSend }: { visible: boolean; onClose(): void; onSend(reason: string): Promise<void> }) {
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
@@ -374,7 +415,7 @@ function DeclineSheet({ eventId, visible, onClose, onDone }: { eventId: string; 
     setBusy(true);
     setError(undefined);
     try {
-      onDone(await api<EventDetail>(`/events/${encodeURIComponent(eventId)}/response`, { body: { response: "declined", reason: reason.trim() } }));
+      await onSend(reason.trim());
       setReason("");
     } catch (err) {
       setError(err instanceof ApiError ? (err.fields.reason ?? err.message) : "Something went wrong. Please try again.");

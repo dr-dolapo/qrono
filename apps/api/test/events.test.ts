@@ -47,6 +47,20 @@ describe("creating and editing events (QR019, QR020, QR022)", () => {
     expect(log).toEqual([{ from_status: null, to_status: "draft" }]);
   });
 
+  it("answers 'unchanged' to a phone that already has the latest copy", async () => {
+    const id = await createEvent();
+    const first = await ada.get(`/api/events/${id}`);
+    const tag = first.headers.get("ETag");
+    expect(tag).toBeTruthy();
+    // Same version: a few bytes, no event.
+    expect((await ada.request("GET", `/api/events/${id}`, undefined, { "If-None-Match": tag! })).status).toBe(304);
+    // Once something changes, the new copy comes down.
+    await ada.request("PATCH", `/api/events/${id}`, { name: "Renamed" });
+    const after = await ada.request("GET", `/api/events/${id}`, undefined, { "If-None-Match": tag! });
+    expect(after.status).toBe(200);
+    expect(after.json.event.name).toBe("Renamed");
+  });
+
   it("uses the team's time zone unless told otherwise", async () => {
     await ada.request("PATCH", `/api/teams/${teamId}/settings`, { timezone: "Europe/London" });
     const id = await createEvent({ name: "Carol Service", startAt: START });

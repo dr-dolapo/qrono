@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, RefreshControl, SectionList, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../auth/AuthProvider";
@@ -10,7 +10,9 @@ import { CalendarIcon } from "../../components/TabIcons";
 import { EventCard } from "../../events/EventCard";
 import type { MyEvent } from "../../events/types";
 import { VerifyEmailBanner } from "../../events/VerifyEmailBanner";
-import { useApi } from "../../lib/useApi";
+import { OfflineBanner } from "../../components/OfflineBanner";
+import { saveUpcoming } from "../../lib/prefetch";
+import { useCachedApi } from "../../lib/useCachedApi";
 import { useNow } from "../../lib/useNow";
 import { colors, font, radius, space } from "../../theme";
 
@@ -22,7 +24,12 @@ type Row = { kind: "event"; event: MyEvent } | { kind: "empty"; next: MyEvent | 
  */
 export default function Events() {
   const { user } = useAuth();
-  const { data, error, loading, refreshing, refresh } = useApi<{ events: MyEvent[] }>("/me/events");
+  // The saved list first, then a check for changes (every 5 minutes while it's open).
+  const { data, error, loading, refreshing, refresh, savedAt } = useCachedApi<{ events: MyEvent[] }>("/me/events", "events", () => 5 * 60_000);
+  // Each time the list is fresh, save the next 14 days of events so they open instantly, even offline.
+  useEffect(() => {
+    if (data) void saveUpcoming(data.events);
+  }, [data, savedAt]);
   const now = useNow(30_000);
   const [selected, setSelected] = useState(todayKey);
   const [monthOpen, setMonthOpen] = useState(false);
@@ -59,6 +66,7 @@ export default function Events() {
 
   return (
     <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
+      <OfflineBanner savedAt={savedAt} />
       <View style={styles.header}>
         <Text style={styles.title} accessibilityRole="header">
           Events

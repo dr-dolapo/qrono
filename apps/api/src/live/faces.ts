@@ -116,6 +116,40 @@ export function meFace(input: FaceInput): Face | null {
   return still("Your part is done", "Thank you!");
 }
 
+/**
+ * With no connection to the live room: assume each item runs to its planned length and the
+ * next starts straight after, from the last state we heard (or, if the event should have
+ * started, from its start time). Snaps back to the real state when the connection returns.
+ */
+export function followPlan(input: FaceInput): FaceInput {
+  let status = input.status;
+  let currentTaskId = input.currentTaskId;
+  const tasks = input.tasks.map((t) => ({ ...t }));
+  const startNext = (at: number) => {
+    const next = tasks.find((t) => t.status === "upcoming");
+    if (!next) return null;
+    next.status = "in_progress";
+    next.actualStartAt = new Date(at).toISOString();
+    return next.id;
+  };
+
+  if (status === "approved" && input.now >= Date.parse(input.startAt)) {
+    status = "live";
+    currentTaskId = startNext(Date.parse(input.startAt));
+  }
+  if (status !== "live") return input;
+
+  for (let guard = 0; guard < tasks.length; guard++) {
+    const current = tasks.find((t) => t.id === currentTaskId && t.status === "in_progress");
+    if (!current || !current.actualStartAt) break;
+    const end = Date.parse(current.actualStartAt) + current.durationMinutes * MINUTE;
+    if (input.now < end) break;
+    current.status = "done";
+    currentTaskId = startNext(end);
+  }
+  return { ...input, status, currentTaskId, tasks };
+}
+
 function still(caption: string, text: string): Face {
   return { tone: "purple", caption, target: null, over: false, from: null, text, estimated: false, changesAt: null };
 }

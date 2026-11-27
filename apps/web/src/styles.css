@@ -1158,3 +1158,8 @@ a.pd-row-main:hover strong { text-decoration: underline; }
 .pd-error { color: #ff8a8a; margin: 8px 0 0; font-size: 14px; }
 @media (prefers-reduced-motion: reduce) { .pd, .pd-bar div { transition: none; } }
 .pd-footnote { margin-top: 28px; text-align: center; }
+/* Offline: a slim strip in a darker shade of the pushdown, so the colour still runs to the top. */
+.pd-offline { margin: 0; padding: calc(env(safe-area-inset-top) + 8px) 16px 8px; background: rgba(0, 0, 0, 0.25); color: var(--pd-fg); font-size: 13px; font-weight: 600; text-align: center; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.pd-offline + .pd-top { padding-top: 12px; }
+.pd-offline-dot { width: 8px; height: 8px; border-radius: 4px; background: #f5b301; flex: none; }
+.pd-amber .pd-offline-dot { background: #1c1300; }
