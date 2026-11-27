@@ -15,6 +15,7 @@ import { useOnline } from "../lib/connectivity";
 import { sendOrQueue } from "../lib/outbox";
 import { formatDuration, formatTime } from "../lib/time";
 import { useNow } from "../lib/useNow";
+import { SlideControl, UndoToast, runLive, sliderStep } from "./LiveControls";
 import { useLiveEvent } from "../live/useLiveEvent";
 import { colors, font } from "../theme";
 import { ConfettiBurst, Horn, HORN, ROUND_MS, ROUNDS } from "./Celebration";
@@ -162,6 +163,24 @@ export function PushdownScreen({
   };
   const tz = data.event.timezone;
 
+  // Admins and Planners run the event from here: slide to start, skip to the next item, or end.
+  const canRun = !!data.permissions.canRunLive;
+  const run = useMemo(() => runLive(eventId), [eventId]);
+  const step = canRun ? sliderStep({ status: input.status, startAt: data.event.startAt, now, tasks: input.tasks, currentTaskId: input.currentTaskId }) : null;
+  const [undoFor, setUndoFor] = useState<string | null>(null);
+  const clearUndo = useCallback(() => setUndoFor(null), []);
+  function endFromMenu() {
+    setMenu(false);
+    Alert.alert("End the event?", "Anything not done yet is marked skipped, and guest links stop working. This can't be undone.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "End event",
+        style: "destructive",
+        onPress: () => void run("end").catch((err) => Alert.alert("Couldn't end the event", err instanceof ApiError ? err.message : "Check your connection and try again.")),
+      },
+    ]);
+  }
+
   return (
     <View style={[styles.screen, { backgroundColor: tone.bg }]}>
       <Stack.Screen options={{ headerShown: false }} />
@@ -179,7 +198,7 @@ export function PushdownScreen({
           <RoundButton label="Back to events" color={tone.button} onPress={() => (router.canGoBack() ? router.back() : router.replace("/"))}>
             <Text style={[styles.glyph, { color: tone.fg }]}>‹</Text>
           </RoundButton>
-          {participant ? (
+          {participant || (canRun && input.status === "live") ? (
             <RoundButton label="More" color={tone.button} onPress={() => setMenu(true)}>
               <View style={styles.kebab}>
                 {[0, 1, 2].map((i) => (
@@ -190,6 +209,7 @@ export function PushdownScreen({
           ) : null}
         </View>
         <Countdown face={face} now={now} fg={tone.fg} sub={tone.sub} />
+        {step ? <SlideControl step={step} online={online} fg={tone.fg} bg={tone.bg} track={tone.button} run={run} onSkipped={setUndoFor} /> : null}
         {/* Drawn before the sheet, so the sheet hides its lower half. */}
         {playing ? <Horn key={`horn-${round}`} /> : celebrate && reduceMotion ? <Horn still /> : null}
       </View>
@@ -210,11 +230,14 @@ export function PushdownScreen({
       {playing && mouth ? (
         <ConfettiBurst key={`confetti-${round}`} x={mouth.x} y={mouth.y} room={mouth.y - insets.top - 24} fall={screen.height - mouth.y} />
       ) : null}
+      {undoFor ? <UndoToast key={undoFor} title={undoFor} bottom={insets.bottom + 76} onUndo={() => run("undo")} onDone={clearUndo} /> : null}
       <BroadcastModal broadcast={broadcasts.current} waiting={broadcasts.waiting} timezone={tz} onReply={broadcasts.reply} />
       <Menu
         visible={menu}
         top={insets.top + 60}
         declined={declined}
+        attending={!!participant}
+        onEnd={canRun && input.status === "live" ? endFromMenu : null}
         onClose={() => setMenu(false)}
         onDecline={() => {
           setMenu(false);
@@ -419,18 +442,25 @@ function MessagesTab({ items, tz }: { items: { id: string; body: string; sentBy:
   );
 }
 
-function Menu(props: { visible: boolean; top: number; declined: boolean; onClose(): void; onDecline(): void; onAttend(): void }) {
+function Menu(props: { visible: boolean; top: number; declined: boolean; attending: boolean; onEnd: (() => void) | null; onClose(): void; onDecline(): void; onAttend(): void }) {
   return (
     <Modal visible={props.visible} transparent animationType="fade" onRequestClose={props.onClose}>
       <Pressable style={styles.scrim} onPress={props.onClose} accessibilityLabel="Close menu">
         <View style={[styles.menu, { top: props.top }]} accessibilityRole="menu">
-          <Pressable
+          {props.onEnd ? (
+            <Pressable accessibilityRole="menuitem" onPress={props.onEnd} style={({ pressed }) => [styles.menuItem, pressed && { backgroundColor: "#26272e" }]}>
+              <Text style={[styles.menuText, { color: "#ff9b9b" }]}>End the event</Text>
+            </Pressable>
+          ) : null}
+          {props.attending ? (
+            <Pressable
             accessibilityRole="menuitem"
             onPress={props.declined ? props.onAttend : props.onDecline}
             style={({ pressed }) => [styles.menuItem, pressed && { backgroundColor: "#26272e" }]}
           >
             <Text style={[styles.menuText, !props.declined && { color: "#ff9b9b" }]}>{props.declined ? "I can make it after all" : "I can't make it"}</Text>
-          </Pressable>
+            </Pressable>
+          ) : null}
         </View>
       </Pressable>
     </Modal>
