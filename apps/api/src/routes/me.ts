@@ -35,7 +35,7 @@ export const me = new Hono<AppEnv>()
   /**
    * The events I'm part of in every team I'm active in (QR018, QR023): the ones I'm a participant in,
    * plus events in review where I'm one of the chosen Admins (QR016), and, for Admins and Planners,
-   * the team's drafts (so everyone building one can find it). Soonest first.
+   * every event on the team, as on the web (they run events they aren't on). Soonest first.
    */
   .get("/events", async (c) => {
     const user = currentUser(c);
@@ -58,7 +58,7 @@ export const me = new Hono<AppEnv>()
          JOIN team_memberships m ON m.team_id = e.team_id AND m.user_id = ? AND m.status = 'active'
          LEFT JOIN event_participants p ON p.event_id = e.id AND p.user_id = m.user_id
         WHERE p.id IS NOT NULL
-           OR (e.status = 'draft' AND m.role IN ('approver', 'admin'))
+           OR m.role IN ('approver', 'admin')
            OR (e.status = 'review' AND m.role = 'approver'
                AND EXISTS (SELECT 1 FROM event_approvers ea WHERE ea.event_id = e.id AND ea.user_id = m.user_id))
         ORDER BY e.start_at`,
