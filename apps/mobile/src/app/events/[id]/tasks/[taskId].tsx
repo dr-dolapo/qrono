@@ -7,14 +7,15 @@ import { TextField } from "../../../../components/TextField";
 import type { EventDetail } from "../../../../events/types";
 import { ApiError, api } from "../../../../lib/api";
 import { formatDate, formatDuration, formatTime } from "../../../../lib/time";
-import { useApi } from "../../../../lib/useApi";
+import { eventCheckEvery, useCachedApi } from "../../../../lib/useCachedApi";
 import { colors, font, radius, space } from "../../../../theme";
 
 /** One task with its comments (QR013, QR026, QR031). Comments are private to the event's team and participants. */
 export default function TaskScreen() {
   const { id, taskId } = useLocalSearchParams<{ id: string; taskId: string }>();
   const path = `/events/${encodeURIComponent(id)}`;
-  const { data, error, loading, refresh, setData } = useApi<EventDetail>(path);
+  // The same saved copy as the event screen, so an item opens instantly (its comments need a connection).
+  const { data, error, loading, refresh, setData } = useCachedApi<EventDetail>(path, `event:${id}`, (d) => eventCheckEvery(d?.event));
   const [draft, setDraft] = useState("");
   const [sendError, setSendError] = useState<string>();
   const [sending, setSending] = useState(false);

@@ -1,6 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { ApiError, api, setAuthToken, setUnauthorizedHandler } from "../lib/api";
+import { clearCache } from "../lib/cache";
+import { clearOutbox } from "../lib/outbox";
 import { clearSession, loadSession, saveSession } from "../lib/sessionStore";
 import { unregisterPush } from "../notifications/push";
 import { clearLiveCards } from "../live/liveCards";
@@ -28,6 +30,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     tokenRef.current = null;
     setAuthToken(null);
     await clearSession();
+    // Nothing of this account stays on the phone: saved events, messages, unsent changes.
+    clearCache();
+    clearOutbox();
     setUser(null);
     setStatus("signedOut");
   }, []);

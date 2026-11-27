@@ -20,15 +20,39 @@ export function GuestView() {
 
   const [clockOffset, setClockOffset] = useState(0);
   const clock = useClock().getTime();
+  // Offline: the page shows the copy saved in the browser, and says when it was last updated.
+  const [offline, setOffline] = useState<{ savedAt: number | null } | null>(null);
+  const [lastFresh, setLastFresh] = useState<number | null>(null);
+
+  // Save this page in the browser, so the link still opens with no connection (see public/sw.js).
+  useEffect(() => {
+    if (!("serviceWorker" in navigator)) return;
+    navigator.serviceWorker
+      .register("/sw.js")
+      .then(() => navigator.serviceWorker.ready)
+      .then((reg) => {
+        const assets = performance.getEntriesByType("resource").map((e) => e.name).filter((u) => new URL(u).pathname.startsWith("/assets/"));
+        reg.active?.postMessage({ type: "save", urls: [location.pathname, `/api/guest/${encodeURIComponent(token)}`, ...assets] });
+      })
+      .catch(() => undefined);
+  }, [token]);
 
   useEffect(() => {
     let stopped = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const load = (first: boolean) =>
-      api<GuestProgram>(`/guest/${encodeURIComponent(token)}`)
+      api<GuestProgram & { offlineSavedAt?: number }>(`/guest/${encodeURIComponent(token)}`)
         .then((d) => {
           if (stopped) return;
           setData(d);
+          if (d.offlineSavedAt) {
+            // The browser's saved copy: no connection.
+            setOffline({ savedAt: d.offlineSavedAt });
+            timer = setTimeout(() => load(false), 30_000);
+            return;
+          }
+          setOffline(null);
+          setLastFresh(Date.now());
           if (d.live) setClockOffset(Date.parse(d.live.serverTime) - Date.now());
           // Guests have no live connection: check every 15 seconds while it's on or about to start.
           const soon = Date.parse(d.event.startAt) - Date.now() < 2 * 3_600_000;
@@ -36,12 +60,23 @@ export function GuestView() {
         })
         .catch((err) => {
           if (first && !stopped) setLoadError(err instanceof ApiError ? err.message : "Couldn't open this page. Check your connection.");
-          else if (!stopped) timer = setTimeout(() => load(false), 30_000);
+          else if (!stopped) {
+            // Lost the connection: keep showing what we have, and keep trying.
+            if (!(err instanceof ApiError) || err.status === 0) setOffline((o) => o ?? { savedAt: null });
+            timer = setTimeout(() => load(false), 30_000);
+          }
         });
     void load(true);
+    // Back online: check straight away rather than waiting for the next try.
+    const back = () => {
+      clearTimeout(timer);
+      void load(false);
+    };
+    window.addEventListener("online", back);
     return () => {
       stopped = true;
       clearTimeout(timer);
+      window.removeEventListener("online", back);
     };
   }, [token]);
 
@@ -103,6 +138,7 @@ export function GuestView() {
       rows={program.map((t) => ({ id: t.id, title: t.title, plannedStartAt: t.startAt, durationMinutes: t.durationMinutes, people: t.mine ? "You" : null }))}
       messages={null}
       back={null}
+      offline={offline && { savedAt: offline.savedAt ?? lastFresh }}
       attendance={{
         declined,
         onDecline: (reason) => respond("declined", reason),

@@ -8,7 +8,7 @@ import { PushdownScreen } from "../../../events/Pushdown";
 import { RespondPanel } from "../../../events/RespondPanel";
 import type { EventDetail } from "../../../events/types";
 import { countdownTo, deviceTimeZone, formatDuration, formatRange, formatTime, zoneCity } from "../../../lib/time";
-import { useApi } from "../../../lib/useApi";
+import { eventCheckEvery, useCachedApi } from "../../../lib/useCachedApi";
 import { useNow } from "../../../lib/useNow";
 import { colors, font, radius, space } from "../../../theme";
 
@@ -18,7 +18,13 @@ type Task = EventDetail["tasks"][number];
 /** QR023 the event's program, QR024 filtered to my tasks, QR025 the countdown to the start. */
 export default function EventScreen() {
   const { id, team } = useLocalSearchParams<{ id: string; team?: string }>();
-  const { data, error, loading, refreshing, refresh, setData } = useApi<EventDetail>(`/events/${encodeURIComponent(id)}`);
+  // The saved copy first (instant, and offline), then a check for changes: every minute on the
+  // day, every 5 minutes before that.
+  const { data, error, loading, refreshing, refresh, setData, savedAt } = useCachedApi<EventDetail>(
+    `/events/${encodeURIComponent(id)}`,
+    `event:${id}`,
+    (d) => eventCheckEvery(d?.event),
+  );
   const [filter, setFilter] = useState<Filter>("all");
 
   const myParticipantId = data?.me.participant?.id ?? null;
@@ -57,7 +63,7 @@ export default function EventScreen() {
   const { event } = data;
   // Approved or live: the pushdown screen (one big countdown; Me, All and Messages below it).
   if (event.status === "approved" || event.status === "live") {
-    return <PushdownScreen data={data} onUpdated={setData} refresh={refresh} />;
+    return <PushdownScreen data={data} onUpdated={setData} refresh={refresh} savedAt={savedAt} />;
   }
   return (
     <>

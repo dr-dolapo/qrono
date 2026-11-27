@@ -1158,3 +1158,34 @@ a.pd-row-main:hover strong { text-decoration: underline; }
 .pd-error { color: #ff8a8a; margin: 8px 0 0; font-size: 14px; }
 @media (prefers-reduced-motion: reduce) { .pd, .pd-bar div { transition: none; } }
 .pd-footnote { margin-top: 28px; text-align: center; }
+/* Offline: a slim strip in a darker shade of the pushdown, so the colour still runs to the top. */
+.pd-offline { margin: 0; padding: calc(env(safe-area-inset-top) + 8px) 16px 8px; background: rgba(0, 0, 0, 0.25); color: var(--pd-fg); font-size: 13px; font-weight: 600; text-align: center; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.pd-offline + .pd-top { padding-top: 12px; }
+.pd-offline-dot { width: 8px; height: 8px; border-radius: 4px; background: #f5b301; flex: none; }
+.pd-amber .pd-offline-dot { background: #1c1300; }
+/* Your part is done: a confetti popper behind the black sheet, spraying out over it. */
+.pd-top { position: relative; }
+.pd-sheet { position: relative; z-index: 1; }
+.pd-top.pd-celebrating { padding-bottom: 100px; }
+/* The horn: 70% across, pivoting on its tip (hidden under the sheet). Up from pointing left to 45°,
+   fire, then back down: rise 0–900ms, hold, swing back 1400–2000ms. */
+.pd-horn { position: absolute; left: 70%; bottom: 16px; z-index: 0; width: 56px; height: 70px; margin-left: -28px; }
+.pd-horn svg { display: block; transform-origin: 50% 97%; animation: pd-horn 2000ms both; }
+.pd-horn.is-still svg { animation: none; transform: rotate(-45deg); }
+@keyframes pd-horn {
+  0% { transform: translateY(90px) rotate(-90deg); animation-timing-function: cubic-bezier(0.2, 0.8, 0.3, 1); }
+  26.25% { transform: translateY(-6px) rotate(-40deg); animation-timing-function: ease-in-out; }
+  35% { transform: translateY(3px) rotate(-48deg); animation-timing-function: ease-in-out; }
+  45% { transform: translateY(0) rotate(-45deg); }
+  70% { transform: translateY(0) rotate(-45deg); animation-timing-function: cubic-bezier(0.5, 0, 0.75, 0.3); }
+  100% { transform: translateY(90px) rotate(-90deg); }
+}
+.pd-confetti { position: fixed; z-index: 5; width: 0; height: 0; pointer-events: none; }
+.pd-confetti span { position: absolute; left: calc(var(--w) / -2); top: 0; width: var(--w); height: var(--h); border-radius: var(--r); opacity: 0; animation-name: pd-confetti; animation-fill-mode: both; }
+@keyframes pd-confetti {
+  0% { opacity: 0; transform: translate(0, 0) rotate(0deg); animation-timing-function: cubic-bezier(0.15, 0.75, 0.35, 1); }
+  1% { opacity: 1; }
+  28% { opacity: 1; transform: translate(calc(var(--dx) * 0.55), calc(var(--peak) * -1)) rotate(calc(var(--rot) * 0.25)); animation-timing-function: cubic-bezier(0.45, 0, 0.85, 0.55); }
+  88% { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--dx), var(--fall)) rotate(var(--rot)); }
+}

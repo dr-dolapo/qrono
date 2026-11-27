@@ -1,4 +1,5 @@
 import { api } from "../lib/api";
+import { sendOrQueue } from "../lib/outbox";
 
 export type BroadcastReply = "acknowledged" | "snoozed" | "done";
 
@@ -27,10 +28,11 @@ export async function loadMyBroadcasts(eventId: string): Promise<MyBroadcast[]> 
   return res.broadcasts.filter((b): b is MyBroadcast => typeof b.response === "string");
 }
 
-/** QR041: Acknowledge, Snooze (back in 3 minutes) or Done. */
+/** QR041: Acknowledge, Snooze (back in 3 minutes) or Done. Offline, it's saved and sent later (null). */
 export function replyToBroadcast(eventId: string, broadcastId: string, response: BroadcastReply) {
-  return api<{ response: BroadcastReply; snoozeUntil: string | null }>(
+  return sendOrQueue<{ response: BroadcastReply; snoozeUntil: string | null }>(
     `/events/${encodeURIComponent(eventId)}/broadcasts/${encodeURIComponent(broadcastId)}/respond`,
-    { body: { response } },
+    { response },
+    "your reply to a message",
   );
 }

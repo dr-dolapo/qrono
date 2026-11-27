@@ -1,3 +1,4 @@
+import { reportOnline } from "../lib/connectivity";
 import { useEffect, useRef, useState } from "react";
 import { AppState } from "react-native";
 import { QRONO_URL } from "../config";
@@ -79,6 +80,7 @@ export function useLiveEvent(eventId: string, onMessage?: (msg: LiveMessage) => 
       ws.onopen = () => {
         attempts = 0;
         setConnection("connected");
+        reportOnline(true);
         clearInterval(pingTimer);
         // Keeps the connection from being dropped by mobile networks and proxies while idle.
         pingTimer = setInterval(() => ws.readyState === WebSocket.OPEN && ws.send("ping"), 25_000);

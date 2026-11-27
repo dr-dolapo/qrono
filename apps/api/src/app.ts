@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { etag } from "hono/etag";
 import { HTTPException } from "hono/http-exception";
 import { loadSession } from "./auth/session";
 import type { AppEnv } from "./env";
@@ -51,6 +52,12 @@ app.get("/teams/:teamId/logo", async (c) => {
 
 app.use(sameOriginOnly);
 app.use(loadSession);
+
+// Phones keep saved copies and check "has this changed?" by sending the version they have
+// (If-None-Match). Unchanged, the answer is a few bytes instead of the whole event.
+app.use("/events/*", etag());
+app.use("/me/events", etag());
+app.use("/guest/*", etag());
 
 app.route("/auth", auth);
 app.route("/me", me);
