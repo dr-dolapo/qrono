@@ -39,7 +39,7 @@ export async function registerForPush(): Promise<PushSetup> {
       });
       await Notifications.setNotificationChannelAsync(INBOX_CHANNEL, {
         name: "Inbox",
-        description: "Approvals, new parts, comments and invitations",
+        description: "Approvals, new parts and invitations",
         importance: Notifications.AndroidImportance.HIGH,
         lightColor: "#A97BFF",
         sound: "default",

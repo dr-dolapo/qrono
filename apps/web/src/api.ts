@@ -140,15 +140,6 @@ export interface Participant {
   respondedAt: string | null;
 }
 
-export interface TaskComment {
-  id: string;
-  taskId: string;
-  author: { id: string; name: string };
-  body: string;
-  postedDuring: EventStatus;
-  createdAt: string;
-}
-
 export interface EventDetail {
   event: {
     id: string;
@@ -170,7 +161,6 @@ export interface EventDetail {
     canPublish: boolean;
     canWithdraw: boolean;
     canApprove: boolean;
-    canComment: boolean;
     canRespond: boolean;
     canRunLive: boolean;
   };
@@ -180,7 +170,6 @@ export interface EventDetail {
   };
   approvers: { userId: string; name: string; approvedAt: string | null }[];
   team: EventTeamInfo;
-  comments: TaskComment[];
   stages: Stage[];
   tasks: Task[];
   participants: Participant[];

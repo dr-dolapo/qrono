@@ -38,11 +38,6 @@ export default function EventScreen() {
     [data, myParticipantId],
   );
   const tasks = filter === "mine" ? myTasks : data?.tasks ?? [];
-  const commentCounts = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const cm of data?.comments ?? []) counts.set(cm.taskId, (counts.get(cm.taskId) ?? 0) + 1);
-    return counts;
-  }, [data]);
 
   if (loading && !data) {
     return (
@@ -113,7 +108,6 @@ export default function EventScreen() {
             mine={myParticipantId !== null && item.assigneeIds.includes(myParticipantId)}
             people={item.assigneeIds.map((pid) => (pid === myParticipantId ? "You" : names.get(pid) ?? "Someone"))}
             stage={item.stageId ? stages.get(item.stageId) ?? null : null}
-            comments={commentCounts.get(item.id) ?? 0}
             onPress={() =>
               router.push({ pathname: "/events/[id]/tasks/[taskId]", params: { id: event.id, taskId: item.id } })
             }
@@ -140,7 +134,7 @@ function DeleteEvent({ eventId, past }: { eventId: string; past: boolean }) {
     Alert.alert(
       past ? "Delete this event?" : "Delete this draft?",
       past
-        ? "It comes off everyone's list, with its program, messages and comments. Nobody is notified. This can't be undone."
+        ? "It comes off everyone's list, with its program and messages. Nobody is notified. This can't be undone."
         : "The draft and its program are deleted. This can't be undone.",
       [
         { text: "Cancel", style: "cancel" },
@@ -239,18 +233,17 @@ interface TaskRowProps {
   mine: boolean;
   people: string[];
   stage: string | null;
-  comments: number;
   onPress(): void;
 }
 
-function TaskRow({ task, timezone, mine, people, stage, comments, onPress }: TaskRowProps) {
+function TaskRow({ task, timezone, mine, people, stage, onPress }: TaskRowProps) {
   const finished = task.status === "done" || task.status === "skipped";
   const onNow = task.status === "in_progress";
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityHint="Opens the task and its comments"
+      accessibilityHint="Opens the task"
       style={({ pressed }) => [styles.task, mine && styles.taskMine, finished && styles.taskDone, pressed && styles.pressed]}
     >
       <View style={styles.taskTime}>
@@ -270,9 +263,6 @@ function TaskRow({ task, timezone, mine, people, stage, comments, onPress }: Tas
         ) : null}
         {people.length > 0 ? <Text style={[styles.people, mine && styles.peopleMine]}>{people.join(", ")}</Text> : null}
         {stage ? <Text style={styles.muted}>{stage}</Text> : null}
-        <Text style={styles.commentCount}>
-          {comments === 0 ? "Add a comment" : `${comments} ${comments === 1 ? "comment" : "comments"}`}
-        </Text>
       </View>
     </Pressable>
   );
@@ -319,6 +309,5 @@ const styles = StyleSheet.create({
   taskDescription: { color: colors.muted, fontSize: 14, ...font("400"), lineHeight: 19 },
   people: { color: colors.muted, fontSize: 13 , ...font("400")},
   peopleMine: { color: colors.accent, ...font("600") },
-  commentCount: { color: colors.accent, fontSize: 13, ...font("400"), marginTop: 2 },
   pressed: { opacity: 0.75 },
 });

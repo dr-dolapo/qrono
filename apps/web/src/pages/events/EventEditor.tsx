@@ -19,30 +19,11 @@ import { MyPart } from "./MyPart";
 import { MemberPushdown } from "./MemberPushdown";
 import { PeopleSection } from "./PeopleSection";
 import { StatusRail } from "./StatusRail";
-import { TaskComments } from "./TaskComments";
 
 /** Runs an API call that returns the updated event, and reports errors. */
 export type Mutate = (path: string, method: string, body?: unknown) => Promise<EventDetail & { [k: string]: unknown }>;
 
-type Tab = "agenda" | "people" | "broadcasts" | "comments";
-
-/** Every comment on the program, grouped under the item it's about. */
-function CommentsTab({ detail, mutate }: { detail: EventDetail; mutate: Mutate }) {
-  const withComments = detail.tasks.filter((t) => detail.comments.some((c) => c.taskId === t.id));
-  if (withComments.length === 0) {
-    return <p className="muted">No comments yet. Open an item's comment icon on the Agenda tab to start one.</p>;
-  }
-  return (
-    <div className="comment-groups">
-      {withComments.map((t) => (
-        <section key={t.id} className="comment-group">
-          <h3>{t.title}</h3>
-          <TaskComments detail={detail} task={t} mutate={mutate} />
-        </section>
-      ))}
-    </div>
-  );
-}
+type Tab = "agenda" | "people" | "broadcasts";
 
 /** QR020 / QR021: an event's program — summary, agenda, people — with its status in the rail. */
 export function EventEditor() {
@@ -120,7 +101,7 @@ export function EventEditor() {
     return <MemberPushdown detail={detail} live={live} broadcastVersion={broadcastSignal.version} onUpdated={setDetail} />;
   }
 
-  const { event, permissions, tasks, participants, comments } = detail;
+  const { event, permissions, tasks, participants } = detail;
   const tz = event.timezone;
   const agendaMinutes = tasks.reduce((n, t) => n + (t.durationMinutes ?? 0), 0);
   const withEmail = participants.filter((p) => p.email).length;
@@ -246,9 +227,6 @@ export function EventEditor() {
               Broadcasts
             </Tabs.Tab>
           )}
-          <Tabs.Tab value="comments" className="tab">
-            Comments {comments.length > 0 && <span className="count">{comments.length}</span>}
-          </Tabs.Tab>
           <Tabs.Indicator className="tab-indicator" />
         </Tabs.List>
         <Tabs.Panel value="agenda" className="tab-panel">
@@ -274,9 +252,6 @@ export function EventEditor() {
             <BroadcastPanel detail={detail} version={broadcastSignal.version} />
           </Tabs.Panel>
         )}
-        <Tabs.Panel value="comments" className="tab-panel">
-          <CommentsTab detail={detail} mutate={mutate} />
-        </Tabs.Panel>
       </Tabs.Root>
     </AppShell>
   );

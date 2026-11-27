@@ -11,7 +11,7 @@ import clsx from "clsx";
 /**
  * The command centre: run full screen on a laptop connected to the HDMI
  * screen facing the stage and backstage (PRD §1.1). The audience may glimpse
- * it, so it shows the run of show only — never comments or private notes.
+ * it, so it shows the run of show only — never private notes.
  *
  * Keyboard: → or PageDown moves to the next task (works with presenter clickers).
  */

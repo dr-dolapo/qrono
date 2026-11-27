@@ -7,7 +7,7 @@ import type { EventDetail } from "./types";
 
 /**
  * QR012–QR016 on the go: an Admin chosen for this event reviews the program
- * (tasks and their comments are below) and approves it. "Any to sign": one is enough.
+ * (the tasks are below) and approves it. "Any to sign": one is enough.
  */
 export function ApprovalPanel({ data, onApproved }: { data: EventDetail; onApproved(d: EventDetail): void }) {
   const [busy, setBusy] = useState(false);
@@ -59,8 +59,7 @@ export function ApprovalPanel({ data, onApproved }: { data: EventDetail; onAppro
       <Text style={styles.title}>Waiting for your approval</Text>
       <Text style={styles.body}>
         {data.tasks.length} {data.tasks.length === 1 ? "task" : "tasks"} · {people} {people === 1 ? "person" : "people"}
-        {guests ? ` (${guests} ${guests === 1 ? "guest" : "guests"})` : ""} · {data.comments.length}{" "}
-        {data.comments.length === 1 ? "comment" : "comments"}
+        {guests ? ` (${guests} ${guests === 1 ? "guest" : "guests"})` : ""}
       </Text>
       {unassigned > 0 ? (
         <Text style={styles.warning}>
@@ -68,7 +67,7 @@ export function ApprovalPanel({ data, onApproved }: { data: EventDetail; onAppro
         </Text>
       ) : null}
       <Text style={styles.muted}>
-        Check the program below. Tap a task to read or add comments.
+        Check the program below.
         {others.length ? ` Also asked to approve: ${others.join(", ")}. One approval is enough.` : ""}
       </Text>
       {error ? <Text style={styles.error}>{error}</Text> : null}
