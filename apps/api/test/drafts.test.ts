@@ -44,6 +44,14 @@ describe("drafts: just the what, then the when and who", () => {
     }
   });
 
+  it("Admins and Planners still see it once it's approved, even if they aren't on it (as on the web)", async () => {
+    await ada.post(`/api/events/${eventId}/tasks`, { title: "Opening prayer", durationMinutes: 5, who: [{ userId: adaId }] });
+    await ada.post(`/api/events/${eventId}/submit`, { approverIds: [adaId] });
+    await ada.post(`/api/events/${eventId}/approve`);
+    const { events } = (await tunde.get("/api/me/events")).json;
+    expect(events.map((e: { id: string; status: string; myResponse: string | null }) => [e.id, e.status, e.myResponse])).toEqual([[eventId, "approved", null]]);
+  });
+
   it("an item can be just a title; it takes no time until it has a length", async () => {
     let detail = (await ada.post(`/api/events/${eventId}/tasks`, { title: "Opening prayer", durationMinutes: 5, who: [{ userId: adaId }] })).json;
     detail = (await ada.post(`/api/events/${eventId}/tasks`, { title: "Announcements" })).json;

@@ -100,8 +100,9 @@ describe("GET /api/me/events", () => {
     const [event] = (await ada.get("/api/me/events")).json.events;
     expect(event).toMatchObject({ id: agm, status: "review", awaitingMyApproval: true, myResponse: null, myTaskCount: 0, myNextTask: null });
 
+    // Approving it doesn't take it off her list: Admins and Planners see the team's events, as on the web.
     await ada.post(`/api/events/${agm}/approve`);
-    expect((await ada.get("/api/me/events")).json.events).toHaveLength(0);
+    expect((await ada.get("/api/me/events")).json.events).toEqual([expect.objectContaining({ id: agm, status: "approved", awaitingMyApproval: false })]);
   });
 
   it("drops events from a team I've been removed from", async () => {
