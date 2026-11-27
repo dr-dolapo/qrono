@@ -28,6 +28,8 @@ export interface EventDetail {
     timezone: string;
     status: EventStatus;
   };
+  /** The team's live-screen settings: when countdowns turn amber. */
+  team?: { liveWarningMinutes: number };
   permissions: { canRespond: boolean; canComment: boolean; canApprove: boolean };
   approvers: { userId: string; name: string; approvedAt: string | null }[];
   me: { userId: string; participant: { id: string; response: Response; declineReason: string | null } | null };

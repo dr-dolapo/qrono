@@ -12,6 +12,7 @@ const SOURCES = {
   archive: require("../../assets/tab-icons/archive.png") as ImageSourcePropType,
   sparkle: require("../../assets/tab-icons/sparkle.png") as ImageSourcePropType,
   inboxLarge: require("../../assets/tab-icons/inbox-large.png") as ImageSourcePropType,
+  chat: require("../../assets/tab-icons/chat.png") as ImageSourcePropType,
 };
 
 type IconProps = { color: string; size?: number };
@@ -32,6 +33,8 @@ export const CalendarIcon = (p: IconProps) => <Icon name="calendar" {...p} />;
 export const ProfileIcon = (p: IconProps) => <Icon name="profile" {...p} />;
 export const ArchiveIcon = (p: IconProps) => <Icon name="archive" {...p} />;
 export const SparkleIcon = (p: IconProps) => <Icon name="sparkle" {...p} />;
+/** A filled speech bubble: the event screen's Messages tab. */
+export const ChatIcon = (p: IconProps) => <Icon name="chat" {...p} />;
 /** The tray drawn large and crisp, for the empty Inbox. */
 export const InboxLargeIcon = (p: IconProps) => <Icon name="inboxLarge" size={104} {...p} />;
 

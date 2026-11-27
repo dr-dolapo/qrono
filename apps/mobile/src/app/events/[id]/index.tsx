@@ -4,7 +4,7 @@ import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Tex
 import { Button } from "../../../components/Button";
 import { StatusPill } from "../../../components/StatusPill";
 import { ApprovalPanel } from "../../../events/ApprovalPanel";
-import { CountdownPanel } from "../../../events/CountdownPanel";
+import { PushdownScreen } from "../../../events/Pushdown";
 import { RespondPanel } from "../../../events/RespondPanel";
 import type { EventDetail } from "../../../events/types";
 import { countdownTo, deviceTimeZone, formatDuration, formatRange, formatTime, zoneCity } from "../../../lib/time";
@@ -55,6 +55,10 @@ export default function EventScreen() {
   }
 
   const { event } = data;
+  // Approved or live: the pushdown screen (one big countdown; Me, All and Messages below it).
+  if (event.status === "approved" || event.status === "live") {
+    return <PushdownScreen data={data} onUpdated={setData} refresh={refresh} />;
+  }
   return (
     <>
       <Stack.Screen options={{ title: event.name }} />
@@ -77,22 +81,10 @@ export default function EventScreen() {
               <Text style={styles.muted}>Times are in {zoneCity(event.timezone)} time.</Text>
             ) : null}
 
-            {/* The countdown comes first: to the start, or what's on now and how long is left. */}
-            {event.status === "approved" || event.status === "live" ? (
-              <CountdownPanel data={data} />
-            ) : (
-              <StartPanel status={event.status} startAt={event.startAt} />
-            )}
+            <StartPanel status={event.status} startAt={event.startAt} />
             {event.description ? <Text style={styles.description}>{event.description}</Text> : null}
 
             <ApprovalPanel data={data} onApproved={setData} />
-            {event.status === "live" || event.status === "approved" ? (
-              <Button
-                label={event.status === "live" ? "Follow live" : "Open the live view"}
-                onPress={() => router.push({ pathname: "/events/[id]/live", params: { id: event.id } })}
-                accessibilityHint="Shows what's on now and when you're up, updated as the event runs"
-              />
-            ) : null}
             <RespondPanel data={data} myTaskCount={myTasks.length} onUpdated={setData} />
 
             <View style={styles.programHeader}>

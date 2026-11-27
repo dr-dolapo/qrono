@@ -29,6 +29,7 @@ interface LinkRow {
   has_logo: number;
   default_venue: string | null;
   clock_format: "12h" | "24h";
+  live_warning_minutes: number;
 }
 
 /** A guest's personal link: valid until the event ends, unless replaced or revoked. */
@@ -38,7 +39,7 @@ async function loadLink(c: Context<AppEnv>, token: string): Promise<LinkRow> {
     `SELECT l.id AS link_id, l.expires_at, l.revoked_at,
             p.id AS participant_id, p.guest_name, p.response, p.decline_reason,
             e.id AS event_id, e.name AS event_name, e.description, e.start_at, e.end_at, e.timezone, e.status,
-            t.name AS team_name, t.id AS team_id, (t.logo_data IS NOT NULL) AS has_logo, t.default_venue, t.clock_format
+            t.name AS team_name, t.id AS team_id, (t.logo_data IS NOT NULL) AS has_logo, t.default_venue, t.clock_format, t.live_warning_minutes
        FROM guest_access_links l
        JOIN event_participants p ON p.id = l.participant_id
        JOIN events e ON e.id = p.event_id
@@ -85,6 +86,8 @@ export const guest = new Hono<AppEnv>()
       teamLogoUrl: link.has_logo ? `/api/teams/${link.team_id}/logo` : null,
       venue: link.default_venue,
       clockFormat: link.clock_format,
+      // When the countdown turns amber, as in the command centre.
+      liveWarningMinutes: link.live_warning_minutes,
       event: {
         name: link.event_name,
         description: link.description,

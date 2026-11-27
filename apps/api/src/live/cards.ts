@@ -11,6 +11,7 @@
 import { sendLiveActivityPushes, type LiveActivityPush } from "../apns";
 import type { Env } from "../env";
 import { pushLiveData } from "../push";
+import { allFace, meFace, type FaceInput, type FaceTask, type Tone } from "./faces";
 
 /** Must match the name the app gives createLiveActivity. */
 export const ACTIVITY_NAME = "QronoLive";
@@ -18,15 +19,24 @@ export const ACTIVITY_NAME = "QronoLive";
 export interface LiveCard {
   eventId: string;
   eventName: string;
-  /** "You're on now", "You're up next", or "Live now". */
+  /** "You're on now", "You're up next", or "Live now". (Builds before the pushdown read these three.) */
   headline: string;
   /** Your part's title, when it's on now or next. */
   detail: string | null;
-  /** On now or up next: the card turns purple and alerts. */
+  /** On now or up next: alerts. */
   urgent: boolean;
   /** "Ada Obi: Please take your seats", the latest broadcast you received. */
   broadcast: string | null;
   broadcastAt: string | null;
+  /** The pushdown, as on the event screen: its colour, caption and countdown (see faces.ts). */
+  tone: Tone;
+  caption: string;
+  /** Epoch ms the countdown reaches zero (or, when `over`, went over and counts up from). Null: show `text`. */
+  target: number | null;
+  /** Epoch ms the counted span began (for the progress ring). */
+  from: number | null;
+  over: boolean;
+  text: string | null;
 }
 
 type CardEnv = Pick<Env, "DB" | "EXPO_ACCESS_TOKEN" | "APNS_KEY" | "APNS_KEY_ID" | "APNS_TEAM_ID" | "APNS_HOST">;
@@ -35,23 +45,44 @@ interface EventRow {
   id: string;
   name: string;
   status: string;
+  start_at: string;
   current_task_id: string | null;
   end_at: string;
+  live_warning_minutes: number;
 }
 
-/** Each person on the program (registered users only), with their card as it should look now. */
-export async function liveCards(db: D1Database, eventId: string, onlyUserId?: string): Promise<{ event: EventRow; cards: Map<string, LiveCard> } | null> {
-  const event = await db.prepare("SELECT id, name, status, current_task_id, end_at FROM events WHERE id = ?").bind(eventId).first<EventRow>();
+/**
+ * Each person on the program (registered users who haven't declined), with their card as it
+ * should look now, and when the next card changes colour on its own (to wake the room then).
+ */
+export async function liveCards(
+  db: D1Database,
+  eventId: string,
+  onlyUserId?: string,
+  now = Date.now(),
+): Promise<{ event: EventRow; cards: Map<string, LiveCard>; changesAt: number | null } | null> {
+  const event = await db
+    .prepare(
+      `SELECT e.id, e.name, e.status, e.start_at, e.current_task_id, e.end_at, t.live_warning_minutes
+         FROM events e JOIN teams t ON t.id = e.team_id WHERE e.id = ?`,
+    )
+    .bind(eventId)
+    .first<EventRow>();
   if (!event) return null;
 
   const { results: people } = await db
-    .prepare(`SELECT DISTINCT user_id FROM event_participants WHERE event_id = ? AND user_id IS NOT NULL ${onlyUserId ? "AND user_id = ?" : ""}`)
+    .prepare(
+      `SELECT DISTINCT user_id FROM event_participants
+        WHERE event_id = ? AND user_id IS NOT NULL AND response <> 'declined' ${onlyUserId ? "AND user_id = ?" : ""}`,
+    )
     .bind(...(onlyUserId ? [eventId, onlyUserId] : [eventId]))
     .all<{ user_id: string }>();
   const { results: tasks } = await db
-    .prepare("SELECT id, title, status FROM tasks WHERE event_id = ? ORDER BY sort_order, created_at")
+    .prepare(
+      "SELECT id, title, status, duration_minutes, planned_start_at, actual_start_at FROM tasks WHERE event_id = ? ORDER BY sort_order, created_at",
+    )
     .bind(eventId)
-    .all<{ id: string; title: string; status: string }>();
+    .all<{ id: string; title: string; status: FaceTask["status"]; duration_minutes: number; planned_start_at: string; actual_start_at: string | null }>();
   const { results: parts } = await db
     .prepare(
       `SELECT a.task_id, p.user_id FROM task_assignments a JOIN event_participants p ON p.id = a.participant_id
@@ -72,11 +103,33 @@ export async function liveCards(db: D1Database, eventId: string, onlyUserId?: st
   const next = tasks.find((t) => t.status === "upcoming") ?? null;
   const on = (task: { id: string } | null, userId: string) => !!task && parts.some((p) => p.task_id === task.id && p.user_id === userId);
   const lastBroadcast = new Map(latest.map((b) => [b.user_id, b])); // ordered by time, so the last one wins
+  const faceTasks: FaceTask[] = tasks.map((t) => ({
+    id: t.id,
+    title: t.title,
+    durationMinutes: t.duration_minutes,
+    plannedStartAt: t.planned_start_at,
+    status: t.status,
+    actualStartAt: t.actual_start_at,
+  }));
 
   const cards = new Map<string, LiveCard>();
+  let changesAt: number | null = null;
   for (const { user_id: userId } of people) {
     const b = lastBroadcast.get(userId);
     const mode = on(current, userId) ? "now" : on(next, userId) ? "next" : null;
+    const input = {
+      status: event.status as FaceInput["status"],
+      startAt: event.start_at,
+      tasks: faceTasks,
+      currentTaskId: event.current_task_id,
+      mine: new Set(parts.filter((p) => p.user_id === userId).map((p) => p.task_id)),
+      warningMs: event.live_warning_minutes * 60_000,
+      now,
+    };
+    // Your part while it's still ahead (or on); once it's done, what's on now.
+    const me = meFace(input);
+    const face = me && me.text !== "Thank you!" ? me : allFace(input);
+    if (face.changesAt !== null) changesAt = changesAt === null ? face.changesAt : Math.min(changesAt, face.changesAt);
     cards.set(userId, {
       eventId,
       eventName: event.name,
@@ -85,9 +138,15 @@ export async function liveCards(db: D1Database, eventId: string, onlyUserId?: st
       urgent: mode !== null,
       broadcast: b ? `${b.sent_by}: ${b.body}` : null,
       broadcastAt: b?.sent_at ?? null,
+      tone: face.tone,
+      caption: face.caption,
+      target: face.target,
+      from: face.from,
+      over: face.over,
+      text: face.text,
     });
   }
-  return { event, cards };
+  return { event, cards, changesAt };
 }
 
 /** The props the iOS layout reads. Kept small: an ActivityKit payload is capped at 4 KB. */
@@ -106,10 +165,15 @@ function alertFor(card: LiveCard, before: LiveCard | null): { title: string; bod
  * Brings every phone's card in line with the room: opens cards when the event goes
  * live, updates the ones that changed, closes them when it ends.
  */
-export async function syncLiveCards(env: CardEnv, eventId: string, now = Date.now(), fetcher: typeof fetch = fetch): Promise<{ ios: number; android: number }> {
+export async function syncLiveCards(
+  env: CardEnv,
+  eventId: string,
+  now = Date.now(),
+  fetcher: typeof fetch = fetch,
+): Promise<{ ios: number; android: number; changesAt: number | null }> {
   const db = env.DB;
-  const found = await liveCards(db, eventId);
-  if (!found) return { ios: 0, android: 0 };
+  const found = await liveCards(db, eventId, undefined, now);
+  if (!found) return { ios: 0, android: 0, changesAt: null };
   const { event, cards } = found;
   const at = new Date(now).toISOString();
   const ts = Math.floor(now / 1000);
@@ -159,7 +223,8 @@ export async function syncLiveCards(env: CardEnv, eventId: string, now = Date.no
       if (mine.length) {
         // A card is already open on this phone (started by push or by the app): update it.
         for (const t of mine)
-          ios.push({ token: t.token, priority: alert ? 10 : 5, aps: { timestamp: ts, event: "update", "content-state": state, "stale-date": stale, ...(alert ? { alert } : {}) } });
+          // A colour change is time-critical (it's the cue to get ready), so it isn't left to iOS to deliver when convenient.
+          ios.push({ token: t.token, priority: alert || card.tone !== before?.tone ? 10 : 5, aps: { timestamp: ts, event: "update", "content-state": state, "stale-date": stale, ...(alert ? { alert } : {}) } });
       } else if (!before) {
         for (const t of startTokens.filter((x) => x.user_id === userId))
           ios.push({
@@ -206,13 +271,13 @@ export async function syncLiveCards(env: CardEnv, eventId: string, now = Date.no
   if (iosResult.dead.length) {
     await db.prepare(`DELETE FROM live_activity_tokens WHERE token IN (${iosResult.dead.map(() => "?").join(",")})`).bind(...iosResult.dead).run();
   }
-  return { ios: iosResult.sent, android: androidSent };
+  return { ios: iosResult.sent, android: androidSent, changesAt: event.status === "live" ? found.changesAt : null };
 }
 
 /** The final card: says it's over, keeps the last broadcast. */
 function endProps(state: string): string {
   const card = JSON.parse(state) as LiveCard;
-  return props({ ...card, headline: "Ended", detail: null, urgent: false });
+  return props({ ...card, headline: "Ended", detail: null, urgent: false, tone: "purple", caption: "This event has ended", target: null, from: null, over: false, text: "Thank you!" });
 }
 
 /** Saves an iOS token: one that can open cards on this phone, or one for an open card. */

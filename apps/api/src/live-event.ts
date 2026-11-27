@@ -79,7 +79,17 @@ export class LiveEvent extends DurableObject<Env> {
     // Lock-screen cards (iOS Live Activities, Android Live Updates): only changed ones are pushed.
     const id = await this.ctx.storage.get<string>("eventId");
     if (id && (result.snapshot?.event.status === "live" || result.snapshot?.event.status === "past")) {
-      this.ctx.waitUntil(syncLiveCards(this.env, id).catch((err) => console.error("Live card sync failed", err)));
+      this.ctx.waitUntil(
+        syncLiveCards(this.env, id)
+          .then(async ({ changesAt }) => {
+            // Cards change colour on their own (amber in the warning window, red when over time):
+            // wake the room then too, so the lock screens follow.
+            if (changesAt === null) return;
+            const due = await this.ctx.storage.getAlarm();
+            if (due === null || changesAt < due) await this.ctx.storage.setAlarm(Math.max(changesAt, Date.now() + 250));
+          })
+          .catch((err) => console.error("Live card sync failed", err)),
+      );
     }
     if (result.broadcastsChanged) send(this.ctx.getWebSockets("manager"), JSON.stringify({ type: "broadcasts-changed" }));
     if (result.planChanged) send(this.ctx.getWebSockets(), JSON.stringify({ type: "plan-changed" }));

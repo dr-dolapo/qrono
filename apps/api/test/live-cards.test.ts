@@ -68,11 +68,12 @@ beforeEach(async () => {
 describe("lock-screen cards during a live event", () => {
   it("open when it goes live, change around your part and broadcasts, and close when it ends", async () => {
     let r = recorder();
-    expect(await sync(r.fetcher)).toEqual({ ios: 0, android: 0 }); // not live yet
+    expect(await sync(r.fetcher)).toMatchObject({ ios: 0, android: 0 }); // not live yet
 
     await ada.post(`/api/events/${eventId}/live/start`);
     r = recorder();
-    await sync(r.fetcher);
+    // It also says when a card next changes colour on its own, so the room can wake then.
+    expect((await sync(r.fetcher)).changesAt).toEqual(expect.any(Number));
     // Chi's iPhone gets a push-to-start, signed for Apple's Live Activity topic.
     const [start] = r.apple();
     expect(start!.url).toBe(`https://api.push.apple.com/3/device/${iosToken(1)}`);
@@ -81,12 +82,18 @@ describe("lock-screen cards during a live event", () => {
     const aps = (start!.body as { aps: Record<string, unknown> }).aps;
     expect(aps).toMatchObject({ event: "start", "attributes-type": "LiveActivityAttributes", "input-push-token": 1 });
     expect(contentProps(start!)).toMatchObject({ eventName: "AGM", headline: "You're up next", detail: "Treasurer's report", urgent: true });
+    // The pushdown, as on the event screen: Chi's countdown to her part, purple until the warning window.
+    expect(contentProps(start!)).toMatchObject({ caption: "Your part · Treasurer's report", over: false, text: null });
+    expect(["purple", "amber"]).toContain(contentProps(start!).tone);
+    expect(typeof contentProps(start!).target).toBe("number");
     // Dayo's Android phone gets a silent data message to draw the card.
     const [batch] = r.expo();
     const msg = (batch!.body as { to: string; data: Record<string, string> }[])[0]!;
     expect(msg).toMatchObject({ to: "ExponentPushToken[dayo-android-1]", data: { type: "live", eventId } });
     expect(msg).not.toHaveProperty("title");
     expect(JSON.parse(msg.data.card!)).toMatchObject({ headline: "Live now", urgent: false });
+    // Dayo has no part: his card follows the item on now.
+    expect(JSON.parse(msg.data.card!).caption).toMatch(/^On now · /);
 
     // Nothing changed: nothing is sent.
     r = recorder();
@@ -107,12 +114,16 @@ describe("lock-screen cards during a live event", () => {
     expect(contentProps(update!).broadcast).toBe("Ada Test: Please take your seats");
     expect(r.expo()).toHaveLength(1);
 
-    // Chi's item starts: "You're on now". Dayo's card hasn't changed, so only Chi hears.
+    // Chi's item starts: "You're on now", and her card turns green. Dayo's follows the new item.
     await ada.post(`/api/events/${eventId}/live/next`);
     r = recorder();
     await sync(r.fetcher);
-    expect(r.apple().map(contentProps)).toEqual([expect.objectContaining({ headline: "You're on now", detail: "Treasurer's report" })]);
-    expect(r.expo()).toEqual([]);
+    expect(r.apple().map(contentProps)).toEqual([
+      expect.objectContaining({ headline: "You're on now", detail: "Treasurer's report", tone: "green", caption: "You're on now · Treasurer's report" }),
+    ]);
+    // A colour change goes out straight away, not when iOS finds it convenient.
+    expect(r.apple()[0]!.headers["apns-priority"]).toBe("10");
+    expect(JSON.parse((r.expo()[0]!.body as { data: Record<string, string> }[])[0]!.data.card!).caption).toBe("On now · Treasurer's report");
 
     // The event ends: every card closes, and the per-event tokens are forgotten.
     await ada.post(`/api/events/${eventId}/live/end`);
